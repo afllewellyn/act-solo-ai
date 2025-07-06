@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
@@ -26,6 +27,7 @@ const ScriptList = ({ refresh, onSelectScript }: ScriptListProps) => {
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const fetchScripts = async () => {
     if (!user) return;
@@ -109,7 +111,7 @@ const ScriptList = ({ refresh, onSelectScript }: ScriptListProps) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => onSelectScript(script)}
+                  onClick={() => navigate(`/practice/${script.id}`)}
                 >
                   <Play className="h-4 w-4 mr-1" />
                   Practice
