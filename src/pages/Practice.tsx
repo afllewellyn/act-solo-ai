@@ -3,9 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { useTTS } from '@/hooks/useTTS';
 import { 
   Play, 
   Pause, 
@@ -42,6 +44,7 @@ const Practice = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
+  const { speak, pause: pauseTTS, resume: resumeTTS, stop: stopTTS, isPlaying: isTTSPlaying, isLoading: isTTSLoading } = useTTS();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -53,6 +56,8 @@ const Practice = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [sessionTime, setSessionTime] = useState(0);
+  const [selectedVoice, setSelectedVoice] = useState('9BWtsMINqrJLrRacOk9x');
+  const [currentLine, setCurrentLine] = useState(0);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -185,6 +190,31 @@ const Practice = () => {
     }
   };
 
+  const handleTTSPlay = async () => {
+    if (!script) return;
+    
+    const lines = script.content.split('\n').filter(line => line.trim());
+    if (lines[currentLine]) {
+      await speak(lines[currentLine], {
+        voiceId: selectedVoice,
+        onComplete: () => {
+          if (currentLine < lines.length - 1) {
+            setCurrentLine(prev => prev + 1);
+          }
+        }
+      });
+    }
+  };
+
+  const voices = [
+    { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria (Female)' },
+    { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger (Male)' },
+    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah (Female)' },
+    { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura (Female)' },
+    { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie (Male)' },
+    { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George (Male)' },
+  ];
+
   const renderScriptContent = () => {
     if (!script) return null;
 
@@ -194,6 +224,7 @@ const Practice = () => {
     
     return lines.map((line, index) => {
       let styledLine = line;
+      const isCurrentLine = index === currentLine && isTTSPlaying;
       
       // Apply character highlighting
       characters.forEach((char: any, charIndex: number) => {
@@ -210,7 +241,9 @@ const Practice = () => {
       return (
         <p 
           key={index} 
-          className="mb-4 leading-relaxed"
+          className={`mb-4 leading-relaxed transition-all duration-200 ${
+            isCurrentLine ? 'bg-primary/10 border-l-4 border-primary pl-4 -ml-4' : ''
+          }`}
           style={{ fontSize: `${fontSize[0]}px` }}
           dangerouslySetInnerHTML={{ __html: styledLine }}
         />
@@ -314,6 +347,30 @@ const Practice = () => {
                   >
                     <RotateCcw className="h-4 w-4" />
                   </Button>
+
+                  <div className="flex items-center gap-2">
+                    <Volume2 className="h-4 w-4" />
+                    <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+                      <SelectTrigger className="w-32">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {voices.map(voice => (
+                          <SelectItem key={voice.id} value={voice.id}>
+                            {voice.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTTSPlay}
+                      disabled={isTTSLoading}
+                    >
+                      {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Speaking' : 'Speak Line')}
+                    </Button>
+                  </div>
 
                   <div className="flex items-center gap-2">
                     <span className="text-sm text-muted-foreground">Speed:</span>
