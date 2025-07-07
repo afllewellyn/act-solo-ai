@@ -18,8 +18,11 @@ import {
   Volume2,
   Settings,
   Plus,
-  Minus
+  Minus,
+  Moon,
+  Sun
 } from 'lucide-react';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -293,10 +296,12 @@ const Practice = () => {
                 </BreadcrumbList>
               </Breadcrumb>
               <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span>Session: {formatTime(sessionTime)}</span>
+                <span className="hidden md:inline">Session: {formatTime(sessionTime)}</span>
+                <span className="md:hidden">⏱ {formatTime(sessionTime)}</span>
+                <ThemeToggle />
                 <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
                   <ArrowLeft className="h-4 w-4 mr-1" />
-                  Back
+                  <span className="hidden sm:inline">Back</span>
                 </Button>
               </div>
             </div>
@@ -328,30 +333,34 @@ const Practice = () => {
           </div>
 
           {/* Floating Controls */}
-          <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2">
+          <div className="absolute bottom-4 sm:bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-6xl px-4">
             <Card className="bg-background/95 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePlayPause}
-                  >
-                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleReset}
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                  </Button>
-
+              <CardContent className="p-3 sm:p-4">
+                <div className="flex flex-col lg:flex-row items-center gap-2 lg:gap-4">
+                  {/* Basic Controls */}
                   <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePlayPause}
+                    >
+                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReset}
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* TTS Controls */}
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Volume2 className="h-4 w-4" />
                     <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-                      <SelectTrigger className="w-32">
+                      <SelectTrigger className="w-24 sm:w-32">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -367,14 +376,16 @@ const Practice = () => {
                       size="sm"
                       onClick={handleTTSPlay}
                       disabled={isTTSLoading}
+                      className="whitespace-nowrap"
                     >
-                      {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Speaking' : 'Speak Line')}
+                      {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Speaking' : 'Speak')}
                     </Button>
                   </div>
 
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm text-muted-foreground">Speed:</span>
-                    <div className="w-20">
+                  {/* Speed Control */}
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span className="text-sm text-muted-foreground whitespace-nowrap">Speed:</span>
+                    <div className="w-16 sm:w-20">
                       <Slider
                         value={scrollSpeed}
                         onValueChange={setScrollSpeed}
@@ -386,6 +397,7 @@ const Practice = () => {
                     <span className="text-sm text-muted-foreground w-8">{scrollSpeed[0]}x</span>
                   </div>
 
+                  {/* Font Size Control */}
                   <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
@@ -394,7 +406,7 @@ const Practice = () => {
                     >
                       <Minus className="h-4 w-4" />
                     </Button>
-                    <span className="text-sm text-muted-foreground w-8">{fontSize[0]}px</span>
+                    <span className="text-sm text-muted-foreground w-8 text-center">{fontSize[0]}px</span>
                     <Button
                       variant="outline"
                       size="sm"
@@ -404,6 +416,7 @@ const Practice = () => {
                     </Button>
                   </div>
 
+                  {/* Fullscreen Toggle */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -420,9 +433,10 @@ const Practice = () => {
 
       {/* Keyboard Shortcuts Help */}
       {!isFullscreen && (
-        <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm p-2 rounded border">
-          <div>Space: Play/Pause • R: Reset • F: Fullscreen</div>
-          <div>↑/↓: Speed • Mouse: Manual scroll</div>
+        <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm p-2 rounded border max-w-xs">
+          <div className="hidden sm:block">Space: Play/Pause • R: Reset • F: Fullscreen</div>
+          <div className="hidden sm:block">↑/↓: Speed • Mouse: Manual scroll</div>
+          <div className="sm:hidden">Space: Play • R: Reset • F: Full</div>
         </div>
       )}
     </div>

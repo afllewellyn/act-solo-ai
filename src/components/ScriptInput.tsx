@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
+import { RichTextEditor } from '@/components/RichTextEditor';
 
 interface Character {
   name: string;
@@ -119,15 +119,13 @@ const ScriptInput = ({ onScriptSaved }: ScriptInputProps) => {
         
         <div className="space-y-2">
           <Label htmlFor="content">Script Content</Label>
-          <Textarea
-            id="content"
+          <RichTextEditor
+            content={content}
+            onChange={handleContentChange}
             placeholder="Paste your script here... Use format like:
 
 CHARACTER NAME: Dialogue goes here
 ANOTHER CHARACTER: More dialogue..."
-            value={content}
-            onChange={(e) => handleContentChange(e.target.value)}
-            className="min-h-[300px] font-mono"
           />
         </div>
 
@@ -152,7 +150,7 @@ ANOTHER CHARACTER: More dialogue..."
           </div>
         )}
 
-        <Button onClick={handleSave} disabled={loading} className="w-full">
+        <Button onClick={handleSave} disabled={loading} className="w-full sm:w-auto">
           {loading ? 'Saving...' : 'Save Script'}
         </Button>
       </CardContent>

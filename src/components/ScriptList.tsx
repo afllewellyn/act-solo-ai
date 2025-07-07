@@ -96,44 +96,60 @@ const ScriptList = ({ refresh, onSelectScript }: ScriptListProps) => {
   }
 
   return (
-    <div className="space-y-4">
-      {scripts.map((script) => (
-        <Card key={script.id}>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-lg">{script.title}</CardTitle>
-                <CardDescription>
-                  {Array.isArray(script.characters) ? script.characters.length : 0} character(s) • Created {new Date(script.created_at).toLocaleDateString()}
-                </CardDescription>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate(`/practice/${script.id}`)}
-                >
-                  <Play className="h-4 w-4 mr-1" />
-                  Practice
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(script.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground line-clamp-2">
-              {script.content.substring(0, 150)}...
+    <Card className="w-full">
+      <CardHeader className="pb-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <CardTitle className="text-lg sm:text-xl">My Scripts</CardTitle>
+          {scripts.length > 0 && (
+            <p className="text-sm text-muted-foreground">
+              {scripts.length} script{scripts.length === 1 ? '' : 's'}
             </p>
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {scripts.map((script) => (
+          <Card key={script.id} className="border-l-4 border-l-primary/20 hover:border-l-primary/40 transition-colors">
+            <CardHeader className="pb-3">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <CardTitle className="text-base sm:text-lg truncate">{script.title}</CardTitle>
+                  <CardDescription className="text-xs sm:text-sm">
+                    {Array.isArray(script.characters) ? script.characters.length : 0} character(s) • Created {new Date(script.created_at).toLocaleDateString()}
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2 shrink-0">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => navigate(`/practice/${script.id}`)}
+                    className="flex-1 sm:flex-none"
+                  >
+                    <Play className="h-4 w-4 mr-1" />
+                    <span className="hidden xs:inline">Practice</span>
+                    <span className="xs:hidden">Play</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleDelete(script.id)}
+                    className="text-destructive hover:text-destructive"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                    <span className="sr-only">Delete script</span>
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <p className="text-sm text-muted-foreground line-clamp-2">
+                {script.content.substring(0, 150)}...
+              </p>
+            </CardContent>
+          </Card>
+        ))}
+      </CardContent>
+    </Card>
   );
 };
 
