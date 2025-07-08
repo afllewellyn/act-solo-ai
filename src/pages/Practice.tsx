@@ -4,10 +4,14 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useTTS } from '@/hooks/useTTS';
+import { ScriptEditor } from '@/components/ScriptEditor';
+import { RoleAssignmentDialog } from '@/components/RoleAssignmentDialog';
 import { 
   Play, 
   Pause, 
@@ -18,9 +22,7 @@ import {
   Volume2,
   Settings,
   Plus,
-  Minus,
-  Moon,
-  Sun
+  Minus
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
@@ -42,6 +44,12 @@ interface Script {
   user_id: string;
 }
 
+interface Character {
+  name: string;
+  voice: string;
+  isUserRole: boolean;
+}
+
 const Practice = () => {
   const { scriptId } = useParams();
   const navigate = useNavigate();
@@ -61,6 +69,9 @@ const Practice = () => {
   const [sessionTime, setSessionTime] = useState(0);
   const [selectedVoice, setSelectedVoice] = useState('9BWtsMINqrJLrRacOk9x');
   const [currentLine, setCurrentLine] = useState(0);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [highlightingEnabled, setHighlightingEnabled] = useState(true);
+  const [scriptContent, setScriptContent] = useState('');
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -152,6 +163,15 @@ const Practice = () => {
 
       if (error) throw error;
       setScript(data);
+      setScriptContent(data.content);
+      // Parse characters data safely
+      const charactersData = Array.isArray(data.characters) ? data.characters : [];
+      const parsedCharacters: Character[] = charactersData.map((char: any) => ({
+        name: char?.name || '',
+        voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
+        isUserRole: char?.isUserRole || false
+      }));
+      setCharacters(parsedCharacters);
     } catch (error) {
       console.error('Error fetching script:', error);
       toast({
@@ -196,16 +216,57 @@ const Practice = () => {
   const handleTTSPlay = async () => {
     if (!script) return;
     
-    const lines = script.content.split('\n').filter(line => line.trim());
+    const lines = scriptContent.split('\n').filter(line => line.trim());
     if (lines[currentLine]) {
-      await speak(lines[currentLine], {
-        voiceId: selectedVoice,
-        onComplete: () => {
-          if (currentLine < lines.length - 1) {
-            setCurrentLine(prev => prev + 1);
-          }
+      const currentLineText = lines[currentLine];
+      
+      // Check if this line belongs to a character that should be voiced by AI
+      const characterMatch = currentLineText.match(/^([A-Z][A-Z\s]+):/);
+      if (characterMatch) {
+        const characterName = characterMatch[1].trim();
+        const character = characters.find(c => c.name === characterName);
+        
+        if (character && !character.isUserRole) {
+          // Use the character's assigned voice
+          await speak(currentLineText, {
+            voiceId: character.voice,
+            onComplete: () => {
+              if (currentLine < lines.length - 1) {
+                setCurrentLine(prev => prev + 1);
+              }
+            }
+          });
+          return;
         }
-      });
+      }
+      
+      // If no character assignment or user role, skip to next line
+      if (currentLine < lines.length - 1) {
+        setCurrentLine(prev => prev + 1);
+      }
+    }
+  };
+
+  const handleScriptUpdate = (updatedContent: string) => {
+    setScriptContent(updatedContent);
+    if (script) {
+      setScript({ ...script, content: updatedContent });
+    }
+  };
+
+  const handleRoleUpdate = (updatedCharacters: Character[]) => {
+    setCharacters(updatedCharacters);
+    if (script) {
+      // Update the script's characters in the database
+      supabase
+        .from('scripts')
+        .update({ characters: updatedCharacters as any })
+        .eq('id', script.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error updating characters:', error);
+          }
+        });
     }
   };
 
@@ -222,21 +283,30 @@ const Practice = () => {
     if (!script) return null;
 
     // Split content by lines and render with character highlighting
-    const lines = script.content.split('\n');
-    const characters = Array.isArray(script.characters) ? script.characters : [];
+    const lines = scriptContent.split('\n');
     
     return lines.map((line, index) => {
       let styledLine = line;
-      const isCurrentLine = index === currentLine && isTTSPlaying;
+      const isCurrentLine = index === currentLine && highlightingEnabled && (isTTSPlaying || isPlaying);
       
       // Apply character highlighting
-      characters.forEach((char: any, charIndex: number) => {
+      characters.forEach((char, charIndex) => {
         if (char.name && line.includes(char.name + ':')) {
-          const colors = ['text-blue-400', 'text-green-400', 'text-purple-400', 'text-orange-400'];
+          const colors = [
+            'text-blue-500',
+            'text-green-500', 
+            'text-purple-500', 
+            'text-orange-500',
+            'text-red-500',
+            'text-indigo-500'
+          ];
           const colorClass = colors[charIndex % colors.length];
+          
+          // Add role indicator
+          const roleIndicator = char.isUserRole ? ' (You)' : ' (AI)';
           styledLine = line.replace(
             char.name + ':',
-            `<span class="${colorClass} font-semibold">${char.name}:</span>`
+            `<span class="${colorClass} font-semibold">${char.name}${roleIndicator}:</span>`
           );
         }
       });
@@ -245,7 +315,7 @@ const Practice = () => {
         <p 
           key={index} 
           className={`mb-4 leading-relaxed transition-all duration-200 ${
-            isCurrentLine ? 'bg-primary/10 border-l-4 border-primary pl-4 -ml-4' : ''
+            isCurrentLine ? 'bg-primary/10 border-l-4 border-primary pl-4 -ml-4 shadow-sm' : ''
           }`}
           style={{ fontSize: `${fontSize[0]}px` }}
           dangerouslySetInnerHTML={{ __html: styledLine }}
@@ -333,87 +403,99 @@ const Practice = () => {
           </div>
 
           {/* Floating Controls */}
-          <div className="absolute bottom-4 sm:bottom-6 left-1/2 transform -translate-x-1/2 w-full max-w-6xl px-4">
+          <div className="absolute bottom-4 sm:bottom-6 left-4 right-4">
             <Card className="bg-background/95 backdrop-blur-sm">
               <CardContent className="p-3 sm:p-4">
-                <div className="flex flex-col lg:flex-row items-center gap-2 lg:gap-4">
-                  {/* Basic Controls */}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePlayPause}
-                    >
-                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleReset}
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {/* TTS Controls */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <Volume2 className="h-4 w-4" />
-                    <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-                      <SelectTrigger className="w-24 sm:w-32">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {voices.map(voice => (
-                          <SelectItem key={voice.id} value={voice.id}>
-                            {voice.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleTTSPlay}
-                      disabled={isTTSLoading}
-                      className="whitespace-nowrap"
-                    >
-                      {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Speaking' : 'Speak')}
-                    </Button>
-                  </div>
-
-                  {/* Speed Control */}
-                  <div className="flex items-center gap-2 min-w-0">
-                    <span className="text-sm text-muted-foreground whitespace-nowrap">Speed:</span>
-                    <div className="w-16 sm:w-20">
-                      <Slider
-                        value={scrollSpeed}
-                        onValueChange={setScrollSpeed}
-                        max={10}
-                        min={0.5}
-                        step={0.5}
+                {/* Script Management Row */}
+                <div className="flex flex-wrap items-center justify-center gap-2 mb-4 pb-4 border-b">
+                  {script && (
+                    <>
+                      <ScriptEditor
+                        script={script}
+                        onScriptUpdate={handleScriptUpdate}
                       />
-                    </div>
-                    <span className="text-sm text-muted-foreground w-8">{scrollSpeed[0]}x</span>
-                  </div>
-
-                  {/* Font Size Control */}
+                      <RoleAssignmentDialog
+                        characters={characters}
+                        onRoleUpdate={handleRoleUpdate}
+                        content={scriptContent}
+                      />
+                    </>
+                  )}
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
-                    >
-                      <Minus className="h-4 w-4" />
-                    </Button>
-                    <span className="text-sm text-muted-foreground w-8 text-center">{fontSize[0]}px</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
+                    <Label htmlFor="highlight-toggle" className="text-sm whitespace-nowrap">
+                      Highlight
+                    </Label>
+                    <Switch
+                      id="highlight-toggle"
+                      checked={highlightingEnabled}
+                      onCheckedChange={setHighlightingEnabled}
+                    />
+                  </div>
+                </div>
+
+                {/* Control Buttons - Evenly Distributed */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
+                  {/* Basic Controls */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handlePlayPause}
+                    className="flex-1"
+                  >
+                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    <span className="ml-1 hidden sm:inline">
+                      {isPlaying ? 'Pause' : 'Play'}
+                    </span>
+                  </Button>
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleReset}
+                    className="flex-1"
+                  >
+                    <RotateCcw className="h-4 w-4" />
+                    <span className="ml-1 hidden sm:inline">Reset</span>
+                  </Button>
+
+                  {/* TTS Control */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleTTSPlay}
+                    disabled={isTTSLoading}
+                    className="flex-1"
+                  >
+                    <Volume2 className="h-4 w-4" />
+                    <span className="ml-1 hidden sm:inline">
+                      {isTTSLoading ? 'Loading...' : 'Speak'}
+                    </span>
+                  </Button>
+
+                  {/* Font Size Controls */}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
+                    className="flex-1"
+                  >
+                    <Minus className="h-4 w-4" />
+                    <span className="ml-1 hidden lg:inline">Size</span>
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
+                    className="flex-1"
+                  >
+                    <Plus className="h-4 w-4" />
+                    <span className="ml-1 hidden lg:inline">Size</span>
+                  </Button>
+
+                  {/* Speed Display */}
+                  <div className="flex items-center justify-center px-2 py-1 bg-muted rounded text-sm">
+                    <span className="font-mono">{scrollSpeed[0]}x</span>
                   </div>
 
                   {/* Fullscreen Toggle */}
@@ -421,9 +503,31 @@ const Practice = () => {
                     variant="outline"
                     size="sm"
                     onClick={toggleFullscreen}
+                    className="flex-1"
                   >
                     {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                    <span className="ml-1 hidden sm:inline">
+                      {isFullscreen ? 'Exit' : 'Full'}
+                    </span>
                   </Button>
+                </div>
+
+                {/* Speed Control Slider */}
+                <div className="flex items-center gap-4 mt-4 pt-4 border-t">
+                  <Label className="text-sm whitespace-nowrap">Speed:</Label>
+                  <div className="flex-1">
+                    <Slider
+                      value={scrollSpeed}
+                      onValueChange={setScrollSpeed}
+                      max={10}
+                      min={0.5}
+                      step={0.5}
+                      className="w-full"
+                    />
+                  </div>
+                  <span className="text-sm text-muted-foreground w-12 text-center font-mono">
+                    {fontSize[0]}px
+                  </span>
                 </div>
               </CardContent>
             </Card>

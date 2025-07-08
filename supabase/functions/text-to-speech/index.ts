@@ -10,11 +10,38 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  const timestamp = new Date().toISOString()
+  console.log(`[${timestamp}] TTS request received`)
+
   try {
     const { text, voice_id = '9BWtsMINqrJLrRacOk9x' } = await req.json()
 
+    // Validate input
     if (!text) {
       throw new Error('Text is required')
+    }
+
+    if (typeof text !== 'string') {
+      throw new Error('Text must be a string')
+    }
+
+    if (text.length > 5000) {
+      throw new Error('Text too long (max 5000 characters)')
+    }
+
+    // Clean text - remove problematic characters
+    const cleanText = text.replace(/[^\w\s.,!?;:'"()-]/g, ' ').trim()
+    
+    if (!cleanText) {
+      throw new Error('No valid text content after cleaning')
+    }
+
+    console.log(`[${timestamp}] Processing TTS for voice: ${voice_id}, text length: ${cleanText.length}`)
+
+    // Validate API key
+    const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
+    if (!apiKey) {
+      throw new Error('ElevenLabs API key not configured')
     }
 
     const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voice_id, {
@@ -22,36 +49,65 @@ serve(async (req) => {
       headers: {
         'Accept': 'audio/mpeg',
         'Content-Type': 'application/json',
-        'xi-api-key': Deno.env.get('ELEVENLABS_API_KEY'),
+        'xi-api-key': apiKey,
       },
       body: JSON.stringify({
-        text,
+        text: cleanText,
         model_id: 'eleven_multilingual_v2',
         voice_settings: {
           stability: 0.5,
-          similarity_boost: 0.5
+          similarity_boost: 0.5,
+          style: 0.0,
+          use_speaker_boost: true
         }
       }),
     })
 
+    console.log(`[${timestamp}] ElevenLabs API response status: ${response.status}`)
+
     if (!response.ok) {
       const errorText = await response.text()
-      throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
+      console.error(`[${timestamp}] ElevenLabs API error: ${response.status} - ${errorText}`)
+      
+      if (response.status === 401) {
+        throw new Error('Invalid API key')
+      } else if (response.status === 429) {
+        throw new Error('Rate limit exceeded. Please wait and try again.')
+      } else if (response.status === 422) {
+        throw new Error('Invalid voice ID or request parameters')
+      } else {
+        throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
+      }
     }
 
     const audioBuffer = await response.arrayBuffer()
+    
+    if (audioBuffer.byteLength === 0) {
+      throw new Error('Empty audio response from ElevenLabs')
+    }
+
     const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)))
+    
+    console.log(`[${timestamp}] Successfully generated audio, size: ${audioBuffer.byteLength} bytes`)
 
     return new Response(
-      JSON.stringify({ audioContent: base64Audio }),
+      JSON.stringify({ 
+        audioContent: base64Audio,
+        voiceId: voice_id,
+        textLength: cleanText.length 
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )
   } catch (error) {
-    console.error('TTS Error:', error)
+    console.error(`[${timestamp}] TTS Error:`, error.message)
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        timestamp,
+        type: 'TTS_ERROR'
+      }),
       {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
