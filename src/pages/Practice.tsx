@@ -220,8 +220,8 @@ const Practice = () => {
     if (lines[currentLine]) {
       const currentLineText = lines[currentLine];
       
-      // Check if this line belongs to a character that should be voiced by AI
-      const characterMatch = currentLineText.match(/^([A-Z][A-Z\s]+):/);
+      // Check if this line belongs to a character
+      const characterMatch = currentLineText.match(/^([A-Z][A-Z\s]*[A-Z]):/);
       if (characterMatch) {
         const characterName = characterMatch[1].trim();
         const character = characters.find(c => c.name === characterName);
@@ -237,13 +237,24 @@ const Practice = () => {
             }
           });
           return;
+        } else if (character && character.isUserRole) {
+          // Skip user lines and move to next
+          if (currentLine < lines.length - 1) {
+            setCurrentLine(prev => prev + 1);
+          }
+          return;
         }
       }
       
-      // If no character assignment or user role, skip to next line
-      if (currentLine < lines.length - 1) {
-        setCurrentLine(prev => prev + 1);
-      }
+      // If no character detected, speak the line with default voice
+      await speak(currentLineText, {
+        voiceId: selectedVoice,
+        onComplete: () => {
+          if (currentLine < lines.length - 1) {
+            setCurrentLine(prev => prev + 1);
+          }
+        }
+      });
     }
   };
 
