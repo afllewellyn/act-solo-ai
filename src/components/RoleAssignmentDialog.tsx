@@ -39,7 +39,7 @@ export function RoleAssignmentDialog({ characters, onRoleUpdate, content }: Role
     const detectedCharacters = new Set<string>();
     
     lines.forEach(line => {
-      const match = line.match(/^([A-Z][A-Z\s]*[A-Z]):/);
+      const match = line.match(/^([A-Z][A-Z\s\-\'\.]+):/);
       if (match) {
         detectedCharacters.add(match[1].trim());
       }

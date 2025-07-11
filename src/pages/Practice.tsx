@@ -70,7 +70,7 @@ const Practice = () => {
   const [selectedVoice, setSelectedVoice] = useState('9BWtsMINqrJLrRacOk9x');
   const [currentLine, setCurrentLine] = useState(0);
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [highlightingEnabled, setHighlightingEnabled] = useState(true);
+  
   const [scriptContent, setScriptContent] = useState('');
 
   useEffect(() => {
@@ -221,7 +221,7 @@ const Practice = () => {
       const currentLineText = lines[currentLine];
       
       // Check if this line belongs to a character
-      const characterMatch = currentLineText.match(/^([A-Z][A-Z\s]*[A-Z]):/);
+      const characterMatch = currentLineText.match(/^([A-Z][A-Z\s\-\'\.]+):/);
       if (characterMatch) {
         const characterName = characterMatch[1].trim();
         const character = characters.find(c => c.name === characterName);
@@ -298,7 +298,7 @@ const Practice = () => {
     
     return lines.map((line, index) => {
       let styledLine = line;
-      const isCurrentLine = index === currentLine && highlightingEnabled && (isTTSPlaying || isPlaying);
+      const isCurrentLine = index === currentLine && (isTTSPlaying || isPlaying);
       
       // Apply character highlighting
       characters.forEach((char, charIndex) => {
@@ -432,16 +432,6 @@ const Practice = () => {
                       />
                     </>
                   )}
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="highlight-toggle" className="text-sm whitespace-nowrap">
-                      Highlight
-                    </Label>
-                    <Switch
-                      id="highlight-toggle"
-                      checked={highlightingEnabled}
-                      onCheckedChange={setHighlightingEnabled}
-                    />
-                  </div>
                 </div>
 
                 {/* Control Buttons - Evenly Distributed */}
