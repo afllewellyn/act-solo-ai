@@ -4,8 +4,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Users, Save } from 'lucide-react';
+import { Users, Save, Play } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Character {
   name: string;
@@ -31,6 +32,7 @@ const voices = [
 export function RoleAssignmentDialog({ characters, onRoleUpdate, content }: RoleAssignmentDialogProps) {
   const [isOpen, setIsOpen] = useState(false);
   const [localCharacters, setLocalCharacters] = useState<Character[]>(characters);
+  const [isPreviewLoading, setIsPreviewLoading] = useState<string | null>(null);
   const { toast } = useToast();
 
   // Auto-detect characters from script content
@@ -39,7 +41,8 @@ export function RoleAssignmentDialog({ characters, onRoleUpdate, content }: Role
     const detectedCharacters = new Set<string>();
     
     lines.forEach(line => {
-      const match = line.match(/^([A-Z][A-Z\s\-\'\.]+):/);
+      // Improved regex to handle mixed case names like "Jon B:", "JON B:", "BARTENDER:", etc.
+      const match = line.match(/^([A-Z][a-zA-Z\s\-\'\.]*[A-Z]?):/);
       if (match) {
         detectedCharacters.add(match[1].trim());
       }
@@ -61,6 +64,46 @@ export function RoleAssignmentDialog({ characters, onRoleUpdate, content }: Role
     const updated = [...localCharacters];
     updated[index] = { ...updated[index], [field]: value };
     setLocalCharacters(updated);
+  };
+
+  const handlePreviewVoice = async (voiceId: string, characterName: string) => {
+    setIsPreviewLoading(voiceId);
+    try {
+      const { data, error } = await supabase.functions.invoke('text-to-speech', {
+        body: {
+          text: `Hello, I am ${characterName}. This is how I sound.`,
+          voice_id: voiceId,
+        },
+      });
+
+      if (error) throw error;
+
+      // Convert base64 audio to blob and play
+      const audioBytes = Uint8Array.from(atob(data.audioContent), c => c.charCodeAt(0));
+      const audioBlob = new Blob([audioBytes], { type: 'audio/mpeg' });
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      
+      audio.play().catch(err => {
+        console.error('Error playing audio:', err);
+        toast({
+          title: "Preview Error",
+          description: "Could not play voice preview",
+          variant: "destructive",
+        });
+      });
+
+      audio.onended = () => URL.revokeObjectURL(audioUrl);
+    } catch (error) {
+      console.error('Voice preview error:', error);
+      toast({
+        title: "Preview Error",
+        description: "Could not generate voice preview",
+        variant: "destructive",
+      });
+    } finally {
+      setIsPreviewLoading(null);
+    }
   };
 
   const handleSave = () => {
@@ -117,23 +160,37 @@ export function RoleAssignmentDialog({ characters, onRoleUpdate, content }: Role
                   {!character.isUserRole && (
                     <div className="space-y-2">
                       <Label htmlFor={`voice-${index}`}>AI Voice</Label>
-                      <Select
-                        value={character.voice}
-                        onValueChange={(value) => 
-                          handleCharacterUpdate(index, 'voice', value)
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {voices.map(voice => (
-                            <SelectItem key={voice.id} value={voice.id}>
-                              {voice.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                      <div className="flex space-x-2">
+                        <Select
+                          value={character.voice}
+                          onValueChange={(value) => 
+                            handleCharacterUpdate(index, 'voice', value)
+                          }
+                        >
+                          <SelectTrigger className="flex-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {voices.map(voice => (
+                              <SelectItem key={voice.id} value={voice.id}>
+                                {voice.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handlePreviewVoice(character.voice, character.name)}
+                          disabled={isPreviewLoading === character.voice}
+                        >
+                          {isPreviewLoading === character.voice ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600" />
+                          ) : (
+                            <Play className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </div>
                     </div>
                   )}
                 </div>
