@@ -298,7 +298,7 @@ const Practice = () => {
     
     return lines.map((line, index) => {
       let styledLine = line;
-      const isCurrentLine = index === currentLine && (isTTSPlaying || isPlaying);
+      const isCurrentLine = false; // Highlighting disabled
       
       // Apply character highlighting
       characters.forEach((char, charIndex) => {
