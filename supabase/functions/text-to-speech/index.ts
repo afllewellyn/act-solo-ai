@@ -29,8 +29,11 @@ serve(async (req) => {
       throw new Error('Text too long (max 5000 characters)')
     }
 
-    // Clean text - remove problematic characters
-    const cleanText = text.replace(/[^\w\s.,!?;:'"()-]/g, ' ').trim()
+    // Clean text - remove HTML tags and normalize whitespace
+    const cleanText = text
+      .replace(/<[^>]*>/g, ' ')  // Remove HTML tags
+      .replace(/\s+/g, ' ')      // Normalize whitespace
+      .trim()
     
     if (!cleanText) {
       throw new Error('No valid text content after cleaning')
