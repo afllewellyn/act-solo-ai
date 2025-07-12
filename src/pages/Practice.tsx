@@ -2,16 +2,16 @@ import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Slider } from '@/components/ui/slider';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/useAuth';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/hooks/useAuth';
-import { useTTS } from '@/hooks/useTTS';
-import { ScriptEditor } from '@/components/ScriptEditor';
 import { RoleAssignmentDialog } from '@/components/RoleAssignmentDialog';
+import { Slider } from '@/components/ui/slider';
+import { supabase } from '@/integrations/supabase/client';
+import { ScriptEditor } from '@/components/ScriptEditor';
+import { useTTS } from '@/hooks/useTTS';
+import { useToast } from '@/hooks/use-toast';
 import { 
   Play, 
   Pause, 
@@ -22,7 +22,9 @@ import {
   Volume2,
   Settings,
   Plus,
-  Minus
+  Minus,
+  ChevronDown,
+  Filter
 } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
@@ -50,6 +52,16 @@ interface Character {
   isUserRole: boolean;
 }
 
+interface Voice {
+  id: string;
+  name: string;
+  category: string;
+  gender: string;
+  accent: string;
+}
+
+type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+
 const Practice = () => {
   const { scriptId } = useParams();
   const navigate = useNavigate();
@@ -70,6 +82,8 @@ const Practice = () => {
   const [selectedVoice, setSelectedVoice] = useState('9BWtsMINqrJLrRacOk9x');
   const [currentLine, setCurrentLine] = useState(0);
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [voices, setVoices] = useState<Voice[]>([]);
+  const [textFilter, setTextFilter] = useState<TextFilter>('characters');
   
   const [scriptContent, setScriptContent] = useState('');
 
@@ -78,6 +92,28 @@ const Practice = () => {
       navigate('/auth');
     }
   }, [user, authLoading, navigate]);
+
+  // Load voices on component mount
+  useEffect(() => {
+    loadVoices();
+  }, []);
+
+  const loadVoices = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-voices');
+      
+      if (error) {
+        console.error('Error fetching voices:', error);
+        return;
+      }
+
+      if (data?.voices && data.voices.length > 0) {
+        setVoices(data.voices);
+      }
+    } catch (error) {
+      console.error('Error loading voices:', error);
+    }
+  };
 
   useEffect(() => {
     if (scriptId && user) {
@@ -232,52 +268,96 @@ const Practice = () => {
   };
 
   const handleTTSPlay = async () => {
-    if (!script) return;
+    if (!script?.content) return;
     
-    // Strip HTML tags from script content before processing
-    const cleanContent = stripHtmlTags(scriptContent);
-    const lines = cleanContent.split('\n').filter(line => line.trim());
-    if (lines[currentLine]) {
-      const currentLineText = lines[currentLine];
+    console.log('TTS: Starting speech generation for text length:', script.content.length);
+    
+    try {
+      let textToSpeak = '';
       
-      // Check if this line belongs to a character
-      const characterMatch = currentLineText.match(/^([A-Z][A-Z\s\-\'\.]+):/);
-      if (characterMatch) {
-        const characterName = characterMatch[1].trim();
-        const character = characters.find(c => c.name === characterName);
-        
-        if (character && !character.isUserRole) {
-          // Extract only the dialogue text (remove character name and colon)
-          const dialogueText = currentLineText.substring(currentLineText.indexOf(':') + 1).trim();
-          // Use the character's assigned voice
-          await speak(dialogueText, {
-            voiceId: character.voice,
-            onComplete: () => {
-              if (currentLine < lines.length - 1) {
-                setCurrentLine(prev => prev + 1);
-              }
-            }
-          });
-          return;
-        } else if (character && character.isUserRole) {
-          // Skip user lines and move to next
-          if (currentLine < lines.length - 1) {
-            setCurrentLine(prev => prev + 1);
-          }
-          return;
-        }
+      // Filter text based on selected filter
+      switch (textFilter) {
+        case 'all':
+          textToSpeak = stripHtmlTags(script.content);
+          break;
+        case 'bold':
+          textToSpeak = extractFormattedText(script.content, 'bold');
+          break;
+        case 'italic':
+          textToSpeak = extractFormattedText(script.content, 'italic');
+          break;
+        case 'characters':
+          textToSpeak = extractCharacterDialogue(script.content);
+          break;
+        default:
+          textToSpeak = stripHtmlTags(script.content);
       }
       
-      // If no character detected, speak the line with default voice
-      await speak(currentLineText, {
+      if (!textToSpeak.trim()) {
+        toast({
+          title: "No Text Found",
+          description: `No ${textFilter} text found to read.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await speak(textToSpeak, {
         voiceId: selectedVoice,
+        onWordSpoken: (wordIndex) => {
+          // Optional: highlight current word
+        },
         onComplete: () => {
-          if (currentLine < lines.length - 1) {
-            setCurrentLine(prev => prev + 1);
-          }
+          console.log('TTS: Speech completed');
         }
       });
+    } catch (error) {
+      console.error('TTS Error:', error);
+      toast({
+        title: "Speech Error",
+        description: "Failed to generate speech. Check your ElevenLabs API key.",
+        variant: "destructive",
+      });
     }
+  };
+
+  // Extract formatted text (bold or italic)
+  const extractFormattedText = (content: string, format: 'bold' | 'italic'): string => {
+    const regex = format === 'bold' 
+      ? /<(b|strong)>(.*?)<\/(b|strong)>/gi 
+      : /<(i|em)>(.*?)<\/(i|em)>/gi;
+    
+    const matches = content.match(regex);
+    if (!matches) return '';
+    
+    return matches
+      .map(match => match.replace(/<[^>]*>/g, ''))
+      .join(' ')
+      .trim();
+  };
+
+  // Extract only character dialogue
+  const extractCharacterDialogue = (content: string): string => {
+    const lines = content.split('\n');
+    const dialogueLines: string[] = [];
+    
+    lines.forEach(line => {
+      const cleanLine = stripHtmlTags(line);
+      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      
+      if (characterMatch) {
+        const characterName = characterMatch[1].trim();
+        const dialogue = characterMatch[2].trim();
+        
+        // Check if character should be spoken by AI
+        const character = characters.find(c => c.name === characterName);
+        if (!character || !character.isUserRole) {
+          dialogueLines.push(dialogue);
+        }
+      }
+    });
+    
+    return dialogueLines.join(' ').trim();
   };
 
   const handleScriptUpdate = (updatedContent: string) => {
@@ -303,14 +383,6 @@ const Practice = () => {
     }
   };
 
-  const voices = [
-    { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria (Female)' },
-    { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger (Male)' },
-    { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah (Female)' },
-    { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura (Female)' },
-    { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie (Male)' },
-    { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George (Male)' },
-  ];
 
   const renderScriptContent = () => {
     if (!script) return null;
@@ -481,7 +553,82 @@ const Practice = () => {
                     <span className="ml-1 hidden sm:inline">Reset</span>
                   </Button>
 
-                  {/* TTS Control */}
+                  {/* Voice Selection Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex-1 bg-background border-border">
+                        <Volume2 className="h-4 w-4" />
+                        <span className="ml-1 hidden sm:inline truncate">
+                          {voices.find(v => v.id === selectedVoice)?.name || 'Voice'}
+                        </span>
+                        <ChevronDown className="h-3 w-3 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-56 bg-background border-border shadow-lg z-50">
+                      <div className="p-2">
+                        <p className="text-xs text-muted-foreground mb-2">Select Voice:</p>
+                        {voices.length > 0 ? (
+                          voices.slice(0, 10).map((voice) => (
+                            <DropdownMenuItem
+                              key={voice.id}
+                              onClick={() => setSelectedVoice(voice.id)}
+                              className={`text-sm ${selectedVoice === voice.id ? 'bg-accent' : ''}`}
+                            >
+                              {voice.name} ({voice.gender})
+                            </DropdownMenuItem>
+                          ))
+                        ) : (
+                          <DropdownMenuItem disabled>
+                            Loading voices...
+                          </DropdownMenuItem>
+                        )}
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* Text Filter Dropdown */}
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex-1 bg-background border-border">
+                        <Filter className="h-4 w-4" />
+                        <span className="ml-1 hidden sm:inline capitalize">
+                          {textFilter}
+                        </span>
+                        <ChevronDown className="h-3 w-3 ml-1" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent className="w-48 bg-background border-border shadow-lg z-50">
+                      <div className="p-2">
+                        <p className="text-xs text-muted-foreground mb-2">Read:</p>
+                        <DropdownMenuItem
+                          onClick={() => setTextFilter('characters')}
+                          className={`text-sm ${textFilter === 'characters' ? 'bg-accent' : ''}`}
+                        >
+                          Character Dialogue Only
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setTextFilter('all')}
+                          className={`text-sm ${textFilter === 'all' ? 'bg-accent' : ''}`}
+                        >
+                          All Text
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setTextFilter('bold')}
+                          className={`text-sm ${textFilter === 'bold' ? 'bg-accent' : ''}`}
+                        >
+                          Bold Text Only
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setTextFilter('italic')}
+                          className={`text-sm ${textFilter === 'italic' ? 'bg-accent' : ''}`}
+                        >
+                          Italic Text Only
+                        </DropdownMenuItem>
+                      </div>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+
+                  {/* TTS Play Button */}
                   <Button
                     variant="outline"
                     size="sm"
@@ -489,7 +636,7 @@ const Practice = () => {
                     disabled={isTTSLoading}
                     className="flex-1"
                   >
-                    <Volume2 className="h-4 w-4" />
+                    <Play className="h-4 w-4" />
                     <span className="ml-1 hidden sm:inline">
                       {isTTSLoading ? 'Loading...' : 'Speak'}
                     </span>
