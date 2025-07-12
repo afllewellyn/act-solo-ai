@@ -213,10 +213,30 @@ const Practice = () => {
     }
   };
 
+  // Function to strip HTML tags and clean text for TTS
+  const stripHtmlTags = (html: string): string => {
+    // Create a temporary div element to parse HTML
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = html;
+    
+    // Get plain text content
+    let cleanText = tempDiv.textContent || tempDiv.innerText || '';
+    
+    // Clean up extra whitespace and line breaks
+    cleanText = cleanText
+      .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+      .replace(/\n\s*\n/g, '\n') // Replace multiple line breaks with single
+      .trim();
+    
+    return cleanText;
+  };
+
   const handleTTSPlay = async () => {
     if (!script) return;
     
-    const lines = scriptContent.split('\n').filter(line => line.trim());
+    // Strip HTML tags from script content before processing
+    const cleanContent = stripHtmlTags(scriptContent);
+    const lines = cleanContent.split('\n').filter(line => line.trim());
     if (lines[currentLine]) {
       const currentLineText = lines[currentLine];
       
