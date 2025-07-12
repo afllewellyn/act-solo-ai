@@ -323,17 +323,38 @@ const Practice = () => {
 
   // Extract formatted text (bold or italic)
   const extractFormattedText = (content: string, format: 'bold' | 'italic'): string => {
-    const regex = format === 'bold' 
-      ? /<(b|strong)>(.*?)<\/(b|strong)>/gi 
-      : /<(i|em)>(.*?)<\/(i|em)>/gi;
+    console.log(`TTS: Extracting ${format} text from content length:`, content.length);
+    console.log('TTS: Content preview:', content.substring(0, 200));
     
-    const matches = content.match(regex);
-    if (!matches) return '';
+    // Use a more robust approach to handle complex HTML structures
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
     
-    return matches
-      .map(match => match.replace(/<[^>]*>/g, ''))
+    // Select the appropriate elements based on format
+    const selector = format === 'bold' ? 'b, strong' : 'i, em';
+    const elements = tempDiv.querySelectorAll(selector);
+    
+    console.log(`TTS: Found ${elements.length} ${format} elements`);
+    
+    if (elements.length === 0) {
+      console.log(`TTS: No ${format} elements found in content`);
+      return '';
+    }
+    
+    const extractedText = Array.from(elements)
+      .map(element => {
+        // Get text content and clean it up
+        const text = element.textContent || '';
+        return text.trim();
+      })
+      .filter(text => text.length > 0) // Remove empty strings
       .join(' ')
       .trim();
+    
+    console.log(`TTS: Extracted ${format} text:`, extractedText);
+    console.log(`TTS: Extracted text length:`, extractedText.length);
+    
+    return extractedText;
   };
 
   // Extract only character dialogue
