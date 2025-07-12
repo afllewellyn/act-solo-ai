@@ -247,8 +247,10 @@ const Practice = () => {
         const character = characters.find(c => c.name === characterName);
         
         if (character && !character.isUserRole) {
+          // Extract only the dialogue text (remove character name and colon)
+          const dialogueText = currentLineText.substring(currentLineText.indexOf(':') + 1).trim();
           // Use the character's assigned voice
-          await speak(currentLineText, {
+          await speak(dialogueText, {
             voiceId: character.voice,
             onComplete: () => {
               if (currentLine < lines.length - 1) {
