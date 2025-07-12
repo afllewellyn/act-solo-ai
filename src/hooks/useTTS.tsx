@@ -21,6 +21,8 @@ export const useTTS = () => {
     
     try {
       console.log('TTS: Starting speech generation for text length:', text.length);
+      console.log('TTS: Using voice ID:', options.voiceId || '9BWtsMINqrJLrRacOk9x');
+      console.log('TTS: Text content:', text.substring(0, 100) + '...');
       
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
@@ -28,6 +30,8 @@ export const useTTS = () => {
           voice_id: options.voiceId || '9BWtsMINqrJLrRacOk9x'
         }
       });
+
+      console.log('TTS: Supabase response received - data:', data, 'error:', error);
 
       if (error) {
         console.error('TTS: Supabase function error:', error);
