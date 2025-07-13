@@ -107,7 +107,7 @@ const Auth = () => {
   return <div className="min-h-screen flex items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">ActSoloAI Telepromptor</CardTitle>
+          <CardTitle className="text-2xl font-bold">ActSolo.AI</CardTitle>
           <CardDescription>Sign in to access your scripts and practice sessions</CardDescription>
         </CardHeader>
         <CardContent>
