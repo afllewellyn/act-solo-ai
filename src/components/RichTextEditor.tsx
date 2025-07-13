@@ -82,9 +82,7 @@ export function RichTextEditor({
           
 
           {/* Block formatting */}
-          <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleBlockquote().run()} data-active={editor.isActive('blockquote')} className="data-[active=true]:bg-accent">
-            <Quote className="h-4 w-4" />
-          </Button>
+          
 
           <Separator orientation="vertical" className="h-8" />
 
