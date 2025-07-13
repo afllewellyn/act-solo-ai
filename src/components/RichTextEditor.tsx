@@ -75,13 +75,40 @@ export function RichTextEditor({
 
           {/* Lists */}
           <div className="flex items-center gap-1">
-            
-            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => editor.chain().focus().toggleBulletList().run()}
+              data-active={editor.isActive('bulletList')}
+              className="data-[active=true]:bg-accent"
+            >
+              <List className="h-4 w-4" />
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => editor.chain().focus().toggleOrderedList().run()}
+              data-active={editor.isActive('orderedList')}
+              className="data-[active=true]:bg-accent"
+            >
+              <ListOrdered className="h-4 w-4" />
+            </Button>
           </div>
 
-          
+          <Separator orientation="vertical" className="h-8" />
 
           {/* Block formatting */}
+          <div className="flex items-center gap-1">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => editor.chain().focus().toggleBlockquote().run()}
+              data-active={editor.isActive('blockquote')}
+              className="data-[active=true]:bg-accent"
+            >
+              <Quote className="h-4 w-4" />
+            </Button>
+          </div>
           
 
           <Separator orientation="vertical" className="h-8" />

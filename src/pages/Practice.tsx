@@ -9,7 +9,7 @@ import { Label } from '@/components/ui/label';
 import { RoleAssignmentDialog } from '@/components/RoleAssignmentDialog';
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
-import { ScriptEditor } from '@/components/ScriptEditor';
+import { InlineScriptEditor } from '@/components/InlineScriptEditor';
 import { useTTS } from '@/hooks/useTTS';
 import { useToast } from '@/hooks/use-toast';
 import { 
@@ -437,6 +437,18 @@ const Practice = () => {
     }
   };
 
+  const handleAutoSave = (success: boolean) => {
+    if (success) {
+      // Optionally show a subtle success indicator
+    } else {
+      toast({
+        title: "Auto-save Error",
+        description: "Failed to save changes automatically. Please try manual save.",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleRoleUpdate = (updatedCharacters: Character[]) => {
     setCharacters(updatedCharacters);
     if (script) {
@@ -451,52 +463,6 @@ const Practice = () => {
           }
         });
     }
-  };
-
-
-  const renderScriptContent = () => {
-    if (!script) return null;
-
-    // Split content by lines and render with character highlighting
-    const lines = scriptContent.split('\n');
-    
-    return lines.map((line, index) => {
-      let styledLine = line;
-      const isCurrentLine = false; // Highlighting disabled
-      
-      // Apply character highlighting
-      characters.forEach((char, charIndex) => {
-        if (char.name && line.includes(char.name + ':')) {
-          const colors = [
-            'text-blue-500',
-            'text-green-500', 
-            'text-purple-500', 
-            'text-orange-500',
-            'text-red-500',
-            'text-indigo-500'
-          ];
-          const colorClass = colors[charIndex % colors.length];
-          
-          // Add role indicator
-          const roleIndicator = char.isUserRole ? ' (You)' : ' (AI)';
-          styledLine = line.replace(
-            char.name + ':',
-            `<span class="${colorClass} font-semibold">${char.name}${roleIndicator}:</span>`
-          );
-        }
-      });
-      
-      return (
-        <p 
-          key={index} 
-          className={`mb-4 leading-relaxed transition-all duration-200 ${
-            isCurrentLine ? 'bg-primary/10 border-l-4 border-primary pl-4 -ml-4 shadow-sm' : ''
-          }`}
-          style={{ fontSize: `${fontSize[0]}px` }}
-          dangerouslySetInnerHTML={{ __html: styledLine }}
-        />
-      );
-    });
   };
 
   if (authLoading || loading) {
@@ -579,14 +545,22 @@ const Practice = () => {
             />
           </div>
 
-          {/* Script Text */}
+          {/* Script Editor */}
           <div 
             ref={scrollContainerRef}
-            className="h-full overflow-y-auto p-8 pt-12 text-foreground"
-            style={{ lineHeight: '1.8' }}
+            className="h-full overflow-y-auto"
           >
-            <div className="max-w-4xl mx-auto">
-              {renderScriptContent()}
+            <div className="max-w-4xl mx-auto p-4">
+              {script && (
+                <InlineScriptEditor
+                  scriptId={script.id}
+                  content={scriptContent}
+                  characters={characters}
+                  fontSize={fontSize[0]}
+                  onContentChange={handleScriptUpdate}
+                  onAutoSave={handleAutoSave}
+                />
+              )}
               <div className="h-96" /> {/* Bottom padding for scrolling */}
             </div>
           </div>
@@ -595,14 +569,13 @@ const Practice = () => {
           <div className="absolute bottom-4 sm:bottom-6 left-4 right-4">
             <Card className="bg-background/95 backdrop-blur-sm">
               <CardContent className="p-3 sm:p-4">
-                {/* Script Management Row */}
+                {/* Role Assignment and Character Management */}
                 <div className="flex flex-wrap items-center justify-center gap-2 mb-4 pb-4 border-b">
-                  {script && (
-                    <ScriptEditor
-                      script={script}
-                      onScriptUpdate={handleScriptUpdate}
-                    />
-                  )}
+                  <RoleAssignmentDialog
+                    characters={characters}
+                    content={scriptContent}
+                    onRoleUpdate={handleRoleUpdate}
+                  />
                 </div>
 
                 {/* Mobile Layout: Stacked Controls */}
