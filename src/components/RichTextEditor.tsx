@@ -5,7 +5,7 @@ import FontFamily from '@tiptap/extension-font-family';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Bold, Italic, List, ListOrdered, Quote, Undo, Redo, Type } from 'lucide-react';
+import { Bold, Italic, Undo, Redo, Type } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 interface RichTextEditorProps {
   content: string;
@@ -96,7 +96,7 @@ export function RichTextEditor({
       </CardHeader>
       <CardContent>
         <div className="border rounded-md min-h-[300px]">
-          
+          <EditorContent editor={editor} />
         </div>
       </CardContent>
     </Card>;

@@ -6,7 +6,7 @@ import { Extension } from '@tiptap/core';
 import { useCallback, useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { Bold, Italic, List, ListOrdered, Quote, Undo, Redo, Type, Save } from 'lucide-react';
+import { Bold, Italic, Undo, Redo, Type, Save } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -241,42 +241,6 @@ export function InlineScriptEditor({
 
           <Separator orientation="vertical" className="h-8" />
 
-          {/* Lists */}
-          <div className="flex items-center gap-1">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => editor.chain().focus().toggleBulletList().run()}
-              data-active={editor.isActive('bulletList')}
-              className="data-[active=true]:bg-accent"
-            >
-              <List className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => editor.chain().focus().toggleOrderedList().run()}
-              data-active={editor.isActive('orderedList')}
-              className="data-[active=true]:bg-accent"
-            >
-              <ListOrdered className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <Separator orientation="vertical" className="h-8" />
-
-          {/* Block formatting */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            data-active={editor.isActive('blockquote')}
-            className="data-[active=true]:bg-accent"
-          >
-            <Quote className="h-4 w-4" />
-          </Button>
-
-          <Separator orientation="vertical" className="h-8" />
 
           {/* Font family */}
           <Select onValueChange={setFontFamily}>
