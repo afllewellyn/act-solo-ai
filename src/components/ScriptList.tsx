@@ -29,6 +29,17 @@ const ScriptList = ({ refresh, onSelectScript }: ScriptListProps) => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Utility function to strip HTML tags and convert to plain text
+  const stripHtmlTags = (html: string): string => {
+    return html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim();
+  };
+
+  // Function to get preview text with truncation
+  const getPreviewText = (content: string): string => {
+    const plainText = stripHtmlTags(content);
+    return plainText.length > 100 ? `${plainText.substring(0, 100)}…` : plainText;
+  };
+
   const fetchScripts = async () => {
     if (!user) return;
     
@@ -143,7 +154,7 @@ const ScriptList = ({ refresh, onSelectScript }: ScriptListProps) => {
             </CardHeader>
             <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground line-clamp-2">
-                {script.content.substring(0, 150)}...
+                {getPreviewText(script.content)}
               </p>
             </CardContent>
           </Card>
