@@ -7,48 +7,42 @@ import ScriptList from '@/components/ScriptList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
-
 const Index = () => {
-  const { user, loading, signOut } = useAuth();
+  const {
+    user,
+    loading,
+    signOut
+  } = useAuth();
   const navigate = useNavigate();
   const [refreshScripts, setRefreshScripts] = useState(0);
   const [selectedScript, setSelectedScript] = useState(null);
-
   useEffect(() => {
     if (!loading && !user) {
       navigate('/auth');
     }
   }, [user, loading, navigate]);
-
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+    return <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-muted-foreground">Loading...</p>
         </div>
-      </div>
-    );
+      </div>;
   }
-
   if (!user) {
     return null;
   }
-
   const handleScriptSaved = () => {
     setRefreshScripts(prev => prev + 1);
   };
-
   const handleSelectScript = (script: any) => {
     setSelectedScript(script);
     // TODO: Navigate to teleprompter view
     console.log('Selected script for practice:', script);
   };
-
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <h1 className="text-xl sm:text-2xl font-bold">AI Teleprompter</h1>
+          <h1 className="text-xl sm:text-2xl font-bold">Rehearse with AI Teleprompter</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:inline">
               Welcome, {user.email}
@@ -72,10 +66,7 @@ const Index = () => {
           
           <TabsContent value="scripts" className="space-y-4 mt-6">
             <h2 className="text-lg sm:text-xl font-semibold">Your Scripts</h2>
-            <ScriptList 
-              refresh={refreshScripts} 
-              onSelectScript={handleSelectScript}
-            />
+            <ScriptList refresh={refreshScripts} onSelectScript={handleSelectScript} />
           </TabsContent>
           
           <TabsContent value="create" className="space-y-4 mt-6">
@@ -84,8 +75,6 @@ const Index = () => {
           </TabsContent>
         </Tabs>
       </main>
-    </div>
-  );
+    </div>;
 };
-
 export default Index;
