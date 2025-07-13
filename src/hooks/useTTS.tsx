@@ -11,6 +11,7 @@ interface TTSOptions {
 export const useTTS = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
 
@@ -62,17 +63,23 @@ export const useTTS = () => {
         audioRef.current.onplay = () => {
           console.log('TTS: Audio playback started');
           setIsPlaying(true);
+          setIsPaused(false);
         };
-        audioRef.current.onpause = () => setIsPlaying(false);
+        audioRef.current.onpause = () => {
+          setIsPlaying(false);
+          setIsPaused(true);
+        };
         audioRef.current.onended = () => {
           console.log('TTS: Audio playback completed');
           setIsPlaying(false);
+          setIsPaused(false);
           options.onComplete?.();
           URL.revokeObjectURL(audioUrl);
         };
         audioRef.current.onerror = (e) => {
           console.error('TTS: Audio playback error:', e);
           setIsPlaying(false);
+          setIsPaused(false);
           URL.revokeObjectURL(audioUrl);
         };
         
@@ -120,6 +127,7 @@ export const useTTS = () => {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
+      setIsPaused(false);
     }
   }, []);
 
@@ -129,6 +137,7 @@ export const useTTS = () => {
     resume,
     stop,
     isPlaying,
-    isLoading
+    isLoading,
+    isPaused
   };
 };

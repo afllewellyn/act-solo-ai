@@ -68,7 +68,7 @@ const Practice = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading } = useAuth();
   const { toast } = useToast();
-  const { speak, pause: pauseTTS, resume: resumeTTS, stop: stopTTS, isPlaying: isTTSPlaying, isLoading: isTTSLoading } = useTTS();
+  const { speak, pause: pauseTTS, resume: resumeTTS, stop: stopTTS, isPlaying: isTTSPlaying, isLoading: isTTSLoading, isPaused: isTTSPaused } = useTTS();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -277,12 +277,14 @@ const Practice = () => {
 
     // If currently playing, pause
     if (isTTSPlaying) {
+      console.log('TTS: Pausing playback');
       pauseTTS();
       return;
     }
 
-    // If paused (not loading and not playing), resume
-    if (!isTTSLoading && !isTTSPlaying) {
+    // If paused, resume
+    if (isTTSPaused) {
+      console.log('TTS: Resuming playback');
       resumeTTS();
       return;
     }
@@ -730,9 +732,9 @@ const Practice = () => {
                        aria-label={isTTSPlaying ? 'Pause speech' : 'Start speech'}
                      >
                        {isTTSPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                       <span className="ml-1">
-                         {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : 'Speak')}
-                       </span>
+                        <span className="ml-1">
+                          {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
+                        </span>
                      </Button>
                     </div>
                   </div>
@@ -865,9 +867,9 @@ const Practice = () => {
                        aria-label={isTTSPlaying ? 'Pause speech' : 'Start speech'}
                      >
                        {isTTSPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                       <span className="ml-1 hidden lg:inline">
-                         {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : 'Speak')}
-                       </span>
+                        <span className="ml-1 hidden lg:inline">
+                          {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
+                        </span>
                      </Button>
                     </div>
                   </div>
