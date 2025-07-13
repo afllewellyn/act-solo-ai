@@ -4,6 +4,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface TTSOptions {
   voiceId?: string;
+  playbackSpeed?: number;
   onWordSpoken?: (wordIndex: number) => void;
   onComplete?: () => void;
 }
@@ -60,6 +61,12 @@ export const useTTS = () => {
         }
         
         audioRef.current = new Audio(audioUrl);
+        
+        // Set playback speed if specified
+        if (options.playbackSpeed && options.playbackSpeed !== 1) {
+          audioRef.current.playbackRate = options.playbackSpeed;
+        }
+        
         audioRef.current.onplay = () => {
           console.log('TTS: Audio playback started');
           setIsPlaying(true);

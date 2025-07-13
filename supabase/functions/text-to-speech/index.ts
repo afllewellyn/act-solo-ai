@@ -64,10 +64,10 @@ serve(async (req) => {
     const cleanApiKey = apiKey.trim()
     console.log(`[${timestamp}] After trim - Length: ${cleanApiKey.length}, Same as original: ${apiKey === cleanApiKey}`)
 
-    const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voice_id, {
+    const response = await fetch(`https://api.elevenlabs.io/v1/text-to-speech/${voice_id}/with-timestamps`, {
       method: 'POST',
       headers: {
-        'Accept': 'audio/mpeg',
+        'Accept': 'application/json',
         'Content-Type': 'application/json',
         'xi-api-key': cleanApiKey,
       },
@@ -100,19 +100,18 @@ serve(async (req) => {
       }
     }
 
-    const audioBuffer = await response.arrayBuffer()
+    const responseData = await response.json()
     
-    if (audioBuffer.byteLength === 0) {
-      throw new Error('Empty audio response from ElevenLabs')
+    if (!responseData.audio_base64) {
+      throw new Error('No audio content in response from ElevenLabs')
     }
 
-    const base64Audio = btoa(String.fromCharCode(...new Uint8Array(audioBuffer)))
-    
-    console.log(`[${timestamp}] Successfully generated audio, size: ${audioBuffer.byteLength} bytes`)
+    console.log(`[${timestamp}] Successfully generated audio with timestamps`)
 
     return new Response(
       JSON.stringify({ 
-        audioContent: base64Audio,
+        audioContent: responseData.audio_base64,
+        timestamps: responseData.alignment || null,
         voiceId: voice_id,
         textLength: cleanText.length 
       }),

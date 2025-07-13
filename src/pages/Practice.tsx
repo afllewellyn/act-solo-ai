@@ -11,6 +11,7 @@ import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { InlineScriptEditor } from '@/components/InlineScriptEditor';
 import { useTTS } from '@/hooks/useTTS';
+import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useToast } from '@/hooks/use-toast';
 import { 
   Play, 
@@ -96,8 +97,22 @@ const Practice = () => {
   const [characters, setCharacters] = useState<Character[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
   const [textFilter, setTextFilter] = useState<TextFilter>('characters');
+  const [voiceActivated, setVoiceActivated] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
   
   const [scriptContent, setScriptContent] = useState('');
+
+  // Initialize speech recognition
+  const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition({
+    onWordMatch: (matchedWord) => {
+      console.log('Voice match detected:', matchedWord);
+      // Trigger next AI line
+      handleVoiceTriggeredTTS();
+    },
+    onError: (error) => {
+      console.error('Speech recognition error:', error);
+    }
+  });
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -348,6 +363,7 @@ const Practice = () => {
 
       await speak(textToSpeak, {
         voiceId: selectedVoice,
+        playbackSpeed: playbackSpeed,
         onWordSpoken: (wordIndex) => {
           // Optional: highlight current word
         },
@@ -423,6 +439,49 @@ const Practice = () => {
     });
     
     return dialogueLines.join(' ').trim();
+  };
+
+  const handleVoiceTriggeredTTS = async () => {
+    // Logic to determine and play the next AI line
+    if (!script?.content) return;
+    
+    try {
+      const textToSpeak = extractCharacterDialogue(script.content);
+      if (textToSpeak.trim()) {
+        await speak(textToSpeak, {
+          voiceId: selectedVoice,
+          playbackSpeed: playbackSpeed,
+          onComplete: () => {
+            console.log('Voice-triggered TTS completed');
+          }
+        });
+      }
+    } catch (error) {
+      console.error('Voice-triggered TTS error:', error);
+    }
+  };
+
+  const extractActorLines = (content: string): string[] => {
+    const lines = content.split('\n');
+    const actorLines: string[] = [];
+    
+    lines.forEach(line => {
+      const cleanLine = stripHtmlTags(line);
+      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      
+      if (characterMatch) {
+        const characterName = characterMatch[1].trim();
+        const dialogue = characterMatch[2].trim();
+        
+        // Check if character is assigned to actor (user role)
+        const character = characters.find(c => c.name === characterName);
+        if (character && character.isUserRole) {
+          actorLines.push(dialogue);
+        }
+      }
+    });
+    
+    return actorLines;
   };
 
   const handleScriptUpdate = (updatedContent: string) => {
@@ -733,7 +792,34 @@ const Practice = () => {
                           </DropdownMenuItem>
                         </div>
                       </DropdownMenuContent>
-                    </DropdownMenu>
+                     </DropdownMenu>
+
+                     {/* Playback Speed Selector */}
+                     <DropdownMenu>
+                       <DropdownMenuTrigger asChild>
+                         <Button variant="outline" size="sm" className="flex-1 bg-background border-border" aria-label="Select playback speed">
+                           <Settings className="h-4 w-4" />
+                           <span className="ml-1">
+                             {playbackSpeed}x
+                           </span>
+                           <ChevronDown className="h-3 w-3 ml-1" />
+                         </Button>
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent className="w-40 bg-background border-border shadow-lg z-50">
+                         <div className="p-2">
+                           <p className="text-xs text-muted-foreground mb-2">Playback Speed:</p>
+                           {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((speed) => (
+                             <DropdownMenuItem
+                               key={speed}
+                               onClick={() => setPlaybackSpeed(speed)}
+                               className={`text-sm ${playbackSpeed === speed ? 'bg-accent' : ''}`}
+                             >
+                               {speed}x {speed === 1 ? '(Normal)' : ''}
+                             </DropdownMenuItem>
+                           ))}
+                         </div>
+                       </DropdownMenuContent>
+                     </DropdownMenu>
 
                      <Button
                        variant="outline"
@@ -748,8 +834,26 @@ const Practice = () => {
                           {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
                         </span>
                      </Button>
-                    </div>
-                  </div>
+                     </div>
+
+                     {/* Voice Activation Toggle */}
+                     <div className="flex items-center gap-2 pt-2 border-t">
+                       <Label htmlFor="voice-activation" className="text-sm">
+                         Voice Activation:
+                       </Label>
+                       <Switch
+                         id="voice-activation"
+                         checked={voiceActivated}
+                         onCheckedChange={setVoiceActivated}
+                         disabled={!isSupported}
+                       />
+                       {isListening && (
+                         <span className="text-xs text-muted-foreground animate-pulse">
+                           Listening...
+                         </span>
+                       )}
+                     </div>
+                   </div>
                 </div>
 
                 {/* Desktop Layout: Single Row with Visual Separation */}
@@ -869,7 +973,34 @@ const Practice = () => {
                           </DropdownMenuItem>
                         </div>
                       </DropdownMenuContent>
-                    </DropdownMenu>
+                     </DropdownMenu>
+
+                     {/* Playback Speed Selector */}
+                     <DropdownMenu>
+                       <DropdownMenuTrigger asChild>
+                         <Button variant="outline" size="sm" className="min-w-0" aria-label="Select playback speed">
+                           <Settings className="h-4 w-4" />
+                           <span className="ml-1 hidden lg:inline">
+                             {playbackSpeed}x
+                           </span>
+                           <ChevronDown className="h-3 w-3 ml-1" />
+                         </Button>
+                       </DropdownMenuTrigger>
+                       <DropdownMenuContent className="w-40 bg-background border-border shadow-lg z-50">
+                         <div className="p-2">
+                           <p className="text-xs text-muted-foreground mb-2">Playback Speed:</p>
+                           {[0.5, 0.75, 1, 1.25, 1.5, 1.75, 2].map((speed) => (
+                             <DropdownMenuItem
+                               key={speed}
+                               onClick={() => setPlaybackSpeed(speed)}
+                               className={`text-sm ${playbackSpeed === speed ? 'bg-accent' : ''}`}
+                             >
+                               {speed}x {speed === 1 ? '(Normal)' : ''}
+                             </DropdownMenuItem>
+                           ))}
+                         </div>
+                       </DropdownMenuContent>
+                     </DropdownMenu>
 
                      <Button
                        variant="outline"
@@ -926,8 +1057,26 @@ const Practice = () => {
                         {isFullscreen ? 'Exit' : 'Full'}
                       </span>
                     </Button>
-                    </div>
-                  </div>
+                     </div>
+
+                     {/* Voice Activation Toggle */}
+                     <div className="flex items-center justify-center gap-2 pt-2 border-t">
+                       <Label htmlFor="voice-activation-desktop" className="text-sm">
+                         Voice Activation:
+                       </Label>
+                       <Switch
+                         id="voice-activation-desktop"
+                         checked={voiceActivated}
+                         onCheckedChange={setVoiceActivated}
+                         disabled={!isSupported}
+                       />
+                       {isListening && (
+                         <span className="text-xs text-muted-foreground animate-pulse">
+                           Listening...
+                         </span>
+                       )}
+                     </div>
+                   </div>
                 </div>
 
                 {/* Speed Control Slider */}
