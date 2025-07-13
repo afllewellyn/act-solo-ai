@@ -111,8 +111,36 @@ const Practice = () => {
     },
     onError: (error) => {
       console.error('Speech recognition error:', error);
+      toast({
+        title: "Voice Recognition Error",
+        description: error,
+        variant: "destructive",
+      });
     }
   });
+
+  // Request microphone access when voice activation is enabled
+  useEffect(() => {
+    if (voiceActivated && isSupported) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => {
+          console.log('Microphone access granted');
+          toast({
+            title: "Voice Activation Ready",
+            description: "Microphone access granted. Speak the last word of your lines to trigger AI responses.",
+          });
+        })
+        .catch((error) => {
+          console.error('Microphone access denied:', error);
+          setVoiceActivated(false);
+          toast({
+            title: "Microphone Access Required",
+            description: "Please allow microphone access to use voice activation.",
+            variant: "destructive",
+          });
+        });
+    }
+  }, [voiceActivated, isSupported]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -443,11 +471,42 @@ const Practice = () => {
 
   const handleVoiceTriggeredTTS = async () => {
     // Logic to determine and play the next AI line
-    if (!script?.content) return;
+    if (!script?.content || !voiceActivated) return;
     
     try {
-      const textToSpeak = extractCharacterDialogue(script.content);
-      if (textToSpeak.trim()) {
+      // Get lines from the script
+      const lines = script.content.split('\n').filter(line => line.trim());
+      
+      // Find AI lines (bold/italic text) that should be spoken
+      const aiLines: string[] = [];
+      
+      lines.forEach(line => {
+        const cleanLine = stripHtmlTags(line).trim();
+        const hasFormatting = line.includes('<b>') || line.includes('<strong>') || 
+                             line.includes('<i>') || line.includes('<em>');
+        
+        if (hasFormatting && cleanLine) {
+          // Check if this is a character line that should be read by AI
+          const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+          if (characterMatch) {
+            const characterName = characterMatch[1].trim();
+            const dialogue = characterMatch[2].trim();
+            
+            // Check if character should be spoken by AI
+            const character = characters.find(c => c.name === characterName);
+            if (!character || !character.isUserRole) {
+              aiLines.push(dialogue);
+            }
+          } else {
+            // Non-character formatted text should also be read
+            aiLines.push(cleanLine);
+          }
+        }
+      });
+      
+      // Speak the first available AI line
+      if (aiLines.length > 0) {
+        const textToSpeak = aiLines[0]; // For simplicity, speak the first AI line
         await speak(textToSpeak, {
           voiceId: selectedVoice,
           playbackSpeed: playbackSpeed,
@@ -628,14 +687,6 @@ const Practice = () => {
           <div className="absolute bottom-4 sm:bottom-6 left-4 right-4">
             <Card className="bg-background/95 backdrop-blur-sm">
               <CardContent className="p-3 sm:p-4">
-                {/* Role Assignment and Character Management */}
-                <div className="flex flex-wrap items-center justify-center gap-2 mb-4 pb-4 border-b">
-                  <RoleAssignmentDialog
-                    characters={characters}
-                    content={scriptContent}
-                    onRoleUpdate={handleRoleUpdate}
-                  />
-                </div>
 
                 {/* Mobile Layout: Stacked Controls */}
                 <div className="block sm:hidden space-y-4">
@@ -833,27 +884,27 @@ const Practice = () => {
                         <span className="ml-1">
                           {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
                         </span>
-                     </Button>
-                     </div>
+                      </Button>
+                      </div>
 
-                     {/* Voice Activation Toggle */}
-                     <div className="flex items-center gap-2 pt-2 border-t">
-                       <Label htmlFor="voice-activation" className="text-sm">
-                         Voice Activation:
-                       </Label>
-                       <Switch
-                         id="voice-activation"
-                         checked={voiceActivated}
-                         onCheckedChange={setVoiceActivated}
-                         disabled={!isSupported}
-                       />
-                       {isListening && (
-                         <span className="text-xs text-muted-foreground animate-pulse">
-                           Listening...
-                         </span>
-                       )}
-                     </div>
-                   </div>
+                      {/* Voice Activation Toggle - Under AI Reader Controls */}
+                      <div className="flex items-center justify-center gap-2 pt-2 border-t">
+                        <Label htmlFor="voice-activation" className="text-sm">
+                          Voice Activation:
+                        </Label>
+                        <Switch
+                          id="voice-activation"
+                          checked={voiceActivated}
+                          onCheckedChange={setVoiceActivated}
+                          disabled={!isSupported}
+                        />
+                        {isListening && (
+                          <span className="text-xs text-muted-foreground animate-pulse">
+                            Listening...
+                          </span>
+                        )}
+                      </div>
+                    </div>
                 </div>
 
                 {/* Desktop Layout: Single Row with Visual Separation */}
@@ -1013,70 +1064,70 @@ const Practice = () => {
                         <span className="ml-1 hidden lg:inline">
                           {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
                         </span>
-                     </Button>
-                    </div>
-                  </div>
-
-                  {/* Visual Separator */}
-                  <Separator orientation="vertical" className="h-12 mx-3" />
-
-                  {/* Screen and Text Sizing Section */}
-                  <div className="flex flex-col items-center gap-2">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Screen and Text Sizing
-                    </Label>
-                    <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
-                      aria-label="Decrease font size"
-                    >
-                      <Minus className="h-4 w-4" />
-                      <span className="ml-1 hidden lg:inline">Size</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
-                      aria-label="Increase font size"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span className="ml-1 hidden lg:inline">Size</span>
-                    </Button>
-
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={toggleFullscreen}
-                      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                    >
-                      {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                      <span className="ml-1 hidden md:inline">
-                        {isFullscreen ? 'Exit' : 'Full'}
-                      </span>
-                    </Button>
+                      </Button>
                      </div>
 
-                     {/* Voice Activation Toggle */}
-                     <div className="flex items-center justify-center gap-2 pt-2 border-t">
-                       <Label htmlFor="voice-activation-desktop" className="text-sm">
-                         Voice Activation:
-                       </Label>
-                       <Switch
-                         id="voice-activation-desktop"
-                         checked={voiceActivated}
-                         onCheckedChange={setVoiceActivated}
-                         disabled={!isSupported}
-                       />
-                       {isListening && (
-                         <span className="text-xs text-muted-foreground animate-pulse">
-                           Listening...
-                         </span>
-                       )}
-                     </div>
+                      {/* Voice Activation Toggle - Under AI Reader Controls */}
+                      <div className="flex items-center justify-center gap-2 pt-2 border-t">
+                        <Label htmlFor="voice-activation-desktop" className="text-sm">
+                          Voice Activation:
+                        </Label>
+                        <Switch
+                          id="voice-activation-desktop"
+                          checked={voiceActivated}
+                          onCheckedChange={setVoiceActivated}
+                          disabled={!isSupported}
+                        />
+                        {isListening && (
+                          <span className="text-xs text-muted-foreground animate-pulse">
+                            Listening...
+                          </span>
+                        )}
+                      </div>
                    </div>
+
+                   {/* Visual Separator */}
+                   <Separator orientation="vertical" className="h-12 mx-3" />
+
+                   {/* Screen and Text Sizing Section */}
+                   <div className="flex flex-col items-center gap-2">
+                     <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                       Screen and Text Sizing
+                     </Label>
+                     <div className="flex items-center gap-2">
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
+                       aria-label="Decrease font size"
+                     >
+                       <Minus className="h-4 w-4" />
+                       <span className="ml-1 hidden lg:inline">Size</span>
+                     </Button>
+
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
+                       aria-label="Increase font size"
+                     >
+                       <Plus className="h-4 w-4" />
+                       <span className="ml-1 hidden lg:inline">Size</span>
+                     </Button>
+
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={toggleFullscreen}
+                       aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                     >
+                       {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                       <span className="ml-1 hidden md:inline">
+                         {isFullscreen ? 'Exit' : 'Full'}
+                       </span>
+                     </Button>
+                      </div>
+                    </div>
                 </div>
 
                 {/* Speed Control Slider */}
