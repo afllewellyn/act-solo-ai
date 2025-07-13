@@ -528,24 +528,38 @@ const Practice = () => {
       {!isFullscreen && (
         <header className="border-b">
           <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-between">
-              <Breadcrumb>
-                <BreadcrumbList>
-                  <BreadcrumbItem>
-                    <BreadcrumbLink href="/">Scripts</BreadcrumbLink>
-                  </BreadcrumbItem>
-                  <BreadcrumbSeparator />
-                  <BreadcrumbItem>
-                    <BreadcrumbPage>Practice: {script.title}</BreadcrumbPage>
-                  </BreadcrumbItem>
-                </BreadcrumbList>
-              </Breadcrumb>
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <span className="hidden md:inline">Session: {formatTime(sessionTime)}</span>
-                <span className="md:hidden">⏱ {formatTime(sessionTime)}</span>
+            <div className="flex items-center justify-center gap-4 md:gap-8">
+              <div className="flex items-center gap-2">
+                <Breadcrumb>
+                  <BreadcrumbList>
+                    <BreadcrumbItem>
+                      <BreadcrumbLink href="/">Scripts</BreadcrumbLink>
+                    </BreadcrumbItem>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbPage className="truncate max-w-[120px] md:max-w-[200px]">
+                        {script.title}
+                      </BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </BreadcrumbList>
+                </Breadcrumb>
+              </div>
+              
+              {sessionTime > 0 && (
+                <div className="text-sm text-muted-foreground font-mono hidden sm:block">
+                  Session: {formatTime(sessionTime)}
+                </div>
+              )}
+              
+              <div className="flex items-center gap-2 md:gap-4">
                 <ThemeToggle />
-                <Button variant="ghost" size="sm" onClick={() => navigate('/')}>
-                  <ArrowLeft className="h-4 w-4 mr-1" />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => navigate('/')}
+                  className="gap-2"
+                >
+                  <ArrowLeft className="h-4 w-4" />
                   <span className="hidden sm:inline">Back</span>
                 </Button>
               </div>
