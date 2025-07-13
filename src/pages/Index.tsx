@@ -41,7 +41,7 @@ const Index = () => {
   };
   return <div className="min-h-screen bg-background">
       <header className="border-b">
-        <div className="container flex items-center justify-center gap-4 sm:gap-8 my-[8px] mx-0 py-[18px] px-[25px]">
+        <div className="container flex items-center justify-center gap-4 sm:gap-8 my-[8px] mx-0 py-[18px] px-[20px]">
           <h1 className="text-xl sm:text-2xl font-semibold">ActSolo.AI</h1>
           <span className="text-sm text-muted-foreground hidden sm:inline flex-1 text-center">
             Welcome, {user.email}
