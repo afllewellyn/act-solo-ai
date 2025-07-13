@@ -42,7 +42,7 @@ const Index = () => {
   return <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container flex items-center justify-between my-[8px] mx-0 py-[18px] px-[25px]">
-          <h1 className="text-xl mx-[5px] px-[5px] sm:text-2xl font-semibold text-left">ActSolo: Rehearse with AI Teleprompter</h1>
+          <h1 className="text-xl sm:text-2xl font-semibold text-left mx-[5px] px-[9px]">ActSoloAI: Rehearse with AI Teleprompter</h1>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground hidden sm:inline">
               Welcome, {user.email}
