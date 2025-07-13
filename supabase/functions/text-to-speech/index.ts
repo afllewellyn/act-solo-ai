@@ -50,7 +50,11 @@ serve(async (req) => {
       throw new Error('ElevenLabs API key not configured')
     }
     
-    // Log first/last 4 characters for debugging (never log full key)
+    // TEMPORARY: Log full key with delimiters to check for encoding issues
+    console.log(`[${timestamp}] Full API key with delimiters: [START]${apiKey}[END]`)
+    console.log(`[${timestamp}] API key bytes:`, Array.from(new TextEncoder().encode(apiKey)))
+    
+    // Log first/last 4 characters for debugging
     const keyPreview = apiKey.length > 8 
       ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`
       : '[too short]'
@@ -58,6 +62,7 @@ serve(async (req) => {
     
     // Trim any whitespace that might cause issues
     const cleanApiKey = apiKey.trim()
+    console.log(`[${timestamp}] After trim - Length: ${cleanApiKey.length}, Same as original: ${apiKey === cleanApiKey}`)
 
     const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voice_id, {
       method: 'POST',
