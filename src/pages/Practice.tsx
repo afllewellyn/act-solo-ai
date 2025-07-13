@@ -167,9 +167,13 @@ const Practice = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.code === 'Space') {
+      if (e.code === 'Space' && !e.shiftKey) {
         e.preventDefault();
         handlePlayPause();
+      } else if (e.code === 'Space' && e.shiftKey) {
+        // Shift+Space for TTS
+        e.preventDefault();
+        handleTTSPlay();
       } else if (e.code === 'KeyR') {
         e.preventDefault();
         handleReset();
@@ -178,7 +182,7 @@ const Practice = () => {
         toggleFullscreen();
       } else if (e.code === 'ArrowUp') {
         e.preventDefault();
-        setScrollSpeed([Math.min(10, scrollSpeed[0] + 0.5)]);
+        setScrollSpeed([Math.min(5, scrollSpeed[0] + 0.5)]);
       } else if (e.code === 'ArrowDown') {
         e.preventDefault();
         setScrollSpeed([Math.max(0.5, scrollSpeed[0] - 0.5)]);
@@ -187,7 +191,7 @@ const Practice = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [scrollSpeed, isPlaying]);
+  }, [scrollSpeed, isPlaying, isTTSPlaying]);
 
   const fetchScript = async () => {
     try {
@@ -270,6 +274,18 @@ const Practice = () => {
 
   const handleTTSPlay = async () => {
     if (!script?.content) return;
+
+    // If currently playing, pause
+    if (isTTSPlaying) {
+      pauseTTS();
+      return;
+    }
+
+    // If paused (not loading and not playing), resume
+    if (!isTTSLoading && !isTTSPlaying) {
+      resumeTTS();
+      return;
+    }
     
     console.log('TTS: Starting speech generation for text length:', script.content.length);
     
@@ -383,6 +399,11 @@ const Practice = () => {
   };
 
   const handleScriptUpdate = (updatedContent: string) => {
+    // Auto-stop TTS when script is edited
+    if (isTTSPlaying) {
+      stopTTS();
+    }
+    
     setScriptContent(updatedContent);
     if (script) {
       setScript({ ...script, content: updatedContent });
@@ -700,19 +721,19 @@ const Practice = () => {
                       </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleTTSPlay}
-                      disabled={isTTSLoading}
-                      className="flex-1"
-                      aria-label="Speak text using text-to-speech"
-                    >
-                      <Play className="h-4 w-4" />
-                      <span className="ml-1">
-                        {isTTSLoading ? 'Loading...' : 'Speak'}
-                      </span>
-                    </Button>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={handleTTSPlay}
+                       disabled={isTTSLoading}
+                       className="flex-1"
+                       aria-label={isTTSPlaying ? 'Pause speech' : 'Start speech'}
+                     >
+                       {isTTSPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                       <span className="ml-1">
+                         {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : 'Speak')}
+                       </span>
+                     </Button>
                     </div>
                   </div>
                 </div>
@@ -836,18 +857,18 @@ const Practice = () => {
                       </DropdownMenuContent>
                     </DropdownMenu>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleTTSPlay}
-                      disabled={isTTSLoading}
-                      aria-label="Speak text using text-to-speech"
-                    >
-                      <Play className="h-4 w-4" />
-                      <span className="ml-1 hidden lg:inline">
-                        {isTTSLoading ? 'Loading...' : 'Speak'}
-                      </span>
-                    </Button>
+                     <Button
+                       variant="outline"
+                       size="sm"
+                       onClick={handleTTSPlay}
+                       disabled={isTTSLoading}
+                       aria-label={isTTSPlaying ? 'Pause speech' : 'Start speech'}
+                     >
+                       {isTTSPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                       <span className="ml-1 hidden lg:inline">
+                         {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : 'Speak')}
+                       </span>
+                     </Button>
                     </div>
                   </div>
 
@@ -908,9 +929,9 @@ const Practice = () => {
                       className="w-full"
                     />
                   </div>
-                  <span className="text-sm text-muted-foreground w-12 text-center font-mono">
-                    {fontSize[0]}px
-                  </span>
+                   <span className="text-sm text-muted-foreground w-12 text-center font-mono">
+                     {scrollSpeed[0]}x
+                   </span>
                 </div>
               </CardContent>
             </Card>
@@ -921,9 +942,16 @@ const Practice = () => {
       {/* Keyboard Shortcuts Help */}
       {!isFullscreen && (
         <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm p-2 rounded border max-w-xs">
-          <div className="hidden sm:block">Space: Play/Pause • R: Reset • F: Fullscreen</div>
+          <div className="hidden sm:block">Space: Play/Pause • Shift+Space: TTS • R: Reset • F: Fullscreen</div>
           <div className="hidden sm:block">↑/↓: Speed • Mouse: Manual scroll</div>
-          <div className="sm:hidden">Space: Play • R: Reset • F: Full</div>
+          <div className="sm:hidden">Space: Play • Shift+Space: TTS • R: Reset • F: Full</div>
+        </div>
+      )}
+
+      {/* TTS Visual Indicator */}
+      {isTTSPlaying && (
+        <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse z-50">
+          🔊 AI Reading...
         </div>
       )}
     </div>
