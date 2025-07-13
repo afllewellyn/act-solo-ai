@@ -26,6 +26,7 @@ import {
   ChevronDown,
   Filter
 } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Breadcrumb,
@@ -535,172 +536,300 @@ const Practice = () => {
                 {/* Script Management Row */}
                 <div className="flex flex-wrap items-center justify-center gap-2 mb-4 pb-4 border-b">
                   {script && (
-                    <>
-                      <ScriptEditor
-                        script={script}
-                        onScriptUpdate={handleScriptUpdate}
-                      />
-                      <RoleAssignmentDialog
-                        characters={characters}
-                        onRoleUpdate={handleRoleUpdate}
-                        content={scriptContent}
-                      />
-                    </>
+                    <ScriptEditor
+                      script={script}
+                      onScriptUpdate={handleScriptUpdate}
+                    />
                   )}
                 </div>
 
-                {/* Control Buttons - Evenly Distributed */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 sm:gap-3">
-                  {/* Basic Controls */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handlePlayPause}
-                    className="flex-1"
-                  >
-                    {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                    <span className="ml-1 hidden sm:inline">
-                      {isPlaying ? 'Pause' : 'Play'}
-                    </span>
-                  </Button>
-                  
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleReset}
-                    className="flex-1"
-                  >
-                    <RotateCcw className="h-4 w-4" />
-                    <span className="ml-1 hidden sm:inline">Reset</span>
-                  </Button>
+                {/* Mobile Layout: Stacked Controls */}
+                <div className="block sm:hidden space-y-4">
+                  {/* Main Playback Controls */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePlayPause}
+                      className="flex-1"
+                      aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
+                    >
+                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      <span className="ml-1">{isPlaying ? 'Pause' : 'Play'}</span>
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReset}
+                      className="flex-1"
+                      aria-label="Reset playback to beginning"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      <span className="ml-1">Reset</span>
+                    </Button>
 
-                  {/* Voice Selection Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1 bg-background border-border">
-                        <Volume2 className="h-4 w-4" />
-                        <span className="ml-1 hidden sm:inline truncate">
-                          {voices.find(v => v.id === selectedVoice)?.name || 'Voice'}
-                        </span>
-                        <ChevronDown className="h-3 w-3 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-56 bg-background border-border shadow-lg z-50">
-                      <div className="p-2">
-                        <p className="text-xs text-muted-foreground mb-2">Select Voice:</p>
-                        {voices.length > 0 ? (
-                          voices.slice(0, 10).map((voice) => (
-                            <DropdownMenuItem
-                              key={voice.id}
-                              onClick={() => setSelectedVoice(voice.id)}
-                              className={`text-sm ${selectedVoice === voice.id ? 'bg-accent' : ''}`}
-                            >
-                              {voice.name} ({voice.gender})
-                            </DropdownMenuItem>
-                          ))
-                        ) : (
-                          <DropdownMenuItem disabled>
-                            Loading voices...
-                          </DropdownMenuItem>
-                        )}
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* Text Filter Dropdown */}
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1 bg-background border-border">
-                        <Filter className="h-4 w-4" />
-                        <span className="ml-1 hidden sm:inline capitalize">
-                          {textFilter}
-                        </span>
-                        <ChevronDown className="h-3 w-3 ml-1" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent className="w-48 bg-background border-border shadow-lg z-50">
-                      <div className="p-2">
-                        <p className="text-xs text-muted-foreground mb-2">Read:</p>
-                        <DropdownMenuItem
-                          onClick={() => setTextFilter('characters')}
-                          className={`text-sm ${textFilter === 'characters' ? 'bg-accent' : ''}`}
-                        >
-                          Character Dialogue Only
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setTextFilter('all')}
-                          className={`text-sm ${textFilter === 'all' ? 'bg-accent' : ''}`}
-                        >
-                          All Text
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setTextFilter('bold')}
-                          className={`text-sm ${textFilter === 'bold' ? 'bg-accent' : ''}`}
-                        >
-                          Bold Text Only
-                        </DropdownMenuItem>
-                        <DropdownMenuItem
-                          onClick={() => setTextFilter('italic')}
-                          className={`text-sm ${textFilter === 'italic' ? 'bg-accent' : ''}`}
-                        >
-                          Italic Text Only
-                        </DropdownMenuItem>
-                      </div>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  {/* TTS Play Button */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleTTSPlay}
-                    disabled={isTTSLoading}
-                    className="flex-1"
-                  >
-                    <Play className="h-4 w-4" />
-                    <span className="ml-1 hidden sm:inline">
-                      {isTTSLoading ? 'Loading...' : 'Speak'}
-                    </span>
-                  </Button>
-
-                  {/* Font Size Controls */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
-                    className="flex-1"
-                  >
-                    <Minus className="h-4 w-4" />
-                    <span className="ml-1 hidden lg:inline">Size</span>
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
-                    className="flex-1"
-                  >
-                    <Plus className="h-4 w-4" />
-                    <span className="ml-1 hidden lg:inline">Size</span>
-                  </Button>
-
-                  {/* Speed Display */}
-                  <div className="flex items-center justify-center px-2 py-1 bg-muted rounded text-sm">
-                    <span className="font-mono">{scrollSpeed[0]}x</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleFullscreen}
+                      className="flex-1"
+                      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                    >
+                      {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                      <span className="ml-1">{isFullscreen ? 'Exit' : 'Full'}</span>
+                    </Button>
                   </div>
 
-                  {/* Fullscreen Toggle */}
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={toggleFullscreen}
-                    className="flex-1"
-                  >
-                    {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                    <span className="ml-1 hidden sm:inline">
-                      {isFullscreen ? 'Exit' : 'Full'}
-                    </span>
-                  </Button>
+                  {/* AI Voice Controls */}
+                  <div className="flex items-center gap-2 mt-6">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex-1 bg-background border-border" aria-label="Select voice for text-to-speech">
+                          <Volume2 className="h-4 w-4" />
+                          <span className="ml-1 truncate">
+                            {voices.find(v => v.id === selectedVoice)?.name || 'Voice'}
+                          </span>
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56 bg-background border-border shadow-lg z-50">
+                        <div className="p-2">
+                          <p className="text-xs text-muted-foreground mb-2">Select Voice:</p>
+                          {voices.length > 0 ? (
+                            voices.slice(0, 10).map((voice) => (
+                              <DropdownMenuItem
+                                key={voice.id}
+                                onClick={() => setSelectedVoice(voice.id)}
+                                className={`text-sm ${selectedVoice === voice.id ? 'bg-accent' : ''}`}
+                              >
+                                {voice.name} ({voice.gender})
+                              </DropdownMenuItem>
+                            ))
+                          ) : (
+                            <DropdownMenuItem disabled>
+                              Loading voices...
+                            </DropdownMenuItem>
+                          )}
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex-1 bg-background border-border" aria-label="Select text filter for reading">
+                          <Filter className="h-4 w-4" />
+                          <span className="ml-1 capitalize">
+                            {textFilter}
+                          </span>
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-48 bg-background border-border shadow-lg z-50">
+                        <div className="p-2">
+                          <p className="text-xs text-muted-foreground mb-2">Read:</p>
+                          <DropdownMenuItem
+                            onClick={() => setTextFilter('characters')}
+                            className={`text-sm ${textFilter === 'characters' ? 'bg-accent' : ''}`}
+                          >
+                            Character Dialogue Only
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setTextFilter('all')}
+                            className={`text-sm ${textFilter === 'all' ? 'bg-accent' : ''}`}
+                          >
+                            All Text
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setTextFilter('bold')}
+                            className={`text-sm ${textFilter === 'bold' ? 'bg-accent' : ''}`}
+                          >
+                            Bold Text Only
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setTextFilter('italic')}
+                            className={`text-sm ${textFilter === 'italic' ? 'bg-accent' : ''}`}
+                          >
+                            Italic Text Only
+                          </DropdownMenuItem>
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTTSPlay}
+                      disabled={isTTSLoading}
+                      className="flex-1"
+                      aria-label="Speak text using text-to-speech"
+                    >
+                      <Play className="h-4 w-4" />
+                      <span className="ml-1">
+                        {isTTSLoading ? 'Loading...' : 'Speak'}
+                      </span>
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Desktop Layout: Single Row with Visual Separation */}
+                <div className="hidden sm:flex items-center gap-4">
+                  {/* Playback Controls Group */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handlePlayPause}
+                      aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
+                    >
+                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      <span className="ml-1 hidden md:inline">
+                        {isPlaying ? 'Pause' : 'Play'}
+                      </span>
+                    </Button>
+                    
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReset}
+                      aria-label="Reset playback to beginning"
+                    >
+                      <RotateCcw className="h-4 w-4" />
+                      <span className="ml-1 hidden md:inline">Reset</span>
+                    </Button>
+
+                    {/* Speed Display */}
+                    <div className="flex items-center justify-center px-3 py-1 bg-muted rounded text-sm">
+                      <span className="font-mono">{scrollSpeed[0]}x</span>
+                    </div>
+                  </div>
+
+                  {/* Visual Separator */}
+                  <Separator orientation="vertical" className="h-8 mx-2" />
+
+                  {/* AI Voice Controls Group */}
+                  <div className="flex items-center gap-2 flex-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="min-w-0" aria-label="Select voice for text-to-speech">
+                          <Volume2 className="h-4 w-4" />
+                          <span className="ml-1 hidden lg:inline truncate">
+                            {voices.find(v => v.id === selectedVoice)?.name || 'Voice'}
+                          </span>
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-56 bg-background border-border shadow-lg z-50">
+                        <div className="p-2">
+                          <p className="text-xs text-muted-foreground mb-2">Select Voice:</p>
+                          {voices.length > 0 ? (
+                            voices.slice(0, 10).map((voice) => (
+                              <DropdownMenuItem
+                                key={voice.id}
+                                onClick={() => setSelectedVoice(voice.id)}
+                                className={`text-sm ${selectedVoice === voice.id ? 'bg-accent' : ''}`}
+                              >
+                                {voice.name} ({voice.gender})
+                              </DropdownMenuItem>
+                            ))
+                          ) : (
+                            <DropdownMenuItem disabled>
+                              Loading voices...
+                            </DropdownMenuItem>
+                          )}
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="outline" size="sm" className="min-w-0" aria-label="Select text filter for reading">
+                          <Filter className="h-4 w-4" />
+                          <span className="ml-1 hidden lg:inline capitalize">
+                            {textFilter}
+                          </span>
+                          <ChevronDown className="h-3 w-3 ml-1" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent className="w-48 bg-background border-border shadow-lg z-50">
+                        <div className="p-2">
+                          <p className="text-xs text-muted-foreground mb-2">Read:</p>
+                          <DropdownMenuItem
+                            onClick={() => setTextFilter('characters')}
+                            className={`text-sm ${textFilter === 'characters' ? 'bg-accent' : ''}`}
+                          >
+                            Character Dialogue Only
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setTextFilter('all')}
+                            className={`text-sm ${textFilter === 'all' ? 'bg-accent' : ''}`}
+                          >
+                            All Text
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setTextFilter('bold')}
+                            className={`text-sm ${textFilter === 'bold' ? 'bg-accent' : ''}`}
+                          >
+                            Bold Text Only
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            onClick={() => setTextFilter('italic')}
+                            className={`text-sm ${textFilter === 'italic' ? 'bg-accent' : ''}`}
+                          >
+                            Italic Text Only
+                          </DropdownMenuItem>
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleTTSPlay}
+                      disabled={isTTSLoading}
+                      aria-label="Speak text using text-to-speech"
+                    >
+                      <Play className="h-4 w-4" />
+                      <span className="ml-1 hidden lg:inline">
+                        {isTTSLoading ? 'Loading...' : 'Speak'}
+                      </span>
+                    </Button>
+                  </div>
+
+                  {/* Secondary Controls */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
+                      aria-label="Decrease font size"
+                    >
+                      <Minus className="h-4 w-4" />
+                      <span className="ml-1 hidden lg:inline">Size</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
+                      aria-label="Increase font size"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span className="ml-1 hidden lg:inline">Size</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={toggleFullscreen}
+                      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                    >
+                      {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                      <span className="ml-1 hidden md:inline">
+                        {isFullscreen ? 'Exit' : 'Full'}
+                      </span>
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Speed Control Slider */}
