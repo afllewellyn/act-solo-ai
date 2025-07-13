@@ -63,6 +63,17 @@ interface Voice {
 
 type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
 
+// Default voices that work even if the API fails
+const defaultVoices: Voice[] = [
+  { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria', category: 'Generated', gender: 'Female', accent: 'American' },
+  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', category: 'Generated', gender: 'Male', accent: 'American' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', category: 'Generated', gender: 'Female', accent: 'American' },
+  { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura', category: 'Generated', gender: 'Female', accent: 'American' },
+  { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie', category: 'Generated', gender: 'Male', accent: 'American' },
+  { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George', category: 'Generated', gender: 'Male', accent: 'American' },
+  { id: 'asDeXBMC8hUkhqqL7agO', name: 'David', category: 'Generated', gender: 'Male', accent: 'American' },
+];
+
 const Practice = () => {
   const { scriptId } = useParams();
   const navigate = useNavigate();
@@ -105,14 +116,28 @@ const Practice = () => {
       
       if (error) {
         console.error('Error fetching voices:', error);
+        setVoices(defaultVoices);
         return;
       }
 
       if (data?.voices && data.voices.length > 0) {
-        setVoices(data.voices);
+        // Merge API voices with default voices, avoiding duplicates
+        const apiVoices = data.voices;
+        const mergedVoices = [...defaultVoices];
+        
+        apiVoices.forEach((apiVoice: Voice) => {
+          if (!defaultVoices.find(defaultVoice => defaultVoice.id === apiVoice.id)) {
+            mergedVoices.push(apiVoice);
+          }
+        });
+        
+        setVoices(mergedVoices);
+      } else {
+        setVoices(defaultVoices);
       }
     } catch (error) {
       console.error('Error loading voices:', error);
+      setVoices(defaultVoices);
     }
   };
 
