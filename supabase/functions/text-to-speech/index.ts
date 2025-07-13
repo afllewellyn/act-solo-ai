@@ -41,18 +41,30 @@ serve(async (req) => {
 
     console.log(`[${timestamp}] Processing TTS for voice: ${voice_id}, text length: ${cleanText.length}`)
 
-    // Validate API key
+    // Validate API key with detailed logging
     const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
+    console.log(`[${timestamp}] API Key check - Defined: ${!!apiKey}, Length: ${apiKey?.length || 0}`)
+    
     if (!apiKey) {
+      console.error(`[${timestamp}] ELEVENLABS_API_KEY environment variable not found`)
       throw new Error('ElevenLabs API key not configured')
     }
+    
+    // Log first/last 4 characters for debugging (never log full key)
+    const keyPreview = apiKey.length > 8 
+      ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}`
+      : '[too short]'
+    console.log(`[${timestamp}] Using API key: ${keyPreview}`)
+    
+    // Trim any whitespace that might cause issues
+    const cleanApiKey = apiKey.trim()
 
     const response = await fetch('https://api.elevenlabs.io/v1/text-to-speech/' + voice_id, {
       method: 'POST',
       headers: {
         'Accept': 'audio/mpeg',
         'Content-Type': 'application/json',
-        'xi-api-key': apiKey,
+        'xi-api-key': cleanApiKey,
       },
       body: JSON.stringify({
         text: cleanText,
