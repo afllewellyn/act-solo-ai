@@ -544,7 +544,7 @@ const Practice = () => {
                 </div>
 
                 {/* Mobile Layout: Stacked Controls */}
-                <div className="block sm:hidden space-y-4">
+                <div className="block sm:hidden space-y-3">
                   {/* Main Playback Controls */}
                   <div className="flex items-center gap-2">
                     <Button
@@ -567,6 +567,36 @@ const Practice = () => {
                     >
                       <RotateCcw className="h-4 w-4" />
                       <span className="ml-1">Reset</span>
+                    </Button>
+
+                    {/* Speed Display */}
+                    <div className="flex items-center justify-center px-2 py-1 bg-muted rounded text-sm min-w-[48px]">
+                      <span className="font-mono text-xs">{scrollSpeed[0]}x</span>
+                    </div>
+                  </div>
+
+                  {/* Font Size and Fullscreen Controls */}
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
+                      className="flex-1"
+                      aria-label="Decrease font size"
+                    >
+                      <Minus className="h-4 w-4" />
+                      <span className="ml-1">Size</span>
+                    </Button>
+
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
+                      className="flex-1"
+                      aria-label="Increase font size"
+                    >
+                      <Plus className="h-4 w-4" />
+                      <span className="ml-1">Size</span>
                     </Button>
 
                     <Button
