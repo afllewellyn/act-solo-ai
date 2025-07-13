@@ -544,75 +544,89 @@ const Practice = () => {
                 </div>
 
                 {/* Mobile Layout: Stacked Controls */}
-                <div className="block sm:hidden space-y-3">
-                  {/* Main Playback Controls */}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePlayPause}
-                      className="flex-1"
-                      aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
-                    >
-                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      <span className="ml-1">{isPlaying ? 'Pause' : 'Play'}</span>
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleReset}
-                      className="flex-1"
-                      aria-label="Reset playback to beginning"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      <span className="ml-1">Reset</span>
-                    </Button>
+                <div className="block sm:hidden space-y-4">
+                  {/* Rehearse Script Section */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Rehearse Script
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePlayPause}
+                        className="flex-1"
+                        aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
+                      >
+                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        <span className="ml-1">{isPlaying ? 'Pause' : 'Play'}</span>
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleReset}
+                        className="flex-1"
+                        aria-label="Reset playback to beginning"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        <span className="ml-1">Reset</span>
+                      </Button>
 
-                    {/* Speed Display */}
-                    <div className="flex items-center justify-center px-2 py-1 bg-muted rounded text-sm min-w-[48px]">
-                      <span className="font-mono text-xs">{scrollSpeed[0]}x</span>
+                      {/* Speed Display */}
+                      <div className="flex items-center justify-center px-2 py-1 bg-muted rounded text-sm min-w-[48px]">
+                        <span className="font-mono text-xs">{scrollSpeed[0]}x</span>
+                      </div>
                     </div>
                   </div>
 
-                  {/* Font Size and Fullscreen Controls */}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
-                      className="flex-1"
-                      aria-label="Decrease font size"
-                    >
-                      <Minus className="h-4 w-4" />
-                      <span className="ml-1">Size</span>
-                    </Button>
+                  {/* Screen and Text Sizing Section */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Screen and Text Sizing
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFontSize([Math.max(12, fontSize[0] - 2)])}
+                        className="flex-1"
+                        aria-label="Decrease font size"
+                      >
+                        <Minus className="h-4 w-4" />
+                        <span className="ml-1">Size</span>
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
-                      className="flex-1"
-                      aria-label="Increase font size"
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span className="ml-1">Size</span>
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setFontSize([Math.min(32, fontSize[0] + 2)])}
+                        className="flex-1"
+                        aria-label="Increase font size"
+                      >
+                        <Plus className="h-4 w-4" />
+                        <span className="ml-1">Size</span>
+                      </Button>
 
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={toggleFullscreen}
-                      className="flex-1"
-                      aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
-                    >
-                      {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-                      <span className="ml-1">{isFullscreen ? 'Exit' : 'Full'}</span>
-                    </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={toggleFullscreen}
+                        className="flex-1"
+                        aria-label={isFullscreen ? 'Exit fullscreen' : 'Enter fullscreen'}
+                      >
+                        {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
+                        <span className="ml-1">{isFullscreen ? 'Exit' : 'Full'}</span>
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* AI Voice Controls */}
-                  <div className="flex items-center gap-2 mt-6">
+                  {/* AI Reader Voice Selection Section */}
+                  <div className="space-y-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      AI Reader Voice Selection
+                    </Label>
+                    <div className="flex items-center gap-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="flex-1 bg-background border-border" aria-label="Select voice for text-to-speech">
@@ -699,46 +713,56 @@ const Practice = () => {
                         {isTTSLoading ? 'Loading...' : 'Speak'}
                       </span>
                     </Button>
+                    </div>
                   </div>
                 </div>
 
                 {/* Desktop Layout: Single Row with Visual Separation */}
-                <div className="hidden sm:flex items-center gap-4">
-                  {/* Playback Controls Group */}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handlePlayPause}
-                      aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
-                    >
-                      {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                      <span className="ml-1 hidden md:inline">
-                        {isPlaying ? 'Pause' : 'Play'}
-                      </span>
-                    </Button>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleReset}
-                      aria-label="Reset playback to beginning"
-                    >
-                      <RotateCcw className="h-4 w-4" />
-                      <span className="ml-1 hidden md:inline">Reset</span>
-                    </Button>
+                <div className="hidden sm:flex items-center gap-6">
+                  {/* Rehearse Script Section */}
+                  <div className="flex flex-col items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Rehearse Script
+                    </Label>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handlePlayPause}
+                        aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
+                      >
+                        {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                        <span className="ml-1 hidden md:inline">
+                          {isPlaying ? 'Pause' : 'Play'}
+                        </span>
+                      </Button>
+                      
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleReset}
+                        aria-label="Reset playback to beginning"
+                      >
+                        <RotateCcw className="h-4 w-4" />
+                        <span className="ml-1 hidden md:inline">Reset</span>
+                      </Button>
 
-                    {/* Speed Display */}
-                    <div className="flex items-center justify-center px-3 py-1 bg-muted rounded text-sm">
-                      <span className="font-mono">{scrollSpeed[0]}x</span>
+                      {/* Speed Display */}
+                      <div className="flex items-center justify-center px-3 py-1 bg-muted rounded text-sm">
+                        <span className="font-mono">{scrollSpeed[0]}x</span>
+                      </div>
                     </div>
                   </div>
 
                   {/* Visual Separator */}
-                  <Separator orientation="vertical" className="h-8 mx-2" />
+                  <Separator orientation="vertical" className="h-12 mx-3" />
 
-                  {/* AI Voice Controls Group */}
-                  <div className="flex items-center gap-2 flex-1">
+                  {/* AI Reader Voice Selection Section */}
+                  <div className="flex flex-col items-center gap-2 flex-1">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      AI Reader Voice Selection
+                    </Label>
+                    <div className="flex items-center gap-2">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="outline" size="sm" className="min-w-0" aria-label="Select voice for text-to-speech">
@@ -824,10 +848,18 @@ const Practice = () => {
                         {isTTSLoading ? 'Loading...' : 'Speak'}
                       </span>
                     </Button>
+                    </div>
                   </div>
 
-                  {/* Secondary Controls */}
-                  <div className="flex items-center gap-2">
+                  {/* Visual Separator */}
+                  <Separator orientation="vertical" className="h-12 mx-3" />
+
+                  {/* Screen and Text Sizing Section */}
+                  <div className="flex flex-col items-center gap-2">
+                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                      Screen and Text Sizing
+                    </Label>
+                    <div className="flex items-center gap-2">
                     <Button
                       variant="outline"
                       size="sm"
@@ -859,6 +891,7 @@ const Practice = () => {
                         {isFullscreen ? 'Exit' : 'Full'}
                       </span>
                     </Button>
+                    </div>
                   </div>
                 </div>
 
@@ -869,7 +902,7 @@ const Practice = () => {
                     <Slider
                       value={scrollSpeed}
                       onValueChange={setScrollSpeed}
-                      max={10}
+                      max={5}
                       min={0.5}
                       step={0.5}
                       className="w-full"
