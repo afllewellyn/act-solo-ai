@@ -108,6 +108,22 @@ export const useRehearsalMode = ({
     onStop();
   };
 
+  const advanceToNextLine = () => {
+    if (!isActive) return;
+    
+    setCurrentLineIndex(prevIndex => {
+      const newIndex = prevIndex + 1;
+      console.log(`Advanced from line ${prevIndex} to line ${newIndex}`);
+      
+      // Continue to next line after state update
+      setTimeout(() => {
+        if (isActive) playCurrentLine();
+      }, 100);
+      
+      return newIndex;
+    });
+  };
+
   const playCurrentLine = async () => {
     if (!isActive) {
       console.log('Rehearsal not active - stopping playCurrentLine');
@@ -175,31 +191,14 @@ export const useRehearsalMode = ({
               return;
             }
             console.log('AI finished speaking, advancing to next line');
-            // After AI speaks, advance to next line
-            setCurrentLineIndex(prev => prev + 1);
-            // Check what type the next line is
-            setTimeout(() => {
-              if (isActive) {
-                const nextLines = getScriptLines(scriptContent, characters, textFilter);
-                const nextIndex = currentLineIndex + 1;
-                if (nextIndex < nextLines.length) {
-                  const nextLine = nextLines[nextIndex];
-                  console.log(`Next line (${nextIndex}) is: ${nextLine.type}`);
-                  // If next line is actor, we'll wait for them in playCurrentLine
-                  // If next line is AI, we'll speak it in playCurrentLine
-                }
-                playCurrentLine();
-              }
-            }, 500);
+            // Use the helper function to avoid stale closure
+            advanceToNextLine();
           }
         });
       } else {
-        // Skip empty lines
+        // Skip empty lines - advance immediately
         console.log('Skipping empty AI line, moving to next');
-        setCurrentLineIndex(prev => prev + 1);
-        setTimeout(() => {
-          if (isActive) playCurrentLine();
-        }, 100);
+        advanceToNextLine();
       }
     }
   };
@@ -211,17 +210,10 @@ export const useRehearsalMode = ({
     }
     
     console.log('Actor finished speaking, moving to next line');
-    // Move to next line after actor response
-    setCurrentLineIndex(prev => prev + 1);
     stopListening();
     
-    // Continue with next line
-    setTimeout(() => {
-      if (isActive) {
-        console.log('Continuing to next line after actor response');
-        playCurrentLine();
-      }
-    }, 500);
+    // Use the same advance pattern to avoid stale closures
+    advanceToNextLine();
   };
 
   // Auto-start when activated
