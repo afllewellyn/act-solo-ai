@@ -118,46 +118,59 @@ export const useRehearsalMode = ({
   const getScriptLines = () => {
     if (!scriptContent) return [];
     
-    let contentToProcess = scriptContent;
+    const allLines = scriptContent.split('\n').filter(line => {
+      const cleanLine = stripHtmlTags(line).trim();
+      return cleanLine.length > 0;
+    });
     
-    // Apply text filter before processing lines
+    // For rehearsal mode, we need to preserve the actor/AI sequence
+    // But only include AI lines that match the text filter
+    return allLines.map(line => {
+      const cleanLine = stripHtmlTags(line).trim();
+      
+      // Check if this is a character line
+      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      
+      if (characterMatch) {
+        const characterName = characterMatch[1].trim();
+        const character = characters.find(c => c.name === characterName);
+        
+        if (character && character.isUserRole) {
+          // This is an actor line - always include it
+          return { type: 'actor', content: line, dialogue: characterMatch[2].trim() };
+        } else {
+          // This is an AI line - check if it should be included based on filter
+          const shouldInclude = checkLineMatchesFilter(line);
+          return shouldInclude ? { type: 'ai', content: line, dialogue: characterMatch[2].trim() } : null;
+        }
+      } else {
+        // Non-character line (stage direction, etc.) - check if it should be included
+        const shouldInclude = checkLineMatchesFilter(line);
+        return shouldInclude ? { type: 'ai', content: line, dialogue: cleanLine } : null;
+      }
+    }).filter(Boolean) as Array<{ type: 'actor' | 'ai'; content: string; dialogue: string }>; // Remove null entries
+  };
+  
+  // Helper function to check if a line matches the current text filter
+  const checkLineMatchesFilter = (line: string): boolean => {
     switch (textFilter) {
       case 'bold':
-        const boldText = extractFormattedText(scriptContent, 'bold');
-        if (!boldText) return [];
-        contentToProcess = boldText;
-        // For bold/italic filters, return as simple text lines (not character dialogue)
-        return contentToProcess.split('\n').filter(line => line.trim().length > 0);
-        
+        return extractFormattedText(line, 'bold').length > 0;
       case 'italic':
-        const italicText = extractFormattedText(scriptContent, 'italic');
-        if (!italicText) return [];
-        contentToProcess = italicText;
-        // For bold/italic filters, return as simple text lines (not character dialogue)
-        return contentToProcess.split('\n').filter(line => line.trim().length > 0);
-        
+        return extractFormattedText(line, 'italic').length > 0;
       case 'characters':
-        // Filter to only character dialogue lines, and only AI characters
-        return scriptContent.split('\n').filter(line => {
-          const cleanLine = stripHtmlTags(line).trim();
-          if (!cleanLine) return false;
-          
-          const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
-          if (characterMatch) {
-            const characterName = characterMatch[1].trim();
-            const character = characters.find(c => c.name === characterName);
-            return !character || !character.isUserRole; // Only AI characters
-          }
-          return false;
-        });
-        
+        // For characters filter, only include AI character lines
+        const cleanLine = stripHtmlTags(line).trim();
+        const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+        if (characterMatch) {
+          const characterName = characterMatch[1].trim();
+          const character = characters.find(c => c.name === characterName);
+          return !character || !character.isUserRole; // Only AI characters
+        }
+        return false;
       case 'all':
       default:
-        // Return all non-empty lines
-        return scriptContent.split('\n').filter(line => {
-          const cleanLine = stripHtmlTags(line).trim();
-          return cleanLine.length > 0;
-        });
+        return true; // Include all lines
     }
   };
 
@@ -211,49 +224,35 @@ export const useRehearsalMode = ({
       return;
     }
 
-    const line = lines[currentLineIndex];
-    const cleanLine = stripHtmlTags(line).trim();
+    const lineObj = lines[currentLineIndex];
     
-    // Check if this is a character line
-    const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
-    
-    if (characterMatch) {
-      const characterName = characterMatch[1].trim();
-      const dialogue = characterMatch[2].trim();
+    if (lineObj.type === 'actor') {
+      // Actor line - wait for actor to speak
+      console.log(`Waiting for actor line: ${lineObj.dialogue}`);
+      setWaitingForActor(true);
       
-      // Check if character should be spoken by AI
-      const character = characters.find(c => c.name === characterName);
-      if (!character || !character.isUserRole) {
-        // AI line - speak it
-        console.log(`AI speaking: ${characterName}: ${dialogue}`);
-        await speak(dialogue, {
-          voiceId: selectedVoice,
-          playbackSpeed: playbackSpeed,
-          onComplete: () => {
-            // After AI finishes, move to next line
-            setCurrentLineIndex(prev => prev + 1);
-            setTimeout(() => playCurrentLine(), 500); // Brief pause before next line
-          }
-        });
-      } else {
-        // Actor line - wait for actor to speak
-        console.log(`Waiting for actor line: ${characterName}: ${dialogue}`);
-        setWaitingForActor(true);
-        
-        // Start listening for actor's words
-        startListening(dialogue);
-        
-        // Set timeout for "still listening" indicator
-        const timeout = setTimeout(() => {
-          console.log('Still waiting for actor response...');
-          // Don't auto-advance - just continue listening
-        }, 10000);
-        setListeningTimeout(timeout);
-      }
+      // Start listening for actor's words
+      startListening(lineObj.dialogue);
+      
+      // Set timeout for "still listening" indicator
+      const timeout = setTimeout(() => {
+        console.log('Still waiting for actor response...');
+        // Don't auto-advance - just continue listening
+      }, 10000);
+      setListeningTimeout(timeout);
     } else {
-      // Formatted line (stage direction/narration) - speak it
-      console.log(`AI speaking narration: ${cleanLine}`);
-      await speak(cleanLine, {
+      // AI line - speak it
+      console.log(`AI speaking: ${lineObj.dialogue}`);
+      
+      // For bold/italic filters, extract the filtered text to speak
+      let textToSpeak = lineObj.dialogue;
+      if (textFilter === 'bold') {
+        textToSpeak = extractFormattedText(lineObj.content, 'bold');
+      } else if (textFilter === 'italic') {
+        textToSpeak = extractFormattedText(lineObj.content, 'italic');
+      }
+      
+      await speak(textToSpeak, {
         voiceId: selectedVoice,
         playbackSpeed: playbackSpeed,
         onComplete: () => {
