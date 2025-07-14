@@ -36,13 +36,18 @@ export const useRehearsalMode = ({
   const { isSupported, startListening, stopListening } = useSpeechRecognition({
     onWordMatch: (matchedWord) => {
       console.log('Voice match detected:', matchedWord);
-      if (isActive && waitingForActor) {
+      if (!isActive) {
+        console.log('Rehearsal not active - ignoring voice match');
+        return;
+      }
+      if (waitingForActor) {
+        console.log('Actor response detected, continuing rehearsal');
         // Clear the listening timeout
         if (listeningTimeout) {
           clearTimeout(listeningTimeout);
           setListeningTimeout(null);
         }
-        // Continue to next AI line
+        // Continue to next line
         setWaitingForActor(false);
         continueRehearsalAfterActorResponse();
       }
@@ -84,18 +89,30 @@ export const useRehearsalMode = ({
   };
 
   const stopRehearsalMode = () => {
+    console.log('Stopping rehearsal mode - clearing all operations');
+    
+    // Immediately set waiting state to false
     setWaitingForActor(false);
+    
+    // Clear all timeouts
     if (listeningTimeout) {
       clearTimeout(listeningTimeout);
       setListeningTimeout(null);
     }
+    
+    // Stop all audio/speech operations
     stopListening();
     stopTTS();
+    
+    // Call parent stop handler
     onStop();
   };
 
   const playCurrentLine = async () => {
-    if (!isActive) return; // Stop if rehearsal is not active
+    if (!isActive) {
+      console.log('Rehearsal not active - stopping playCurrentLine');
+      return;
+    }
 
     const lines = getScriptLines(scriptContent, characters, textFilter);
     if (currentLineIndex >= lines.length) {
@@ -109,6 +126,7 @@ export const useRehearsalMode = ({
     }
 
     const lineObj = lines[currentLineIndex];
+    console.log(`Processing line ${currentLineIndex}: ${lineObj.type} - "${lineObj.dialogue}"`);
     
     if (lineObj.type === 'actor') {
       // Actor line - wait for actor to speak
@@ -122,6 +140,7 @@ export const useRehearsalMode = ({
       
       // Set timeout for fallback (10 seconds)
       const timeout = setTimeout(() => {
+        if (!isActive) return; // Check if still active
         console.log('Timeout waiting for actor response - stopping');
         if (listeningTimeout) {
           clearTimeout(listeningTimeout);
@@ -151,17 +170,32 @@ export const useRehearsalMode = ({
           voiceId: selectedVoice,
           playbackSpeed: playbackSpeed,
           onComplete: () => {
-            if (!isActive) return; // Check if still active after speaking
-            // After AI finishes speaking, move to next line and wait for actor input
+            if (!isActive) {
+              console.log('Rehearsal stopped during TTS - aborting');
+              return;
+            }
+            console.log('AI finished speaking, advancing to next line');
+            // After AI speaks, advance to next line
             setCurrentLineIndex(prev => prev + 1);
-            // Don't automatically continue - wait for next actor response
+            // Check what type the next line is
             setTimeout(() => {
-              if (isActive) playCurrentLine();
+              if (isActive) {
+                const nextLines = getScriptLines(scriptContent, characters, textFilter);
+                const nextIndex = currentLineIndex + 1;
+                if (nextIndex < nextLines.length) {
+                  const nextLine = nextLines[nextIndex];
+                  console.log(`Next line (${nextIndex}) is: ${nextLine.type}`);
+                  // If next line is actor, we'll wait for them in playCurrentLine
+                  // If next line is AI, we'll speak it in playCurrentLine
+                }
+                playCurrentLine();
+              }
             }, 500);
           }
         });
       } else {
         // Skip empty lines
+        console.log('Skipping empty AI line, moving to next');
         setCurrentLineIndex(prev => prev + 1);
         setTimeout(() => {
           if (isActive) playCurrentLine();
@@ -171,15 +205,22 @@ export const useRehearsalMode = ({
   };
 
   const continueRehearsalAfterActorResponse = () => {
-    if (!isActive) return; // Only continue if rehearsal is still active
+    if (!isActive) {
+      console.log('Rehearsal not active - not continuing after actor response');
+      return;
+    }
     
+    console.log('Actor finished speaking, moving to next line');
     // Move to next line after actor response
     setCurrentLineIndex(prev => prev + 1);
     stopListening();
     
     // Continue with next line
     setTimeout(() => {
-      if (isActive) playCurrentLine();
+      if (isActive) {
+        console.log('Continuing to next line after actor response');
+        playCurrentLine();
+      }
     }, 500);
   };
 
