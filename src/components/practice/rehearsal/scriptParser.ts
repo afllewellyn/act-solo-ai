@@ -41,8 +41,8 @@ export const getScriptLines = (
     return cleanLine.length > 0;
   });
   
-  // For rehearsal mode, we need to preserve the actor/AI sequence
-  // But only include AI lines that match the text filter
+  // For rehearsal mode, we need to preserve ALL actor lines for proper listening sequence
+  // Only filter AI lines based on text filter
   return allLines.map(line => {
     const cleanLine = stripHtmlTags(line).trim();
     
@@ -54,7 +54,7 @@ export const getScriptLines = (
       const character = characters.find(c => c.name === characterName);
       
       if (character && character.isUserRole) {
-        // This is an actor line - always include it
+        // This is an actor line - ALWAYS include it for proper listening sequence
         return { type: 'actor' as const, content: line, dialogue: characterMatch[2].trim() };
       } else {
         // This is an AI line - check if it should be included based on filter
