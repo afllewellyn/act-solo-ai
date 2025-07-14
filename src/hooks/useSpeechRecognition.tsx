@@ -149,20 +149,14 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     
     const words = cleanText.split(' ').filter(word => word.length > 0);
     
-    // Return last 1-3 words for better matching
-    if (words.length >= 3) {
+    // Return last 2 words for better matching
+    if (words.length >= 2) {
       return [
-        words[words.length - 1], // Last word
-        words.slice(-2).join(' '), // Last 2 words
-        words.slice(-3).join(' ')  // Last 3 words
-      ];
-    } else if (words.length >= 2) {
-      return [
-        words[words.length - 1],
-        words.slice(-2).join(' ')
+        words.slice(-2).join(' '), // Last 2 words (primary target)
+        words[words.length - 1]    // Last word (fallback)
       ];
     } else {
-      return words;
+      return words; // Single word or empty
     }
   };
 
