@@ -16,11 +16,17 @@ interface Character {
  * Props for RehearsalMode hook
  * Manages interactive back-and-forth script rehearsal with voice recognition
  */
+/**
+ * Text filter options for selective script reading
+ */
+type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+
 interface RehearsalModeProps {
   scriptContent: string; // Full script content with HTML formatting
   characters: Character[]; // Character assignments for voice roles
   selectedVoice: string; // Default ElevenLabs voice for AI lines
   playbackSpeed: number; // TTS playback speed (0.5x - 2x)
+  textFilter: TextFilter; // Which parts of the script to read aloud
   isActive: boolean; // Whether rehearsal mode is currently active
   onComplete: () => void; // Callback when script rehearsal is finished
   onStop: () => void; // Callback when rehearsal is stopped/cancelled
@@ -41,6 +47,7 @@ export const useRehearsalMode = ({
   characters,
   selectedVoice,
   playbackSpeed,
+  textFilter,
   isActive,
   onComplete,
   onStop,
@@ -88,19 +95,70 @@ export const useRehearsalMode = ({
     return cleanText;
   };
 
-  // Parse script lines for rehearsal mode
+  // Extract formatted text (bold or italic)
+  const extractFormattedText = (content: string, format: 'bold' | 'italic'): string => {
+    const tempDiv = document.createElement('div');
+    tempDiv.innerHTML = content;
+    
+    const selector = format === 'bold' ? 'b, strong' : 'i, em';
+    const elements = tempDiv.querySelectorAll(selector);
+    
+    if (elements.length === 0) {
+      return '';
+    }
+    
+    return Array.from(elements)
+      .map(element => element.textContent || '')
+      .filter(text => text.trim().length > 0)
+      .join(' ')
+      .trim();
+  };
+
+  // Parse script lines for rehearsal mode with text filtering
   const getScriptLines = () => {
     if (!scriptContent) return [];
-    return scriptContent.split('\n').filter(line => {
-      const cleanLine = stripHtmlTags(line).trim();
-      if (!cleanLine) return false;
-      
-      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
-      const hasFormatting = line.includes('<b>') || line.includes('<strong>') || 
-                           line.includes('<i>') || line.includes('<em>');
-      
-      return characterMatch || hasFormatting;
-    });
+    
+    let contentToProcess = scriptContent;
+    
+    // Apply text filter before processing lines
+    switch (textFilter) {
+      case 'bold':
+        const boldText = extractFormattedText(scriptContent, 'bold');
+        if (!boldText) return [];
+        contentToProcess = boldText;
+        // For bold/italic filters, return as simple text lines (not character dialogue)
+        return contentToProcess.split('\n').filter(line => line.trim().length > 0);
+        
+      case 'italic':
+        const italicText = extractFormattedText(scriptContent, 'italic');
+        if (!italicText) return [];
+        contentToProcess = italicText;
+        // For bold/italic filters, return as simple text lines (not character dialogue)
+        return contentToProcess.split('\n').filter(line => line.trim().length > 0);
+        
+      case 'characters':
+        // Filter to only character dialogue lines, and only AI characters
+        return scriptContent.split('\n').filter(line => {
+          const cleanLine = stripHtmlTags(line).trim();
+          if (!cleanLine) return false;
+          
+          const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+          if (characterMatch) {
+            const characterName = characterMatch[1].trim();
+            const character = characters.find(c => c.name === characterName);
+            return !character || !character.isUserRole; // Only AI characters
+          }
+          return false;
+        });
+        
+      case 'all':
+      default:
+        // Return all non-empty lines
+        return scriptContent.split('\n').filter(line => {
+          const cleanLine = stripHtmlTags(line).trim();
+          return cleanLine.length > 0;
+        });
+    }
   };
 
   const startRehearsalMode = () => {

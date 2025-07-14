@@ -110,6 +110,7 @@ const Practice = () => {
     characters,
     selectedVoice,
     playbackSpeed,
+    textFilter,
     isActive: rehearsalMode,
     onComplete: () => setRehearsalMode(false),
     onStop: () => setRehearsalMode(false),
@@ -625,14 +626,6 @@ const Practice = () => {
         </div>
       </div>
 
-      {/* Keyboard Shortcuts Help */}
-      {!isFullscreen && (
-        <div className="fixed bottom-4 right-4 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm p-2 rounded border max-w-xs">
-          <div className="hidden sm:block">Space: Play/Pause • Shift+Space: TTS • R: Reset • F: Fullscreen</div>
-          <div className="hidden sm:block">↑/↓: Speed • Mouse: Manual scroll</div>
-          <div className="sm:hidden">Space: Play • Shift+Space: TTS • R: Reset • F: Full</div>
-        </div>
-      )}
 
       {/* TTS Visual Indicator */}
       {isTTSPlaying && (
