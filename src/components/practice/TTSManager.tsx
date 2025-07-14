@@ -1,22 +1,41 @@
 import { useTTS } from '@/hooks/useTTS';
 import { useToast } from '@/hooks/use-toast';
 
+/**
+ * Character data structure for script roles
+ */
 interface Character {
-  name: string;
-  voice: string;
-  isUserRole: boolean;
+  name: string; // Character name (must match script format: "NAME:")
+  voice: string; // Assigned ElevenLabs voice ID for this character
+  isUserRole: boolean; // Whether this character is played by the user (not AI)
 }
 
+/**
+ * Text filter options for selective script reading
+ */
 type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
 
+/**
+ * Props for TTSManager hook
+ * Manages text-to-speech functionality with filtering and character support
+ */
 interface TTSManagerProps {
-  scriptContent: string;
-  characters: Character[];
-  selectedVoice: string;
-  playbackSpeed: number;
-  textFilter: TextFilter;
+  scriptContent: string; // Full script content with HTML formatting
+  characters: Character[]; // Character assignments to determine AI vs user lines
+  selectedVoice: string; // ElevenLabs voice ID for TTS playback
+  playbackSpeed: number; // TTS playback speed (0.5x - 2x)
+  textFilter: TextFilter; // Which parts of the script to read aloud
 }
 
+/**
+ * useTTSManager Hook
+ * 
+ * Manages text-to-speech functionality for script reading. Supports different
+ * text filters (all text, bold only, italic only, character dialogue only) and
+ * handles HTML parsing, character filtering, and ElevenLabs TTS integration.
+ * 
+ * Provides play/pause/resume functionality with error handling and user feedback.
+ */
 export const useTTSManager = ({
   scriptContent,
   characters,

@@ -2,18 +2,29 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Play, Pause, RotateCcw, Plus, Minus, Maximize, Minimize } from 'lucide-react';
 
+/**
+ * Props for ScriptControls component
+ * Manages script playback, font sizing, and fullscreen controls
+ */
 interface ScriptControlsProps {
-  isPlaying: boolean;
-  scrollSpeed: number[];
-  fontSize: number[];
-  isFullscreen: boolean;
-  onPlayPause: () => void;
-  onReset: () => void;
-  onScrollSpeedChange: (speed: number[]) => void;
-  onFontSizeChange: (size: number[]) => void;
-  onToggleFullscreen: () => void;
+  isPlaying: boolean; // Whether script playback is currently active
+  scrollSpeed: number[]; // Current auto-scroll speed as array for slider compatibility
+  fontSize: number[]; // Current font size as array for slider compatibility  
+  isFullscreen: boolean; // Whether the view is in fullscreen mode
+  onPlayPause: () => void; // Callback to toggle script playback (rehearsal or TTS)
+  onReset: () => void; // Callback to reset playback to beginning
+  onScrollSpeedChange: (speed: number[]) => void; // Callback when scroll speed changes
+  onFontSizeChange: (size: number[]) => void; // Callback when font size changes (min: 12px, max: 32px)
+  onToggleFullscreen: () => void; // Callback to toggle fullscreen mode
 }
 
+/**
+ * ScriptControls Component
+ * 
+ * Provides controls for script rehearsal and viewing preferences.
+ * Includes play/pause/reset buttons for script playback, font size adjustment
+ * buttons (±2px increments), and fullscreen toggle functionality.
+ */
 export const ScriptControls = ({
   isPlaying,
   scrollSpeed,

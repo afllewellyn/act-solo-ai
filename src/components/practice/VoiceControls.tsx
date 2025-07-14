@@ -5,30 +5,47 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Volume2, ChevronDown, Filter } from 'lucide-react';
 
+/**
+ * Voice data structure for ElevenLabs TTS voices
+ */
 interface Voice {
-  id: string;
-  name: string;
-  category: string;
-  gender: string;
-  accent: string;
+  id: string; // ElevenLabs voice ID
+  name: string; // Display name for the voice
+  category: string; // Voice category/type
+  gender: string; // Voice gender
+  accent: string; // Voice accent/language
 }
 
+/**
+ * Text filter options for reading different parts of the script
+ */
 type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
 
+/**
+ * Props for VoiceControls component
+ * Manages AI voice selection, text filtering, playback speed, and voice activation
+ */
 interface VoiceControlsProps {
-  selectedVoice: string;
-  voices: Voice[];
-  textFilter: TextFilter;
-  voiceActivated: boolean;
-  playbackSpeed: number;
-  onVoiceChange: (voiceId: string) => void;
-  onTextFilterChange: (filter: TextFilter) => void;
-  onVoiceActivatedChange: (activated: boolean) => void;
-  onPlaybackSpeedChange: (speed: number) => void;
-  isPlaying: boolean;
-  onTTSPlay: () => void;
+  selectedVoice: string; // Currently selected ElevenLabs voice ID
+  voices: Voice[]; // Available voices from ElevenLabs API
+  textFilter: TextFilter; // Current text filter setting
+  voiceActivated: boolean; // Whether voice activation (rehearsal mode) is enabled
+  playbackSpeed: number; // TTS playback speed (0.5x - 2x)
+  onVoiceChange: (voiceId: string) => void; // Callback when voice selection changes
+  onTextFilterChange: (filter: TextFilter) => void; // Callback when text filter changes
+  onVoiceActivatedChange: (activated: boolean) => void; // Callback when voice activation toggles
+  onPlaybackSpeedChange: (speed: number) => void; // Callback when playback speed changes
+  isPlaying: boolean; // Whether TTS is currently playing
+  onTTSPlay: () => void; // Callback to start/stop TTS playback
 }
 
+/**
+ * VoiceControls Component
+ * 
+ * Provides controls for AI voice selection, text filtering, playback speed,
+ * and voice activation (rehearsal mode) toggle. Includes dropdown menus for
+ * voice selection and text filtering, plus a switch for voice activation.
+ */
 export const VoiceControls = ({
   selectedVoice,
   voices,
@@ -42,6 +59,7 @@ export const VoiceControls = ({
   isPlaying,
   onTTSPlay,
 }: VoiceControlsProps) => {
+  // Available text filter options for reading different parts of the script
   const filterOptions = [
     { value: 'all' as const, label: 'All Text' },
     { value: 'bold' as const, label: 'Bold Text Only' },
@@ -49,8 +67,8 @@ export const VoiceControls = ({
     { value: 'characters' as const, label: 'Character Dialogue' },
   ];
 
+  // Available playback speeds for TTS (0.5x to 2x)
   const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
-
   return (
     <div className="space-y-2">
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">

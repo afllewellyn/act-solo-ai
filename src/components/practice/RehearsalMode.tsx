@@ -3,22 +3,39 @@ import { useTTS } from '@/hooks/useTTS';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useToast } from '@/hooks/use-toast';
 
+/**
+ * Character data structure for script roles
+ */
 interface Character {
-  name: string;
-  voice: string;
-  isUserRole: boolean;
+  name: string; // Character name (must match script format: "NAME:")
+  voice: string; // Assigned ElevenLabs voice ID for this character
+  isUserRole: boolean; // Whether this character is played by the user (not AI)
 }
 
+/**
+ * Props for RehearsalMode hook
+ * Manages interactive back-and-forth script rehearsal with voice recognition
+ */
 interface RehearsalModeProps {
-  scriptContent: string;
-  characters: Character[];
-  selectedVoice: string;
-  playbackSpeed: number;
-  isActive: boolean;
-  onComplete: () => void;
-  onStop: () => void;
+  scriptContent: string; // Full script content with HTML formatting
+  characters: Character[]; // Character assignments for voice roles
+  selectedVoice: string; // Default ElevenLabs voice for AI lines
+  playbackSpeed: number; // TTS playback speed (0.5x - 2x)
+  isActive: boolean; // Whether rehearsal mode is currently active
+  onComplete: () => void; // Callback when script rehearsal is finished
+  onStop: () => void; // Callback when rehearsal is stopped/cancelled
 }
 
+/**
+ * useRehearsalMode Hook
+ * 
+ * Manages interactive script rehearsal with AI. Coordinates between AI speaking
+ * its assigned lines and waiting for the actor to speak their lines. Uses speech
+ * recognition to detect when the actor finishes speaking before continuing.
+ * 
+ * Flow: AI speaks → waits for actor → detects actor's voice → continues to next AI line
+ * Requires microphone access and handles timeouts/errors gracefully.
+ */
 export const useRehearsalMode = ({
   scriptContent,
   characters,
