@@ -202,7 +202,6 @@ export const useRehearsalMode = ({
 
   const stopRehearsalMode = () => {
     setWaitingForActor(false);
-    setCurrentLineIndex(0);
     if (listeningTimeout) {
       clearTimeout(listeningTimeout);
       setListeningTimeout(null);
@@ -213,6 +212,8 @@ export const useRehearsalMode = ({
   };
 
   const playCurrentLine = async () => {
+    if (!isActive) return; // Stop if rehearsal is not active
+
     const lines = getScriptLines();
     if (currentLineIndex >= lines.length) {
       // Rehearsal complete
@@ -231,17 +232,27 @@ export const useRehearsalMode = ({
       console.log(`Waiting for actor line: ${lineObj.dialogue}`);
       setWaitingForActor(true);
       
-      // Start listening for actor's words
-      startListening(lineObj.dialogue);
+      // Start listening for actor's words (last 1-2 words)
+      const words = lineObj.dialogue.trim().split(/\s+/);
+      const lastWords = words.slice(-2).join(' '); // Get last 2 words
+      startListening(lastWords);
       
-      // Set timeout for "still listening" indicator
+      // Set timeout for fallback (10 seconds)
       const timeout = setTimeout(() => {
-        console.log('Still waiting for actor response...');
-        // Don't auto-advance - just continue listening
+        console.log('Timeout waiting for actor response - stopping');
+        if (listeningTimeout) {
+          clearTimeout(listeningTimeout);
+          setListeningTimeout(null);
+        }
+        setWaitingForActor(false);
+        stopListening();
+        // Don't auto-advance - just stop and wait
       }, 10000);
       setListeningTimeout(timeout);
     } else {
-      // AI line - speak it
+      // AI line - speak it only if rehearsal is still active
+      if (!isActive) return;
+      
       console.log(`AI speaking: ${lineObj.dialogue}`);
       
       // For bold/italic filters, extract the filtered text to speak
@@ -252,25 +263,41 @@ export const useRehearsalMode = ({
         textToSpeak = extractFormattedText(lineObj.content, 'italic');
       }
       
-      await speak(textToSpeak, {
-        voiceId: selectedVoice,
-        playbackSpeed: playbackSpeed,
-        onComplete: () => {
-          // After AI finishes, move to next line
-          setCurrentLineIndex(prev => prev + 1);
-          setTimeout(() => playCurrentLine(), 500); // Brief pause before next line
-        }
-      });
+      if (textToSpeak.trim()) {
+        await speak(textToSpeak, {
+          voiceId: selectedVoice,
+          playbackSpeed: playbackSpeed,
+          onComplete: () => {
+            if (!isActive) return; // Check if still active after speaking
+            // After AI finishes speaking, move to next line and wait for actor input
+            setCurrentLineIndex(prev => prev + 1);
+            // Don't automatically continue - wait for next actor response
+            setTimeout(() => {
+              if (isActive) playCurrentLine();
+            }, 500);
+          }
+        });
+      } else {
+        // Skip empty lines
+        setCurrentLineIndex(prev => prev + 1);
+        setTimeout(() => {
+          if (isActive) playCurrentLine();
+        }, 100);
+      }
     }
   };
 
   const continueRehearsalAfterActorResponse = () => {
+    if (!isActive) return; // Only continue if rehearsal is still active
+    
     // Move to next line after actor response
     setCurrentLineIndex(prev => prev + 1);
     stopListening();
     
     // Continue with next line
-    setTimeout(() => playCurrentLine(), 500); // Brief pause before next line
+    setTimeout(() => {
+      if (isActive) playCurrentLine();
+    }, 500);
   };
 
   // Auto-start when activated
