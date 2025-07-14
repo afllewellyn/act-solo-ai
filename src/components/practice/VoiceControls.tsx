@@ -69,11 +69,14 @@ export const VoiceControls = ({
 
   // Available playback speeds for TTS (0.5x to 2x)
   const speedOptions = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2];
+  
   return (
-    <div className="space-y-2">
+    <div className="space-y-3">
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
         AI Reader Voice Selection
       </Label>
+      
+      {/* Voice and Filter Controls */}
       <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -104,27 +107,6 @@ export const VoiceControls = ({
               ) : (
                 <div className="p-2 text-xs text-muted-foreground">No voices available</div>
               )}
-            </div>
-            
-            <DropdownMenuSeparator />
-            
-            <div className="p-2">
-              <p className="text-xs text-muted-foreground mb-2">Playback Speed:</p>
-              <div className="grid grid-cols-4 gap-1">
-                {speedOptions.map((speed) => (
-                  <button
-                    key={speed}
-                    onClick={() => onPlaybackSpeedChange(speed)}
-                    className={`text-xs px-2 py-1 rounded transition-colors ${
-                      playbackSpeed === speed 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'bg-muted hover:bg-accent'
-                    }`}
-                  >
-                    {speed}x
-                  </button>
-                ))}
-              </div>
             </div>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -164,6 +146,24 @@ export const VoiceControls = ({
           <Volume2 className="h-4 w-4" />
           <span className="ml-1">{isPlaying ? 'Stop' : 'Speak'}</span>
         </Button>
+      </div>
+
+      {/* Playback Speed Control - Moved outside dropdown for better UX */}
+      <div className="space-y-2">
+        <Label className="text-xs text-muted-foreground">Speed:</Label>
+        <div className="grid grid-cols-4 gap-1">
+          {speedOptions.map((speed) => (
+            <Button
+              key={speed}
+              variant={playbackSpeed === speed ? "default" : "outline"}
+              size="sm"
+              onClick={() => onPlaybackSpeedChange(speed)}
+              className="text-xs px-2 py-1 h-8"
+            >
+              {speed}x
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Voice Activation */}

@@ -11,6 +11,7 @@ import { InlineScriptEditor } from '@/components/InlineScriptEditor';
 import { ActorLineDetector } from '@/components/ActorLineDetector';
 import { VoiceControls } from '@/components/practice/VoiceControls';
 import { ScriptControls } from '@/components/practice/ScriptControls';
+import { MobileControlsDrawer } from '@/components/practice/MobileControlsDrawer';
 import { useRehearsalMode } from '@/components/practice/RehearsalMode';
 import { useTTSManager } from '@/components/practice/TTSManager';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
@@ -335,8 +336,15 @@ const Practice = () => {
     }
   };
 
+  // Handle script rehearsal play/pause (master control)
   const handlePlayPause = () => {
-    setIsPlaying(!isPlaying);
+    if (voiceActivated) {
+      // Toggle rehearsal mode when voice activation is enabled
+      setRehearsalMode(!rehearsalMode);
+    } else {
+      // Toggle regular script scrolling when voice activation is disabled
+      setIsPlaying(!isPlaying);
+    }
   };
 
   const handleReset = () => {
@@ -509,58 +517,48 @@ const Practice = () => {
             </div>
           </div>
 
-          {/* Floating Controls */}
-          <div className="absolute bottom-4 sm:bottom-6 left-4 right-4">
+          {/* Mobile Controls Drawer */}
+          <div className="block sm:hidden">
+            <MobileControlsDrawer
+              // Script controls
+              isPlaying={voiceActivated ? rehearsalMode : isPlaying}
+              scrollSpeed={scrollSpeed}
+              fontSize={fontSize}
+              isFullscreen={isFullscreen}
+              onPlayPause={handlePlayPause}
+              onReset={handleReset}
+              onScrollSpeedChange={setScrollSpeed}
+              onFontSizeChange={setFontSize}
+              onToggleFullscreen={toggleFullscreen}
+              
+              // Voice controls
+              selectedVoice={selectedVoice}
+              voices={voices}
+              textFilter={textFilter}
+              voiceActivated={voiceActivated}
+              playbackSpeed={playbackSpeed}
+              onVoiceChange={setSelectedVoice}
+              onTextFilterChange={setTextFilter}
+              onVoiceActivatedChange={setVoiceActivated}
+              onPlaybackSpeedChange={setPlaybackSpeed}
+              isTTSPlaying={isTTSPlaying}
+              onTTSPlay={handleTTSPlay}
+              
+              // Status
+              isListening={isListening}
+              waitingForActor={waitingForActor}
+            />
+          </div>
+
+          {/* Desktop Controls */}
+          <div className="hidden sm:block absolute bottom-4 left-4 right-4">
             <Card className="bg-background/95 backdrop-blur-sm">
-              <CardContent className="p-3 sm:p-4">
-
-                {/* Mobile Layout: Stacked Controls */}
-                <div className="block sm:hidden space-y-4">
-                  <ScriptControls
-                    isPlaying={isPlaying}
-                    scrollSpeed={scrollSpeed}
-                    fontSize={fontSize}
-                    isFullscreen={isFullscreen}
-                    onPlayPause={handlePlayPause}
-                    onReset={handleReset}
-                    onScrollSpeedChange={setScrollSpeed}
-                    onFontSizeChange={setFontSize}
-                    onToggleFullscreen={toggleFullscreen}
-                  />
-
-                  <VoiceControls
-                    selectedVoice={selectedVoice}
-                    voices={voices}
-                    textFilter={textFilter}
-                    voiceActivated={voiceActivated}
-                    playbackSpeed={playbackSpeed}
-                    onVoiceChange={setSelectedVoice}
-                    onTextFilterChange={setTextFilter}
-                    onVoiceActivatedChange={setVoiceActivated}
-                    onPlaybackSpeedChange={setPlaybackSpeed}
-                    isPlaying={isTTSPlaying}
-                    onTTSPlay={handleTTSPlay}
-                  />
-
-                  {/* Voice Activation Status */}
-                  {isListening && (
-                    <div className="text-center">
-                      <span className="text-xs text-muted-foreground animate-pulse">
-                        {waitingForActor ? 'Still listening...' : 'Listening...'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-
-                {/* Desktop Layout: Single Row with Visual Separation */}
-                <div className="hidden sm:flex items-center gap-6">
+              <CardContent className="p-4">
+                <div className="flex items-start gap-6">
                   {/* Rehearse Script Section */}
-                  <div className="flex flex-col items-center gap-2">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      Rehearse Script
-                    </Label>
+                  <div className="flex flex-col gap-3 min-w-[200px]">
                     <ScriptControls
-                      isPlaying={isPlaying}
+                      isPlaying={voiceActivated ? rehearsalMode : isPlaying}
                       scrollSpeed={scrollSpeed}
                       fontSize={fontSize}
                       isFullscreen={isFullscreen}
@@ -573,13 +571,10 @@ const Practice = () => {
                   </div>
 
                   {/* Visual Separator */}
-                  <Separator orientation="vertical" className="h-12 mx-3" />
+                  <Separator orientation="vertical" className="h-24 mx-3" />
 
                   {/* AI Reader Voice Selection Section */}
-                  <div className="flex flex-col items-center gap-2 flex-1">
-                    <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-                      AI Reader Voice Selection
-                    </Label>
+                  <div className="flex flex-col gap-3 flex-1">
                     <VoiceControls
                       selectedVoice={selectedVoice}
                       voices={voices}
@@ -605,23 +600,25 @@ const Practice = () => {
                   </div>
                 </div>
 
-                {/* Speed Control Slider */}
-                <div className="flex items-center gap-4 mt-4 pt-4 border-t">
-                  <Label className="text-sm whitespace-nowrap">Speed:</Label>
-                  <div className="flex-1">
-                    <Slider
-                      value={scrollSpeed}
-                      onValueChange={setScrollSpeed}
-                      max={5}
-                      min={0.5}
-                      step={0.5}
-                      className="w-full"
-                    />
+                {/* Script Speed Control Slider - Only show when not using voice activation */}
+                {!voiceActivated && (
+                  <div className="flex items-center gap-4 mt-4 pt-4 border-t">
+                    <Label className="text-sm whitespace-nowrap">Scroll Speed:</Label>
+                    <div className="flex-1">
+                      <Slider
+                        value={scrollSpeed}
+                        onValueChange={setScrollSpeed}
+                        max={5}
+                        min={0.5}
+                        step={0.5}
+                        className="w-full"
+                      />
+                    </div>
+                     <span className="text-sm text-muted-foreground w-12 text-center font-mono">
+                       {scrollSpeed[0]}x
+                     </span>
                   </div>
-                   <span className="text-sm text-muted-foreground w-12 text-center font-mono">
-                     {scrollSpeed[0]}x
-                   </span>
-                </div>
+                )}
               </CardContent>
             </Card>
           </div>
