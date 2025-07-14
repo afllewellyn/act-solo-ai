@@ -100,6 +100,10 @@ const Practice = () => {
   const [textFilter, setTextFilter] = useState<TextFilter>('characters');
   const [voiceActivated, setVoiceActivated] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [rehearsalMode, setRehearsalMode] = useState(false);
+  const [currentLineIndex, setCurrentLineIndex] = useState(0);
+  const [waitingForActor, setWaitingForActor] = useState(false);
+  const [listeningTimeout, setListeningTimeout] = useState<NodeJS.Timeout | null>(null);
   
   const [scriptContent, setScriptContent] = useState('');
   const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
@@ -108,8 +112,16 @@ const Practice = () => {
   const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition({
     onWordMatch: (matchedWord) => {
       console.log('Voice match detected:', matchedWord);
-      // Trigger next AI line
-      handleVoiceTriggeredTTS();
+      if (rehearsalMode && waitingForActor) {
+        // Clear the listening timeout
+        if (listeningTimeout) {
+          clearTimeout(listeningTimeout);
+          setListeningTimeout(null);
+        }
+        // Continue to next AI line
+        setWaitingForActor(false);
+        continueRehearsalAfterActorResponse();
+      }
     },
     onError: (error) => {
       console.error('Speech recognition error:', error);
@@ -372,6 +384,12 @@ const Practice = () => {
   const handleTTSPlay = async () => {
     if (!script?.content) return;
 
+    // If in rehearsal mode, start/stop rehearsal
+    if (rehearsalMode) {
+      stopRehearsalMode();
+      return;
+    }
+
     // If currently playing, pause
     if (isTTSPlaying) {
       console.log('TTS: Pausing playback');
@@ -498,86 +516,191 @@ const Practice = () => {
     return dialogueLines.join(' ').trim();
   };
 
-  const handleVoiceTriggeredTTS = async () => {
-    // Logic to determine and play the next AI line
-    if (!script?.content || !voiceActivated || !currentActorLine) return;
+  // Parse script lines for rehearsal mode
+  const getScriptLines = () => {
+    if (!script?.content) return [];
+    return script.content.split('\n').filter(line => {
+      const cleanLine = stripHtmlTags(line).trim();
+      if (!cleanLine) return false;
+      
+      // Include character lines and formatted text (stage directions/narration)
+      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      const hasFormatting = line.includes('<b>') || line.includes('<strong>') || 
+                           line.includes('<i>') || line.includes('<em>');
+      
+      return characterMatch || hasFormatting;
+    });
+  };
+
+  const startRehearsalMode = () => {
+    if (!script?.content) return;
     
-    try {
-      // Get lines from the script
-      const lines = script.content.split('\n').filter(line => line.trim());
+    setRehearsalMode(true);
+    setCurrentLineIndex(0);
+    setWaitingForActor(false);
+    
+    // Request microphone access
+    if (isSupported) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => {
+          console.log('Microphone access granted for rehearsal');
+          // Start with first line
+          playCurrentLine();
+        })
+        .catch((error) => {
+          console.error('Microphone access denied:', error);
+          toast({
+            title: "Microphone Access Required",
+            description: "Please allow microphone access to use rehearsal mode.",
+            variant: "destructive",
+          });
+          setRehearsalMode(false);
+        });
+    }
+  };
+
+  const stopRehearsalMode = () => {
+    setRehearsalMode(false);
+    setWaitingForActor(false);
+    setCurrentLineIndex(0);
+    if (listeningTimeout) {
+      clearTimeout(listeningTimeout);
+      setListeningTimeout(null);
+    }
+    stopListening();
+    stopTTS();
+  };
+
+  const playCurrentLine = async () => {
+    const lines = getScriptLines();
+    if (currentLineIndex >= lines.length) {
+      // Rehearsal complete
+      toast({
+        title: "Rehearsal Complete",
+        description: "You've finished practicing the script!",
+      });
+      stopRehearsalMode();
+      return;
+    }
+
+    const line = lines[currentLineIndex];
+    const cleanLine = stripHtmlTags(line).trim();
+    
+    // Check if this is a character line
+    const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+    
+    if (characterMatch) {
+      const characterName = characterMatch[1].trim();
+      const dialogue = characterMatch[2].trim();
       
-      // Find the current actor line index
-      let currentActorLineIndex = -1;
-      for (let i = 0; i < lines.length; i++) {
-        const cleanLine = stripHtmlTags(lines[i]).trim();
-        if (cleanLine === currentActorLine) {
-          currentActorLineIndex = i;
-          break;
-        }
-      }
-      
-      if (currentActorLineIndex === -1) {
-        console.log('Current actor line not found in script');
-        return;
-      }
-      
-      // Find the next AI line after the current actor line
-      for (let i = currentActorLineIndex + 1; i < lines.length; i++) {
-        const line = lines[i];
-        const cleanLine = stripHtmlTags(line).trim();
-        
-        if (!cleanLine) continue; // Skip empty lines
-        
-        // Check if this is a character line
-        const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
-        if (characterMatch) {
-          const characterName = characterMatch[1].trim();
-          const dialogue = characterMatch[2].trim();
-          
-          // Check if character should be spoken by AI
-          const character = characters.find(c => c.name === characterName);
-          if (!character || !character.isUserRole) {
-            console.log(`Found next AI line: ${characterName}: ${dialogue}`);
-            await speak(dialogue, {
-              voiceId: selectedVoice,
-              playbackSpeed: playbackSpeed,
-              onComplete: () => {
-                console.log('Voice-triggered TTS completed');
-                setCurrentActorLine(null); // Reset after playing
-              }
-            });
-            return;
-          } else {
-            // This is another actor line, stop looking for AI lines
-            console.log('Found another actor line, stopping search');
-            setCurrentActorLine(null);
-            return;
+      // Check if character should be spoken by AI
+      const character = characters.find(c => c.name === characterName);
+      if (!character || !character.isUserRole) {
+        // AI line - speak it
+        console.log(`AI speaking: ${characterName}: ${dialogue}`);
+        await speak(dialogue, {
+          voiceId: selectedVoice,
+          playbackSpeed: playbackSpeed,
+          onComplete: () => {
+            // After AI finishes, move to next line
+            setCurrentLineIndex(prev => prev + 1);
+            setTimeout(() => playCurrentLine(), 500); // Brief pause before next line
           }
-        } else {
-          // Check if this line has formatting (bold/italic) - could be narration/stage direction
-          const hasFormatting = line.includes('<b>') || line.includes('<strong>') || 
-                               line.includes('<i>') || line.includes('<em>');
-          
-          if (hasFormatting && cleanLine) {
-            console.log(`Found formatted AI line: ${cleanLine}`);
-            await speak(cleanLine, {
-              voiceId: selectedVoice,
-              playbackSpeed: playbackSpeed,
-              onComplete: () => {
-                console.log('Voice-triggered TTS completed');
-                setCurrentActorLine(null); // Reset after playing
-              }
-            });
-            return;
+        });
+      } else {
+        // Actor line - wait for actor to speak
+        console.log(`Waiting for actor line: ${characterName}: ${dialogue}`);
+        setWaitingForActor(true);
+        setCurrentActorLine(cleanLine);
+        
+        // Start listening for actor's words
+        startListening(dialogue);
+        
+        // Set timeout for "still listening" indicator
+        const timeout = setTimeout(() => {
+          console.log('Still waiting for actor response...');
+          // Don't auto-advance - just continue listening
+        }, 10000);
+        setListeningTimeout(timeout);
+      }
+    } else {
+      // Formatted line (stage direction/narration) - speak it
+      console.log(`AI speaking narration: ${cleanLine}`);
+      await speak(cleanLine, {
+        voiceId: selectedVoice,
+        playbackSpeed: playbackSpeed,
+        onComplete: () => {
+          // After AI finishes, move to next line
+          setCurrentLineIndex(prev => prev + 1);
+          setTimeout(() => playCurrentLine(), 500); // Brief pause before next line
+        }
+      });
+    }
+  };
+
+  const continueRehearsalAfterActorResponse = () => {
+    // Move to next line after actor response
+    setCurrentLineIndex(prev => prev + 1);
+    setCurrentActorLine(null);
+    stopListening();
+    
+    // Continue with next line
+    setTimeout(() => playCurrentLine(), 500); // Brief pause before next line
+  };
+
+  const handleVoiceTriggeredTTS = async () => {
+    // Legacy function - kept for compatibility but not used in new rehearsal mode
+    if (!rehearsalMode) {
+      // Old behavior for non-rehearsal mode
+      if (!script?.content || !voiceActivated || !currentActorLine) return;
+      
+      try {
+        const lines = script.content.split('\n').filter(line => line.trim());
+        
+        let currentActorLineIndex = -1;
+        for (let i = 0; i < lines.length; i++) {
+          const cleanLine = stripHtmlTags(lines[i]).trim();
+          if (cleanLine === currentActorLine) {
+            currentActorLineIndex = i;
+            break;
           }
         }
+        
+        if (currentActorLineIndex === -1) return;
+        
+        for (let i = currentActorLineIndex + 1; i < lines.length; i++) {
+          const line = lines[i];
+          const cleanLine = stripHtmlTags(line).trim();
+          
+          if (!cleanLine) continue;
+          
+          const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+          if (characterMatch) {
+            const characterName = characterMatch[1].trim();
+            const dialogue = characterMatch[2].trim();
+            
+            const character = characters.find(c => c.name === characterName);
+            if (!character || !character.isUserRole) {
+              await speak(dialogue, {
+                voiceId: selectedVoice,
+                playbackSpeed: playbackSpeed,
+                onComplete: () => {
+                  setCurrentActorLine(null);
+                }
+              });
+              return;
+            } else {
+              setCurrentActorLine(null);
+              return;
+            }
+          }
+        }
+        
+        setCurrentActorLine(null);
+      } catch (error) {
+        console.error('Voice-triggered TTS error:', error);
+        setCurrentActorLine(null);
       }
-      
-      console.log('No AI line found after current actor line');
-      setCurrentActorLine(null);
-    } catch (error) {
-      console.error('Voice-triggered TTS error:', error);
-      setCurrentActorLine(null);
     }
   };
 
@@ -939,19 +1062,22 @@ const Practice = () => {
                        </DropdownMenuContent>
                      </DropdownMenu>
 
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       onClick={handleTTSPlay}
-                       disabled={isTTSLoading}
-                       className="flex-1"
-                       aria-label={isTTSPlaying ? 'Pause speech' : 'Start speech'}
-                     >
-                       {isTTSPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                        <span className="ml-1">
-                          {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
-                        </span>
-                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={rehearsalMode ? stopRehearsalMode : (voiceActivated ? startRehearsalMode : handleTTSPlay)}
+                        disabled={isTTSLoading}
+                        className="flex-1"
+                        aria-label={rehearsalMode ? 'Stop rehearsal' : (voiceActivated ? 'Start rehearsal' : (isTTSPlaying ? 'Pause speech' : 'Start speech'))}
+                      >
+                        {rehearsalMode ? <Pause className="h-4 w-4" /> : (isTTSPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />)}
+                         <span className="ml-1">
+                           {isTTSLoading ? 'Loading...' : 
+                            rehearsalMode ? 'Stop Rehearsal' :
+                            voiceActivated ? 'Start Rehearsal' : 
+                            (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
+                         </span>
+                       </Button>
                       </div>
 
                       {/* Voice Activation Toggle - Under AI Reader Controls */}
@@ -967,7 +1093,7 @@ const Practice = () => {
                         />
                         {isListening && (
                           <span className="text-xs text-muted-foreground animate-pulse">
-                            Listening...
+                            {waitingForActor && listeningTimeout ? 'Still listening...' : 'Listening...'}
                           </span>
                         )}
                       </div>
@@ -1120,18 +1246,21 @@ const Practice = () => {
                        </DropdownMenuContent>
                      </DropdownMenu>
 
-                     <Button
-                       variant="outline"
-                       size="sm"
-                       onClick={handleTTSPlay}
-                       disabled={isTTSLoading}
-                       aria-label={isTTSPlaying ? 'Pause speech' : 'Start speech'}
-                     >
-                       {isTTSPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                        <span className="ml-1 hidden lg:inline">
-                          {isTTSLoading ? 'Loading...' : (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
-                        </span>
-                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={rehearsalMode ? stopRehearsalMode : (voiceActivated ? startRehearsalMode : handleTTSPlay)}
+                        disabled={isTTSLoading}
+                        aria-label={rehearsalMode ? 'Stop rehearsal' : (voiceActivated ? 'Start rehearsal' : (isTTSPlaying ? 'Pause speech' : 'Start speech'))}
+                      >
+                        {rehearsalMode ? <Pause className="h-4 w-4" /> : (isTTSPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />)}
+                         <span className="ml-1 hidden lg:inline">
+                           {isTTSLoading ? 'Loading...' : 
+                            rehearsalMode ? 'Stop Rehearsal' :
+                            voiceActivated ? 'Start Rehearsal' : 
+                            (isTTSPlaying ? 'Pause' : (isTTSPaused ? 'Resume' : 'Speak'))}
+                         </span>
+                       </Button>
                      </div>
 
                       {/* Voice Activation Toggle - Under AI Reader Controls */}
@@ -1147,7 +1276,7 @@ const Practice = () => {
                         />
                         {isListening && (
                           <span className="text-xs text-muted-foreground animate-pulse">
-                            Listening...
+                            {waitingForActor && listeningTimeout ? 'Still listening...' : 'Listening...'}
                           </span>
                         )}
                       </div>
@@ -1232,7 +1361,14 @@ const Practice = () => {
       {/* TTS Visual Indicator */}
       {isTTSPlaying && (
         <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse z-50">
-          🔊 AI Reading...
+          🔊 {rehearsalMode ? 'Rehearsal Mode' : 'AI Reading...'}
+        </div>
+      )}
+
+      {/* Rehearsal Status Indicator */}
+      {rehearsalMode && waitingForActor && (
+        <div className="fixed top-16 right-4 bg-orange-500 text-white px-3 py-2 rounded-full text-sm font-medium shadow-lg z-50">
+          🎭 Your turn to speak
         </div>
       )}
 
