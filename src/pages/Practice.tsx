@@ -10,6 +10,7 @@ import { RoleAssignmentDialog } from '@/components/RoleAssignmentDialog';
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { InlineScriptEditor } from '@/components/InlineScriptEditor';
+import { ActorLineDetector } from '@/components/ActorLineDetector';
 import { useTTS } from '@/hooks/useTTS';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
 import { useToast } from '@/hooks/use-toast';
@@ -101,6 +102,7 @@ const Practice = () => {
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   
   const [scriptContent, setScriptContent] = useState('');
+  const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
 
   // Initialize speech recognition
   const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition({
@@ -118,6 +120,21 @@ const Practice = () => {
       });
     }
   });
+
+  // Handle actor line detection and start voice listening
+  const handleActorLineDetected = (line: string) => {
+    if (!voiceActivated || !isSupported || isListening) return;
+    
+    setCurrentActorLine(line);
+    
+    // Start listening for the last word of this line
+    const characterMatch = line.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+    if (characterMatch) {
+      const dialogue = characterMatch[2].trim();
+      console.log(`Starting to listen for last word of: "${dialogue}"`);
+      startListening(dialogue);
+    }
+  };
 
   // Request microphone access when voice activation is enabled
   useEffect(() => {
@@ -235,6 +252,18 @@ const Practice = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
+      // Check if user is currently editing in the script editor
+      const activeElement = document.activeElement;
+      const isEditingScript = activeElement?.closest('[data-tiptap-editor]') || 
+                             activeElement?.tagName === 'INPUT' || 
+                             activeElement?.tagName === 'TEXTAREA' ||
+                             (activeElement as HTMLElement)?.contentEditable === 'true';
+      
+      // If editing, don't handle keyboard shortcuts
+      if (isEditingScript) {
+        return;
+      }
+
       if (e.code === 'Space' && !e.shiftKey) {
         e.preventDefault();
         handlePlayPause();
@@ -471,52 +500,84 @@ const Practice = () => {
 
   const handleVoiceTriggeredTTS = async () => {
     // Logic to determine and play the next AI line
-    if (!script?.content || !voiceActivated) return;
+    if (!script?.content || !voiceActivated || !currentActorLine) return;
     
     try {
       // Get lines from the script
       const lines = script.content.split('\n').filter(line => line.trim());
       
-      // Find AI lines (bold/italic text) that should be spoken
-      const aiLines: string[] = [];
+      // Find the current actor line index
+      let currentActorLineIndex = -1;
+      for (let i = 0; i < lines.length; i++) {
+        const cleanLine = stripHtmlTags(lines[i]).trim();
+        if (cleanLine === currentActorLine) {
+          currentActorLineIndex = i;
+          break;
+        }
+      }
       
-      lines.forEach(line => {
+      if (currentActorLineIndex === -1) {
+        console.log('Current actor line not found in script');
+        return;
+      }
+      
+      // Find the next AI line after the current actor line
+      for (let i = currentActorLineIndex + 1; i < lines.length; i++) {
+        const line = lines[i];
         const cleanLine = stripHtmlTags(line).trim();
-        const hasFormatting = line.includes('<b>') || line.includes('<strong>') || 
-                             line.includes('<i>') || line.includes('<em>');
         
-        if (hasFormatting && cleanLine) {
-          // Check if this is a character line that should be read by AI
-          const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
-          if (characterMatch) {
-            const characterName = characterMatch[1].trim();
-            const dialogue = characterMatch[2].trim();
-            
-            // Check if character should be spoken by AI
-            const character = characters.find(c => c.name === characterName);
-            if (!character || !character.isUserRole) {
-              aiLines.push(dialogue);
-            }
+        if (!cleanLine) continue; // Skip empty lines
+        
+        // Check if this is a character line
+        const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+        if (characterMatch) {
+          const characterName = characterMatch[1].trim();
+          const dialogue = characterMatch[2].trim();
+          
+          // Check if character should be spoken by AI
+          const character = characters.find(c => c.name === characterName);
+          if (!character || !character.isUserRole) {
+            console.log(`Found next AI line: ${characterName}: ${dialogue}`);
+            await speak(dialogue, {
+              voiceId: selectedVoice,
+              playbackSpeed: playbackSpeed,
+              onComplete: () => {
+                console.log('Voice-triggered TTS completed');
+                setCurrentActorLine(null); // Reset after playing
+              }
+            });
+            return;
           } else {
-            // Non-character formatted text should also be read
-            aiLines.push(cleanLine);
+            // This is another actor line, stop looking for AI lines
+            console.log('Found another actor line, stopping search');
+            setCurrentActorLine(null);
+            return;
+          }
+        } else {
+          // Check if this line has formatting (bold/italic) - could be narration/stage direction
+          const hasFormatting = line.includes('<b>') || line.includes('<strong>') || 
+                               line.includes('<i>') || line.includes('<em>');
+          
+          if (hasFormatting && cleanLine) {
+            console.log(`Found formatted AI line: ${cleanLine}`);
+            await speak(cleanLine, {
+              voiceId: selectedVoice,
+              playbackSpeed: playbackSpeed,
+              onComplete: () => {
+                console.log('Voice-triggered TTS completed');
+                setCurrentActorLine(null); // Reset after playing
+              }
+            });
+            return;
           }
         }
-      });
-      
-      // Speak the first available AI line
-      if (aiLines.length > 0) {
-        const textToSpeak = aiLines[0]; // For simplicity, speak the first AI line
-        await speak(textToSpeak, {
-          voiceId: selectedVoice,
-          playbackSpeed: playbackSpeed,
-          onComplete: () => {
-            console.log('Voice-triggered TTS completed');
-          }
-        });
       }
+      
+      console.log('No AI line found after current actor line');
+      setCurrentActorLine(null);
     } catch (error) {
       console.error('Voice-triggered TTS error:', error);
+      setCurrentActorLine(null);
     }
   };
 
@@ -547,6 +608,12 @@ const Practice = () => {
     // Auto-stop TTS when script is edited
     if (isTTSPlaying) {
       stopTTS();
+    }
+    
+    // Stop voice recognition when editing
+    if (isListening) {
+      stopListening();
+      setCurrentActorLine(null);
     }
     
     setScriptContent(updatedContent);
@@ -1168,6 +1235,15 @@ const Practice = () => {
           🔊 AI Reading...
         </div>
       )}
+
+      {/* Actor Line Detector for Voice Activation */}
+      <ActorLineDetector
+        scriptContent={scriptContent}
+        characters={characters}
+        voiceActivated={voiceActivated}
+        isSupported={isSupported}
+        onActorLineDetected={handleActorLineDetected}
+      />
     </div>
   );
 };

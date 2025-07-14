@@ -81,7 +81,8 @@ export function InlineScriptEditor({
     editorProps: {
       attributes: {
         class: 'focus:outline-none min-h-[400px] p-4 prose prose-lg max-w-none',
-        style: `font-size: ${fontSize}px; line-height: 1.8;`
+        style: `font-size: ${fontSize}px; line-height: 1.8;`,
+        'data-tiptap-editor': 'true'
       },
       handleKeyDown: (view, event) => {
         // Don't prevent normal text editing shortcuts

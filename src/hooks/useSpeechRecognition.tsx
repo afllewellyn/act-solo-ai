@@ -69,18 +69,50 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
           .toLowerCase()
           .trim();
         
+        console.log(`Listening for: "${targetWords.join('", "')}" | Heard: "${transcript}"`);
+        
         if (transcript && targetWords.length > 0) {
-          // Check if any target word is found in the transcript
-          const found = targetWords.some(word => 
-            transcript.includes(word.toLowerCase())
-          );
+          // Use fuzzy matching for better detection
+          const found = targetWords.some(targetWord => {
+            const target = targetWord.toLowerCase().trim();
+            
+            // Exact match
+            if (transcript.includes(target)) {
+              console.log(`✅ Exact match found: "${target}"`);
+              return true;
+            }
+            
+            // Check if the last words in transcript match
+            const transcriptWords = transcript.split(' ').filter(w => w.length > 0);
+            const targetWords = target.split(' ').filter(w => w.length > 0);
+            
+            if (transcriptWords.length >= targetWords.length) {
+              const lastNWords = transcriptWords.slice(-targetWords.length).join(' ');
+              if (lastNWords === target) {
+                console.log(`✅ Last words match: "${lastNWords}"`);
+                return true;
+              }
+            }
+            
+            // Phonetic similarity check for single words
+            if (targetWords.length === 1 && transcriptWords.length > 0) {
+              const lastWord = transcriptWords[transcriptWords.length - 1];
+              if (soundsLike(lastWord, targetWords[0])) {
+                console.log(`✅ Phonetic match: "${lastWord}" sounds like "${targetWords[0]}"`);
+                return true;
+              }
+            }
+            
+            return false;
+          });
           
           if (found) {
             const matchedWord = targetWords.find(word => 
               transcript.includes(word.toLowerCase())
             );
+            console.log(`✅ Match — triggering AI response`);
             stopListening();
-            options.onWordMatch?.(matchedWord || '');
+            options.onWordMatch?.(matchedWord || targetWords[0]);
           }
         }
       };
@@ -169,6 +201,53 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
       timeoutRef.current = null;
     }
   }, [isListening]);
+
+  // Simple phonetic similarity function
+  const soundsLike = (word1: string, word2: string): boolean => {
+    if (Math.abs(word1.length - word2.length) > 2) return false;
+    
+    // Simple character similarity
+    const similarity = calculateSimilarity(word1, word2);
+    return similarity > 0.7; // 70% similarity threshold
+  };
+
+  const calculateSimilarity = (str1: string, str2: string): number => {
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+    
+    if (longer.length === 0) return 1.0;
+    
+    const distance = levenshteinDistance(longer, shorter);
+    return (longer.length - distance) / longer.length;
+  };
+
+  const levenshteinDistance = (str1: string, str2: string): number => {
+    const matrix: number[][] = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    
+    return matrix[str2.length][str1.length];
+  };
 
   return {
     isListening,
