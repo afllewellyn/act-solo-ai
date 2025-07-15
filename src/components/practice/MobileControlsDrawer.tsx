@@ -6,14 +6,6 @@ import { ScriptControls } from './ScriptControls';
 import { VoiceControls } from './VoiceControls';
 import { useRehearsal } from '@/contexts/RehearsalContext';
 
-interface Voice {
-  id: string;
-  name: string;
-  category: string;
-  gender: string;
-  accent: string;
-}
-
 interface MobileControlsDrawerProps {
   // Script controls props
   isPlaying: boolean;
@@ -25,9 +17,6 @@ interface MobileControlsDrawerProps {
   onScrollSpeedChange: (speed: number[]) => void;
   onFontSizeChange: (size: number[]) => void;
   onToggleFullscreen: () => void;
-  
-  // Only props needed from outside context
-  voices: Voice[];
 }
 
 export const MobileControlsDrawer = ({
@@ -41,9 +30,6 @@ export const MobileControlsDrawer = ({
   onScrollSpeedChange,
   onFontSizeChange,
   onToggleFullscreen,
-  
-  // External data
-  voices,
 }: MobileControlsDrawerProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const { isListening, rehearsalState, isTTSPlaying, handleTTSPlay } = useRehearsal();
@@ -131,7 +117,7 @@ export const MobileControlsDrawer = ({
               />
 
               {/* Voice Controls */}
-              <VoiceControls voices={voices} />
+              <VoiceControls />
 
               {/* Voice Activation Status */}
               {isListening && (

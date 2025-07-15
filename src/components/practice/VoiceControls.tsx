@@ -5,25 +5,14 @@ import { Switch } from '@/components/ui/switch';
 import { Volume2, ChevronDown, Filter } from 'lucide-react';
 import { useRehearsal } from '@/contexts/RehearsalContext';
 
-interface Voice {
-  id: string;
-  name: string;
-  category: string;
-  gender: string;
-  accent: string;
-}
-
-interface VoiceControlsProps {
-  voices: Voice[];
-}
-
-export const VoiceControls = ({ voices }: VoiceControlsProps) => {
+export const VoiceControls = () => {
   const { 
     selectedVoice, 
     voiceActivated, 
     playbackSpeed, 
     textFilter, 
     isTTSPlaying,
+    voices,
     setSelectedVoice,
     setVoiceActivated,
     setPlaybackSpeed,

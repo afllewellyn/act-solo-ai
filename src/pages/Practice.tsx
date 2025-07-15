@@ -60,26 +60,9 @@ interface Script {
 // Remove local interface - now imported from services
 import type { Character } from '@/services/ScriptRehearsalStateMachine';
 
-interface Voice {
-  id: string;
-  name: string;
-  category: string;
-  gender: string;
-  accent: string;
-}
 
 type TextFilter = 'all' | 'bold' | 'italic';
 
-// Default voices that work even if the API fails
-const defaultVoices: Voice[] = [
-  { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria', category: 'Generated', gender: 'Female', accent: 'American' },
-  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', category: 'Generated', gender: 'Male', accent: 'American' },
-  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', category: 'Generated', gender: 'Female', accent: 'American' },
-  { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura', category: 'Generated', gender: 'Female', accent: 'American' },
-  { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie', category: 'Generated', gender: 'Male', accent: 'American' },
-  { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George', category: 'Generated', gender: 'Male', accent: 'American' },
-  { id: 'asDeXBMC8hUkhqqL7agO', name: 'David', category: 'Generated', gender: 'Male', accent: 'American' },
-];
 
 const Practice = () => {
   const { scriptId } = useParams();
@@ -97,248 +80,43 @@ const Practice = () => {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentPosition, setCurrentPosition] = useState(0);
   const [sessionTime, setSessionTime] = useState(0);
-  const [selectedVoice, setSelectedVoice] = useState('9BWtsMINqrJLrRacOk9x');
   const [currentLine, setCurrentLine] = useState(0);
   const [characters, setCharacters] = useState<Character[]>([]);
-  const [voices, setVoices] = useState<Voice[]>([]);
-  const [noMatchesBanner, setNoMatchesBanner] = useState<{ show: boolean; filter: TextFilter } | null>(null);
-  const [voiceActivated, setVoiceActivated] = useState(false);
-  const [playbackSpeed, setPlaybackSpeed] = useState(1);
-  const [rehearsalMode, setRehearsalMode] = useState(false);
   
-  const [scriptContent, setScriptContent] = useState('');
   const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
+  const [scriptContent, setScriptContent] = useState('');
 
-  // Initialize State Machine
-  const stateMachineRef = useRef<ScriptRehearsalStateMachine | null>(null);
-  const [rehearsalState, setRehearsalState] = useState('IDLE');
-  const [currentCueWords, setCurrentCueWords] = useState<string[]>([]);
-  const [currentTextFilter, setCurrentTextFilter] = useState<TextFilter>('all');
-
-  // Initialize Audio Manager (replaces useTTSManager)
-  const audioManager = useAudioManager({
-    defaultVoiceId: selectedVoice,
-    defaultPlaybackSpeed: playbackSpeed,
-    onTTSComplete: () => {
-      console.log('🔊 TTS complete - continuing rehearsal if active');
-      if (stateMachineRef.current && rehearsalMode) {
-        stateMachineRef.current.handleAISpeechComplete();
-      }
-    },
-    onTTSError: (error) => {
-      console.error('TTS Error:', error);
-      toast({
-        title: "Speech Error", 
-        description: error,
-        variant: "destructive",
-      });
-    },
-    onCueDetected: (cue) => {
-      console.log('🎤 Cue detected:', cue);
-      if (stateMachineRef.current && rehearsalMode) {
-        stateMachineRef.current.handleActorCueDetected();
-      }
-    },
-    onSpeechError: (error) => {
-      console.error('Speech recognition error:', error);
-      toast({
-        title: "Voice Recognition Error",
-        description: error,
-        variant: "destructive",
-      });
-    }
-  });
-
-  // Initialize state machine when needed
-  useEffect(() => {
-    if (rehearsalMode && scriptContent && characters.length > 0 && !stateMachineRef.current) {
-      console.log('🎭 Initializing State Machine for rehearsal');
-      
-      stateMachineRef.current = new ScriptRehearsalStateMachine({
-        scriptContent,
-        characters,
-        onStateChange: (state) => {
-          console.log('🎭 State machine state changed:', state);
-          setRehearsalState(state);
-        },
-        onLineChange: async (lineIndex, line) => {
-          console.log('📝 Line changed:', lineIndex, line?.content?.substring(0, 50) + '...');
-          
-          // If this is an AI line, trigger TTS
-          if (line?.type === 'ai' && line.dialogue) {
-            try {
-              await audioManager.speakText(line.dialogue, {
-                voiceId: selectedVoice,
-                playbackSpeed: playbackSpeed,
-              });
-            } catch (error) {
-              console.error('Error speaking AI line:', error);
-              toast({
-                title: "Speech Error",
-                description: "Failed to speak AI line",
-                variant: "destructive",
-              });
-            }
-          }
-          
-          // If this is an actor line, start listening for cue
-          if (line?.type === 'actor' && voiceActivated) {
-            const cueWords = stateMachineRef.current?.getCurrentCueWords() || [];
-            if (cueWords.length > 0) {
-              audioManager.startListeningForCue(cueWords.join(' '));
-            }
-          }
-        },
-        onCueWordsChange: (cueWords) => {
-          console.log('🎤 Cue words changed:', cueWords);
-          setCurrentCueWords(cueWords);
-        },
-        onComplete: () => {
-          console.log('🎯 Rehearsal complete!');
-          setRehearsalMode(false);
-          toast({
-            title: "Rehearsal Complete",
-            description: "You've reached the end of the script.",
-          });
-        },
-        onError: (error) => {
-          console.error('State machine error:', error);
-          toast({
-            title: "Rehearsal Error",
-            description: error,
-            variant: "destructive",
-          });
-        },
-        onScriptUpdated: (hasContent) => {
-          console.log('📝 Script updated, has content:', hasContent);
-          if (hasContent) {
-            setNoMatchesBanner(null);
-          }
-        },
-        onNoMatches: (filter) => {
-          console.log('🚫 No matches found for filter:', filter);
-          setNoMatchesBanner({ show: true, filter });
-          
-          // Show toast notification
-          toast({
-            title: "No Content Found",
-            description: `No ${filter} text found in the script. AI will remain silent.`,
-            variant: "destructive",
-          });
-        }
-      });
-
-      // Set the current filter and start the rehearsal
-      setCurrentTextFilter(stateMachineRef.current.getTextFilter());
-      stateMachineRef.current.start();
-    } else if (!rehearsalMode && stateMachineRef.current) {
-      console.log('🛑 Stopping State Machine');
-      stateMachineRef.current.stop();
-      stateMachineRef.current = null;
-      setRehearsalState('IDLE');
-      setCurrentCueWords([]);
-      setNoMatchesBanner(null);
-    }
-  }, [rehearsalMode, scriptContent, characters]);
+  // Get rehearsal context
+  const { 
+    rehearsalMode, 
+    setRehearsalMode, 
+    handleMasterStop: contextMasterStop,
+    handleTTSPlay: contextTTSPlay,
+    textFilter,
+    setTextFilter,
+    noMatchesBanner,
+    selectedVoice,
+    playbackSpeed,
+    voiceActivated,
+    setVoiceActivated,
+    isTTSPlaying,
+    isListening,
+    rehearsalState,
+    handleActorLineDetected: contextHandleActorLineDetected 
+  } = useRehearsal();
 
   // Master stop function for all AI operations
   const handleMasterStop = () => {
     console.log('🛑 Master stop - halting all operations');
     setIsPlaying(false);
-    setRehearsalMode(false);
-    audioManager.stopAll();
-    if (stateMachineRef.current) {
-      stateMachineRef.current.stop();
-      stateMachineRef.current = null;
-    }
-  };
-
-  // Handle TTS for standalone usage (non-rehearsal)
-  const handleTTSPlay = async () => {
-    if (!scriptContent) return;
-
-    try {
-      const { text, hasContent, fallbackApplied } = ScriptParserService.extractTextForTTS(
-        scriptContent, 
-        characters, 
-        currentTextFilter
-      );
-
-      if (!hasContent) {
-        toast({
-          title: "No Text Found",
-          description: `No ${currentTextFilter} text found to read.`,
-          variant: "destructive",
-        });
-        return;
-      }
-
-      if (fallbackApplied) {
-        toast({
-          title: "Filter Fallback Applied",
-          description: `No ${currentTextFilter} text found. Reading all text instead.`,
-        });
-      }
-
-      await audioManager.speakText(text, {
-        voiceId: selectedVoice,
-        playbackSpeed: playbackSpeed,
-      });
-    } catch (error) {
-      console.error('TTS Error:', error);
-      toast({
-        title: "Speech Error",
-        description: "Failed to generate speech. Check your connection.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Handle text filter changes
-  const handleTextFilterChange = (filter: TextFilter) => {
-    setCurrentTextFilter(filter);
-    if (stateMachineRef.current) {
-      stateMachineRef.current.setTextFilter(filter);
-    }
+    contextMasterStop();
   };
 
   // Handle actor line detection (for backward compatibility, but now handled by state machine)
   const handleActorLineDetected = (line: string) => {
-    if (!voiceActivated || !audioManager.isSpeechSupported || audioManager.isListening) return;
-    
     setCurrentActorLine(line);
-    
-    // Start listening for cue in the line
-    const characterMatch = line.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
-    if (characterMatch) {
-      const dialogue = characterMatch[2].trim();
-      console.log(`Starting to listen for cue in: "${dialogue}"`);
-      audioManager.startListeningForCue(dialogue);
-    }
+    contextHandleActorLineDetected(line);
   };
-
-  // Request microphone access when voice activation is enabled
-  useEffect(() => {
-    if (voiceActivated && audioManager.isSpeechSupported) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(() => {
-          console.log('Microphone access granted');
-          toast({
-            title: "Voice Activation Ready",
-            description: "Microphone access granted. Speak the last word of your lines to trigger AI responses.",
-          });
-        })
-        .catch((error) => {
-          console.error('Microphone access denied:', error);
-          setVoiceActivated(false);
-          toast({
-            title: "Microphone Access Required",
-            description: "Please allow microphone access to use voice activation.",
-            variant: "destructive",
-          });
-        });
-    }
-  }, [voiceActivated, audioManager.isSpeechSupported]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -346,41 +124,6 @@ const Practice = () => {
     }
   }, [user, authLoading, navigate]);
 
-  // Load voices on component mount
-  useEffect(() => {
-    loadVoices();
-  }, []);
-
-  const loadVoices = async () => {
-    try {
-      const { data, error } = await supabase.functions.invoke('get-voices');
-      
-      if (error) {
-        console.error('Error fetching voices:', error);
-        setVoices(defaultVoices);
-        return;
-      }
-
-      if (data?.voices && data.voices.length > 0) {
-        // Merge API voices with default voices, avoiding duplicates
-        const apiVoices = data.voices;
-        const mergedVoices = [...defaultVoices];
-        
-        apiVoices.forEach((apiVoice: Voice) => {
-          if (!defaultVoices.find(defaultVoice => defaultVoice.id === apiVoice.id)) {
-            mergedVoices.push(apiVoice);
-          }
-        });
-        
-        setVoices(mergedVoices);
-      } else {
-        setVoices(defaultVoices);
-      }
-    } catch (error) {
-      console.error('Error loading voices:', error);
-      setVoices(defaultVoices);
-    }
-  };
 
   useEffect(() => {
     if (scriptId && user) {
@@ -454,7 +197,7 @@ const Practice = () => {
         if (rehearsalMode) {
           setRehearsalMode(false);
         } else {
-          handleTTSPlay();
+          contextTTSPlay();
         }
       } else if (e.code === 'KeyR') {
         e.preventDefault();
@@ -473,7 +216,7 @@ const Practice = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [scrollSpeed, isPlaying, audioManager.isTTSPlaying, rehearsalMode]);
+  }, [scrollSpeed, isPlaying, rehearsalMode, contextTTSPlay]);
 
   const fetchScript = async () => {
     try {
@@ -545,13 +288,13 @@ const Practice = () => {
 
   const handleScriptUpdate = (updatedContent: string) => {
     // Auto-stop TTS when script is edited
-    if (audioManager.isTTSPlaying) {
-      audioManager.stopTTS();
+    if (isTTSPlaying) {
+      contextMasterStop();
     }
     
     // Stop voice recognition when editing
-    if (audioManager.isListening) {
-      audioManager.stopListening();
+    if (isListening) {
+      contextMasterStop();
       setCurrentActorLine(null);
     }
     
@@ -722,8 +465,6 @@ const Practice = () => {
               onFontSizeChange={setFontSize}
               onToggleFullscreen={toggleFullscreen}
               
-              // External data
-              voices={voices}
             />
           </div>
 
@@ -754,10 +495,10 @@ const Practice = () => {
 
                   {/* AI Reader Voice Selection Section */}
                   <div className="flex flex-col gap-3 flex-1">
-                    <VoiceControls voices={voices} />
+                    <VoiceControls />
 
                     {/* Voice Activation Status */}
-                    {audioManager.isListening && (
+                    {isListening && (
                       <div className="text-center">
                         <span className="text-xs text-muted-foreground animate-pulse">
                           {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Still listening...' : 'Listening...'}
@@ -794,7 +535,7 @@ const Practice = () => {
 
 
       {/* TTS Visual Indicator */}
-      {audioManager.isTTSPlaying && (
+      {isTTSPlaying && (
         <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse z-50">
           🔊 {rehearsalMode ? 'Rehearsal Mode' : 'AI Reading...'}
         </div>
@@ -812,7 +553,7 @@ const Practice = () => {
         scriptContent={scriptContent}
         characters={characters}
         voiceActivated={voiceActivated}
-        isSupported={audioManager.isSpeechSupported}
+        isSupported={true}
         onActorLineDetected={handleActorLineDetected}
       />
       </div>

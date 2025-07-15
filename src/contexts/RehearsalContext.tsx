@@ -3,6 +3,7 @@ import { ScriptRehearsalStateMachine, Character, TextFilter, RehearsalState, Scr
 import { useAudioManager } from '@/services/AudioManager';
 import { ScriptParserService } from '@/services/ScriptParserService';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 interface Voice {
   id: string;
@@ -11,6 +12,17 @@ interface Voice {
   gender: string;
   accent: string;
 }
+
+// Default voices that work even if the API fails
+const defaultVoices: Voice[] = [
+  { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria', category: 'Generated', gender: 'Female', accent: 'American' },
+  { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', category: 'Generated', gender: 'Male', accent: 'American' },
+  { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', category: 'Generated', gender: 'Female', accent: 'American' },
+  { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura', category: 'Generated', gender: 'Female', accent: 'American' },
+  { id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie', category: 'Generated', gender: 'Male', accent: 'American' },
+  { id: 'JBFqnCBsd6RMkjVDRZzb', name: 'George', category: 'Generated', gender: 'Male', accent: 'American' },
+  { id: 'asDeXBMC8hUkhqqL7agO', name: 'David', category: 'Generated', gender: 'Male', accent: 'American' },
+];
 
 interface RehearsalContextType {
   // State Machine
@@ -30,6 +42,7 @@ interface RehearsalContextType {
   selectedVoice: string;
   voiceActivated: boolean;
   playbackSpeed: number;
+  voices: Voice[];
   
   // Banner State
   noMatchesBanner: { show: boolean; filter: TextFilter } | null;
@@ -72,6 +85,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const [selectedVoice, setSelectedVoice] = useState('9BWtsMINqrJLrRacOk9x');
   const [voiceActivated, setVoiceActivated] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  const [voices, setVoices] = useState<Voice[]>(defaultVoices);
   
   // Audio Manager with all callbacks
   const audioManager = useAudioManager({
@@ -216,6 +230,42 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     }
   }, [voiceActivated, audioManager.isSpeechSupported]);
 
+  // Load voices on mount
+  useEffect(() => {
+    loadVoices();
+  }, []);
+
+  const loadVoices = async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('get-voices');
+      
+      if (error) {
+        console.error('Error fetching voices:', error);
+        setVoices(defaultVoices);
+        return;
+      }
+
+      if (data?.voices && data.voices.length > 0) {
+        // Merge API voices with default voices, avoiding duplicates
+        const apiVoices = data.voices;
+        const mergedVoices = [...defaultVoices];
+        
+        apiVoices.forEach((apiVoice: Voice) => {
+          if (!defaultVoices.find(defaultVoice => defaultVoice.id === apiVoice.id)) {
+            mergedVoices.push(apiVoice);
+          }
+        });
+        
+        setVoices(mergedVoices);
+      } else {
+        setVoices(defaultVoices);
+      }
+    } catch (error) {
+      console.error('Error loading voices:', error);
+      setVoices(defaultVoices);
+    }
+  };
+
   // Initialize state machine
   const initialize = (scriptContent: string, characters: Character[]) => {
     setScriptContent(scriptContent);
@@ -324,6 +374,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     selectedVoice,
     voiceActivated,
     playbackSpeed,
+    voices,
     noMatchesBanner,
     setTextFilter,
     setRehearsalMode,
