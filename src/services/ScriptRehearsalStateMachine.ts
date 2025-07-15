@@ -1,4 +1,4 @@
-import { getScriptLines } from '@/components/practice/rehearsal/scriptParser';
+import { ScriptParserService } from './ScriptParserService';
 
 /**
  * Core interfaces for the rehearsal state machine
@@ -49,7 +49,7 @@ export class ScriptRehearsalStateMachine {
   }
 
   private initialize() {
-    this.scriptLines = getScriptLines(
+    this.scriptLines = ScriptParserService.parseScriptLines(
       this.config.scriptContent,
       this.config.characters,
       this.config.textFilter

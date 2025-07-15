@@ -12,9 +12,11 @@ import { ActorLineDetector } from '@/components/ActorLineDetector';
 import { VoiceControls } from '@/components/practice/VoiceControls';
 import { ScriptControls } from '@/components/practice/ScriptControls';
 import { MobileControlsDrawer } from '@/components/practice/MobileControlsDrawer';
-import { useRehearsalMode } from '@/components/practice/RehearsalMode';
-import { useTTSManager } from '@/components/practice/TTSManager';
-import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
+// import { useRehearsalMode } from '@/components/practice/RehearsalMode'; // REMOVED: Replaced with ScriptRehearsalStateMachine
+// import { useTTSManager } from '@/components/practice/TTSManager'; // REMOVED: Replaced with useAudioManager
+import { ScriptRehearsalStateMachine } from '@/services/ScriptRehearsalStateMachine';
+import { useAudioManager } from '@/services/AudioManager';
+import { ScriptParserService } from '@/services/ScriptParserService';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ArrowLeft, 
@@ -40,11 +42,8 @@ interface Script {
   user_id: string;
 }
 
-interface Character {
-  name: string;
-  voice: string;
-  isUserRole: boolean;
-}
+// Remove local interface - now imported from services
+import type { Character } from '@/services/ScriptRehearsalStateMachine';
 
 interface Voice {
   id: string;
@@ -95,48 +94,36 @@ const Practice = () => {
   const [scriptContent, setScriptContent] = useState('');
   const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
 
-  // Initialize TTS Manager
-  const { handleTTSPlay, isTTSPlaying, stopTTS } = useTTSManager({
-    scriptContent,
-    characters,
-    selectedVoice,
-    playbackSpeed,
-    textFilter,
-  });
-
-  // Initialize Rehearsal Mode
+  // Initialize State Machine
+  const stateMachineRef = useRef<ScriptRehearsalStateMachine | null>(null);
   const [rehearsalState, setRehearsalState] = useState('IDLE');
   const [currentCueWords, setCurrentCueWords] = useState<string[]>([]);
-  
-  const { waitingForActor, stopRehearsalMode } = useRehearsalMode({
-    scriptContent,
-    characters,
-    selectedVoice,
-    playbackSpeed,
-    textFilter,
-    isActive: rehearsalMode,
-    onComplete: () => setRehearsalMode(false),
-    onStop: () => setRehearsalMode(false),
-    onStateChange: (state) => setRehearsalState(state),
-    onCueWordsChange: (cueWords) => setCurrentCueWords(cueWords),
-  });
 
-  // Master stop function for all AI operations
-  const handleMasterStop = () => {
-    console.log('🛑 Master stop - halting all operations');
-    setIsPlaying(false);
-    setRehearsalMode(false);
-    stopTTS();
-    stopListening();
-    stopRehearsalMode();
-  };
-
-  // Initialize speech recognition
-  const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition({
-    onWordMatch: (matchedWord) => {
-      console.log('Voice match detected:', matchedWord);
+  // Initialize Audio Manager (replaces useTTSManager)
+  const audioManager = useAudioManager({
+    defaultVoiceId: selectedVoice,
+    defaultPlaybackSpeed: playbackSpeed,
+    onTTSComplete: () => {
+      console.log('🔊 TTS complete - continuing rehearsal if active');
+      if (stateMachineRef.current && rehearsalMode) {
+        stateMachineRef.current.handleAISpeechComplete();
+      }
     },
-    onError: (error) => {
+    onTTSError: (error) => {
+      console.error('TTS Error:', error);
+      toast({
+        title: "Speech Error", 
+        description: error,
+        variant: "destructive",
+      });
+    },
+    onCueDetected: (cue) => {
+      console.log('🎤 Cue detected:', cue);
+      if (stateMachineRef.current && rehearsalMode) {
+        stateMachineRef.current.handleActorCueDetected();
+      }
+    },
+    onSpeechError: (error) => {
       console.error('Speech recognition error:', error);
       toast({
         title: "Voice Recognition Error",
@@ -146,24 +133,151 @@ const Practice = () => {
     }
   });
 
-  // Handle actor line detection and start voice listening
+  // Initialize state machine when needed
+  useEffect(() => {
+    if (rehearsalMode && scriptContent && characters.length > 0 && !stateMachineRef.current) {
+      console.log('🎭 Initializing State Machine for rehearsal');
+      
+      stateMachineRef.current = new ScriptRehearsalStateMachine({
+        scriptContent,
+        characters,
+        textFilter,
+        onStateChange: (state) => {
+          console.log('🎭 State machine state changed:', state);
+          setRehearsalState(state);
+        },
+        onLineChange: async (lineIndex, line) => {
+          console.log('📝 Line changed:', lineIndex, line?.content?.substring(0, 50) + '...');
+          
+          // If this is an AI line, trigger TTS
+          if (line?.type === 'ai' && line.dialogue) {
+            try {
+              await audioManager.speakText(line.dialogue, {
+                voiceId: selectedVoice,
+                playbackSpeed: playbackSpeed,
+              });
+            } catch (error) {
+              console.error('Error speaking AI line:', error);
+              toast({
+                title: "Speech Error",
+                description: "Failed to speak AI line",
+                variant: "destructive",
+              });
+            }
+          }
+          
+          // If this is an actor line, start listening for cue
+          if (line?.type === 'actor' && voiceActivated) {
+            const cueWords = stateMachineRef.current?.getCurrentCueWords() || [];
+            if (cueWords.length > 0) {
+              audioManager.startListeningForCue(cueWords.join(' '));
+            }
+          }
+        },
+        onCueWordsChange: (cueWords) => {
+          console.log('🎤 Cue words changed:', cueWords);
+          setCurrentCueWords(cueWords);
+        },
+        onComplete: () => {
+          console.log('🎯 Rehearsal complete!');
+          setRehearsalMode(false);
+          toast({
+            title: "Rehearsal Complete",
+            description: "You've reached the end of the script.",
+          });
+        },
+        onError: (error) => {
+          console.error('State machine error:', error);
+          toast({
+            title: "Rehearsal Error",
+            description: error,
+            variant: "destructive",
+          });
+        }
+      });
+
+      // Start the rehearsal
+      stateMachineRef.current.start();
+    } else if (!rehearsalMode && stateMachineRef.current) {
+      console.log('🛑 Stopping State Machine');
+      stateMachineRef.current.stop();
+      stateMachineRef.current = null;
+      setRehearsalState('IDLE');
+      setCurrentCueWords([]);
+    }
+  }, [rehearsalMode, scriptContent, characters, textFilter]);
+
+  // Master stop function for all AI operations
+  const handleMasterStop = () => {
+    console.log('🛑 Master stop - halting all operations');
+    setIsPlaying(false);
+    setRehearsalMode(false);
+    audioManager.stopAll();
+    if (stateMachineRef.current) {
+      stateMachineRef.current.stop();
+      stateMachineRef.current = null;
+    }
+  };
+
+  // Handle TTS for standalone usage (non-rehearsal)
+  const handleTTSPlay = async () => {
+    if (!scriptContent) return;
+
+    try {
+      const { text, hasContent, fallbackApplied } = ScriptParserService.extractTextForTTS(
+        scriptContent, 
+        characters, 
+        textFilter
+      );
+
+      if (!hasContent) {
+        toast({
+          title: "No Text Found",
+          description: `No ${textFilter} text found to read.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (fallbackApplied) {
+        toast({
+          title: "Filter Fallback Applied",
+          description: `No ${textFilter} text found. Reading all text instead.`,
+        });
+      }
+
+      await audioManager.speakText(text, {
+        voiceId: selectedVoice,
+        playbackSpeed: playbackSpeed,
+      });
+    } catch (error) {
+      console.error('TTS Error:', error);
+      toast({
+        title: "Speech Error",
+        description: "Failed to generate speech. Check your connection.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  // Handle actor line detection (for backward compatibility, but now handled by state machine)
   const handleActorLineDetected = (line: string) => {
-    if (!voiceActivated || !isSupported || isListening) return;
+    if (!voiceActivated || !audioManager.isSpeechSupported || audioManager.isListening) return;
     
     setCurrentActorLine(line);
     
-    // Start listening for the last word of this line
+    // Start listening for cue in the line
     const characterMatch = line.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
     if (characterMatch) {
       const dialogue = characterMatch[2].trim();
-      console.log(`Starting to listen for last word of: "${dialogue}"`);
-      startListening(dialogue);
+      console.log(`Starting to listen for cue in: "${dialogue}"`);
+      audioManager.startListeningForCue(dialogue);
     }
   };
 
   // Request microphone access when voice activation is enabled
   useEffect(() => {
-    if (voiceActivated && isSupported) {
+    if (voiceActivated && audioManager.isSpeechSupported) {
       navigator.mediaDevices.getUserMedia({ audio: true })
         .then(() => {
           console.log('Microphone access granted');
@@ -182,7 +296,7 @@ const Practice = () => {
           });
         });
     }
-  }, [voiceActivated, isSupported]);
+  }, [voiceActivated, audioManager.isSpeechSupported]);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -317,7 +431,7 @@ const Practice = () => {
 
     window.addEventListener('keydown', handleKeyPress);
     return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [scrollSpeed, isPlaying, isTTSPlaying, rehearsalMode]);
+  }, [scrollSpeed, isPlaying, audioManager.isTTSPlaying, rehearsalMode]);
 
   const fetchScript = async () => {
     try {
@@ -389,13 +503,13 @@ const Practice = () => {
 
   const handleScriptUpdate = (updatedContent: string) => {
     // Auto-stop TTS when script is edited
-    if (isTTSPlaying) {
-      stopTTS();
+    if (audioManager.isTTSPlaying) {
+      audioManager.stopTTS();
     }
     
     // Stop voice recognition when editing
-    if (isListening) {
-      stopListening();
+    if (audioManager.isListening) {
+      audioManager.stopListening();
       setCurrentActorLine(null);
     }
     
@@ -557,12 +671,12 @@ const Practice = () => {
               onTextFilterChange={setTextFilter}
               onVoiceActivatedChange={setVoiceActivated}
               onPlaybackSpeedChange={setPlaybackSpeed}
-              isTTSPlaying={isTTSPlaying}
+              isTTSPlaying={audioManager.isTTSPlaying}
               onTTSPlay={handleTTSPlay}
               
               // Status
-              isListening={isListening}
-              waitingForActor={waitingForActor}
+              isListening={audioManager.isListening}
+              waitingForActor={rehearsalState === 'WAITING_FOR_ACTOR_CUE'}
             />
           </div>
 
@@ -605,15 +719,15 @@ const Practice = () => {
                       onTextFilterChange={setTextFilter}
                       onVoiceActivatedChange={setVoiceActivated}
                       onPlaybackSpeedChange={setPlaybackSpeed}
-                      isPlaying={isTTSPlaying}
+                      isPlaying={audioManager.isTTSPlaying}
                       onTTSPlay={handleTTSPlay}
                     />
 
                     {/* Voice Activation Status */}
-                    {isListening && (
+                    {audioManager.isListening && (
                       <div className="text-center">
                         <span className="text-xs text-muted-foreground animate-pulse">
-                          {waitingForActor ? 'Still listening...' : 'Listening...'}
+                          {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Still listening...' : 'Listening...'}
                         </span>
                       </div>
                     )}
@@ -647,14 +761,14 @@ const Practice = () => {
 
 
       {/* TTS Visual Indicator */}
-      {isTTSPlaying && (
+      {audioManager.isTTSPlaying && (
         <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse z-50">
           🔊 {rehearsalMode ? 'Rehearsal Mode' : 'AI Reading...'}
         </div>
       )}
 
       {/* Rehearsal Status Indicator */}
-      {rehearsalMode && waitingForActor && (
+      {rehearsalMode && rehearsalState === 'WAITING_FOR_ACTOR_CUE' && (
         <div className="fixed top-16 right-4 bg-orange-500 text-white px-3 py-2 rounded-full text-sm font-medium shadow-lg z-50">
           🎭 Your turn to speak
         </div>
@@ -665,7 +779,7 @@ const Practice = () => {
         scriptContent={scriptContent}
         characters={characters}
         voiceActivated={voiceActivated}
-        isSupported={isSupported}
+        isSupported={audioManager.isSpeechSupported}
         onActorLineDetected={handleActorLineDetected}
       />
     </div>
