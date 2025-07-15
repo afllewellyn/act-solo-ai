@@ -1,220 +1,267 @@
-import { useEffect, useState } from 'react';
-import { useTTS } from '@/hooks/useTTS';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { useToast } from '@/hooks/use-toast';
-import { RehearsalModeProps } from './rehearsal/types';
+import { useTTS } from '@/hooks/useTTS';
 import { getScriptLines } from './rehearsal/scriptParser';
-import { extractFormattedText } from './rehearsal/textUtils';
 
-/**
- * useRehearsalMode Hook
- * 
- * Manages interactive script rehearsal with AI. Coordinates between AI speaking
- * its assigned lines and waiting for the actor to speak their lines. Uses speech
- * recognition to detect when the actor finishes speaking before continuing.
- * 
- * Flow: AI speaks → waits for actor → detects actor's voice → continues to next AI line
- * Requires microphone access and handles timeouts/errors gracefully.
- */
-export const useRehearsalMode = ({
-  scriptContent,
-  characters,
-  selectedVoice,
-  playbackSpeed,
-  textFilter,
-  isActive,
-  onComplete,
-  onStop,
-}: RehearsalModeProps) => {
-  const { toast } = useToast();
-  const { speak, stop: stopTTS } = useTTS();
+interface RehearsalModeProps {
+  scriptContent: string;
+  characters: Character[];
+  selectedVoice: string;
+  playbackSpeed: number;
+  textFilter: TextFilter;
+  isActive: boolean;
+  onComplete: () => void;
+  onStop: () => void;
+  onStateChange?: (state: RehearsalState) => void;
+  onCueWordsChange?: (cueWords: string[]) => void;
+}
+
+interface Character {
+  name: string;
+  voice: string;
+  isUserRole: boolean;
+}
+
+type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+type RehearsalState = 'IDLE' | 'WAITING_FOR_ACTOR_CUE' | 'AI_SPEAKING' | 'TRANSITIONING';
+
+export const useRehearsalMode = (props: RehearsalModeProps) => {
+  const { 
+    scriptContent, 
+    characters, 
+    selectedVoice, 
+    playbackSpeed, 
+    textFilter, 
+    isActive, 
+    onComplete, 
+    onStop,
+    onStateChange,
+    onCueWordsChange
+  } = props;
+
+  // State management
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
-  const [waitingForActor, setWaitingForActor] = useState(false);
-  const [listeningTimeout, setListeningTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [rehearsalState, setRehearsalState] = useState<RehearsalState>('IDLE');
+  const [currentCueWords, setCurrentCueWords] = useState<string[]>([]);
+  const listeningTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const stopRef = useRef(false); // Immediate stop flag
 
-  // Initialize speech recognition
-  const { isSupported, startListening, stopListening } = useSpeechRecognition({
-    onWordMatch: (matchedWord) => {
-      console.log('Voice match detected:', matchedWord);
-      if (!isActive) {
-        console.log('Rehearsal not active - ignoring voice match');
-        return;
-      }
-      if (waitingForActor) {
-        console.log('Actor response detected, continuing rehearsal');
-        // Clear the listening timeout
-        if (listeningTimeout) {
-          clearTimeout(listeningTimeout);
-          setListeningTimeout(null);
-        }
-        // Continue to next line
-        setWaitingForActor(false);
-        continueRehearsalAfterActorResponse();
+  // Initialize speech recognition with enhanced cue detection
+  const { isListening, startListeningForCue, stopListening } = useSpeechRecognition({
+    onCueDetected: (detectedCue: string) => {
+      console.log('🎭 Actor cue detected:', detectedCue);
+      if (!stopRef.current) {
+        handleActorCueDetected();
       }
     },
-    onError: (error) => {
-      console.error('Speech recognition error:', error);
-      toast({
-        title: "Voice Recognition Error",
-        description: error,
-        variant: "destructive",
-      });
+    onError: (error: any) => {
+      console.error('Speech recognition error in rehearsal:', error);
     }
   });
 
-  const startRehearsalMode = () => {
-    if (!scriptContent) return;
-    
+  // Initialize TTS directly for more control
+  const { speak, stop: stopTTS, isPlaying: isTTSPlaying } = useTTS();
+
+  // Update parent with state changes
+  useEffect(() => {
+    onStateChange?.(rehearsalState);
+  }, [rehearsalState, onStateChange]);
+
+  useEffect(() => {
+    onCueWordsChange?.(currentCueWords);
+  }, [currentCueWords, onCueWordsChange]);
+
+  const startRehearsalMode = async () => {
+    if (!scriptContent || !characters) {
+      console.log('Missing script content or characters');
+      return;
+    }
+
+    console.log('🎭 Starting rehearsal mode');
+    stopRef.current = false;
     setCurrentLineIndex(0);
-    setWaitingForActor(false);
+    setRehearsalState('TRANSITIONING');
+    setCurrentCueWords([]);
     
-    // Request microphone access
-    if (isSupported) {
-      navigator.mediaDevices.getUserMedia({ audio: true })
-        .then(() => {
-          console.log('Microphone access granted for rehearsal');
-          // Start with first line
-          playCurrentLine();
-        })
-        .catch((error) => {
-          console.error('Microphone access denied:', error);
-          toast({
-            title: "Microphone Access Required",
-            description: "Please allow microphone access to use rehearsal mode.",
-            variant: "destructive",
-          });
-          onStop();
-        });
+    try {
+      // Request microphone permission
+      await navigator.mediaDevices.getUserMedia({ audio: true });
+      console.log('🎤 Microphone access granted');
+      
+      // Start the rehearsal flow
+      await processCurrentLine();
+    } catch (error) {
+      console.error('Failed to access microphone:', error);
+      setRehearsalState('IDLE');
     }
   };
 
   const stopRehearsalMode = () => {
-    console.log('Stopping rehearsal mode - clearing all operations');
+    console.log('🛑 Emergency stop - halting all rehearsal operations');
     
-    // Immediately set waiting state to false
-    setWaitingForActor(false);
+    // Set immediate stop flag
+    stopRef.current = true;
     
     // Clear all timeouts
-    if (listeningTimeout) {
-      clearTimeout(listeningTimeout);
-      setListeningTimeout(null);
+    if (listeningTimeoutRef.current) {
+      clearTimeout(listeningTimeoutRef.current);
+      listeningTimeoutRef.current = null;
     }
     
-    // Stop all audio/speech operations
-    stopListening();
+    // Stop all audio and recognition immediately
     stopTTS();
+    stopListening();
     
-    // Call parent stop handler
+    // Reset all state
+    setCurrentLineIndex(0);
+    setRehearsalState('IDLE');
+    setCurrentCueWords([]);
+    
+    // Notify parent
     onStop();
   };
 
-  const advanceToNextLine = () => {
-    if (!isActive) return;
-    
-    setCurrentLineIndex(prevIndex => {
-      const newIndex = prevIndex + 1;
-      console.log(`Advanced from line ${prevIndex} to line ${newIndex}`);
-      
-      // Continue to next line after state update
-      setTimeout(() => {
-        if (isActive) playCurrentLine();
-      }, 100);
-      
-      return newIndex;
-    });
-  };
-
-  const playCurrentLine = async () => {
-    if (!isActive) {
-      console.log('Rehearsal not active - stopping playCurrentLine');
+  // Core rehearsal processing logic
+  const processCurrentLine = useCallback(async () => {
+    if (!isActive || stopRef.current) {
+      console.log('❌ Rehearsal not active or stopped');
       return;
     }
 
     const lines = getScriptLines(scriptContent, characters, textFilter);
+    
     if (currentLineIndex >= lines.length) {
-      // Rehearsal complete
-      toast({
-        title: "Rehearsal Complete",
-        description: "You've finished practicing the script!",
-      });
+      console.log('🎯 Rehearsal complete!');
+      setRehearsalState('IDLE');
       onComplete();
       return;
     }
 
-    const lineObj = lines[currentLineIndex];
-    console.log(`Processing line ${currentLineIndex}: ${lineObj.type} - "${lineObj.dialogue}"`);
-    
-    if (lineObj.type === 'actor') {
-      // Actor line - wait for actor to speak
-      console.log(`Waiting for actor line: ${lineObj.dialogue}`);
-      setWaitingForActor(true);
+    const currentLine = lines[currentLineIndex];
+    console.log(`📝 Processing line ${currentLineIndex}: ${currentLine.type} - "${currentLine.content.substring(0, 50)}..."`);
+
+    if (currentLine.type === 'actor') {
+      // Actor's turn - extract cue words and start listening
+      console.log('👤 Actor line detected - extracting cue words');
       
-      // Start listening for actor's words (last 1-2 words)
-      const words = lineObj.dialogue.trim().split(/\s+/);
-      const lastWords = words.slice(-2).join(' '); // Get last 2 words
-      startListening(lastWords);
+      const cueWords = extractCueWordsFromLine(currentLine.content);
+      setCurrentCueWords(cueWords);
+      setRehearsalState('WAITING_FOR_ACTOR_CUE');
       
-      // Set timeout for fallback (10 seconds)
-      const timeout = setTimeout(() => {
-        if (!isActive) return; // Check if still active
-        console.log('Timeout waiting for actor response - stopping');
-        if (listeningTimeout) {
-          clearTimeout(listeningTimeout);
-          setListeningTimeout(null);
-        }
-        setWaitingForActor(false);
-        stopListening();
-        // Don't auto-advance - just stop and wait
-      }, 10000);
-      setListeningTimeout(timeout);
-    } else {
-      // AI line - speak it only if rehearsal is still active
-      if (!isActive) return;
-      
-      console.log(`AI speaking: ${lineObj.dialogue}`);
-      
-      // For bold/italic filters, extract the filtered text to speak
-      let textToSpeak = lineObj.dialogue;
-      if (textFilter === 'bold') {
-        textToSpeak = extractFormattedText(lineObj.content, 'bold');
-      } else if (textFilter === 'italic') {
-        textToSpeak = extractFormattedText(lineObj.content, 'italic');
+      if (cueWords.length > 0) {
+        console.log(`🎤 Listening for cue words: ${cueWords.join(', ')}`);
+        startListeningForCue(currentLine.content);
+        
+        // Set timeout for actor response
+        listeningTimeoutRef.current = setTimeout(() => {
+          if (!stopRef.current) {
+            console.log('⏰ Actor timeout - auto-advancing');
+            handleActorTimeout();
+          }
+        }, 15000);
+      } else {
+        console.log('⚠️ No cue words found, auto-advancing');
+        setTimeout(() => advanceToNextLine(), 1000);
       }
       
-      if (textToSpeak.trim()) {
-        await speak(textToSpeak, {
+    } else if (currentLine.type === 'ai') {
+      // AI's turn - speak the line
+      console.log('🤖 AI speaking line...');
+      setRehearsalState('AI_SPEAKING');
+      setCurrentCueWords([]);
+      
+      if (currentLine.content && currentLine.content.trim()) {
+        // Extract just the dialogue text for TTS
+        const textToSpeak = currentLine.dialogue || currentLine.content.replace(/<[^>]*>/g, '').trim();
+        
+        speak(textToSpeak, {
           voiceId: selectedVoice,
           playbackSpeed: playbackSpeed,
           onComplete: () => {
-            if (!isActive) {
-              console.log('Rehearsal stopped during TTS - aborting');
-              return;
+            if (!stopRef.current && isActive) {
+              console.log('✅ AI finished speaking, advancing to next line');
+              advanceToNextLine();
             }
-            console.log('AI finished speaking, advancing to next line');
-            // Use the helper function to avoid stale closure
-            advanceToNextLine();
           }
         });
       } else {
-        // Skip empty lines - advance immediately
-        console.log('Skipping empty AI line, moving to next');
+        // Skip empty lines
+        console.log('Skipping empty AI line');
         advanceToNextLine();
       }
     }
+  }, [isActive, currentLineIndex, scriptContent, characters, textFilter, startListeningForCue, speak, selectedVoice, playbackSpeed]);
+
+  // Extract meaningful cue words from actor line
+  const extractCueWordsFromLine = (lineText: string): string[] => {
+    if (!lineText) return [];
+    
+    // Remove character name and clean text
+    const cleanText = lineText
+      .replace(/^[A-Z][A-Z\s\-\'\.]+:\s*/, '')
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const words = cleanText.split(' ').filter(word => word.length > 1);
+    const fillerWords = ['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as'];
+    const meaningfulWords = words.filter(word => 
+      !fillerWords.includes(word.toLowerCase()) && word.length > 2
+    );
+    
+    if (meaningfulWords.length >= 2) {
+      return [meaningfulWords.slice(-2).join(' ')]; // Last 2 meaningful words
+    } else if (meaningfulWords.length === 1) {
+      return [meaningfulWords[0]]; // Last meaningful word
+    } else {
+      return words.slice(-2); // Fallback to last words
+    }
   };
 
-  const continueRehearsalAfterActorResponse = () => {
-    if (!isActive) {
-      console.log('Rehearsal not active - not continuing after actor response');
-      return;
-    }
+  // Handle when actor cue is detected
+  const handleActorCueDetected = useCallback(() => {
+    if (stopRef.current) return;
     
-    console.log('Actor finished speaking, moving to next line');
+    console.log('🎭 Actor cue detected - advancing to next line');
     stopListening();
     
-    // Use the same advance pattern to avoid stale closures
+    if (listeningTimeoutRef.current) {
+      clearTimeout(listeningTimeoutRef.current);
+      listeningTimeoutRef.current = null;
+    }
+    
     advanceToNextLine();
-  };
+  }, []);
+
+  // Handle actor timeout
+  const handleActorTimeout = useCallback(() => {
+    if (stopRef.current) return;
+    
+    console.log('⏰ Actor timeout - auto-advancing');
+    stopListening();
+    setCurrentCueWords([]);
+    advanceToNextLine();
+  }, []);
+
+  // Advance to next line
+  const advanceToNextLine = useCallback(() => {
+    if (stopRef.current) return;
+    
+    setCurrentLineIndex(prev => {
+      const newIndex = prev + 1;
+      console.log(`⏭️ Advanced from line ${prev} to line ${newIndex}`);
+      return newIndex;
+    });
+    
+    setRehearsalState('TRANSITIONING');
+    
+    // Process next line after state update
+    setTimeout(() => {
+      if (!stopRef.current && isActive) {
+        processCurrentLine();
+      }
+    }, 200);
+  }, [isActive, processCurrentLine]);
 
   // Auto-start when activated
   useEffect(() => {
@@ -225,9 +272,23 @@ export const useRehearsalMode = ({
     }
   }, [isActive]);
 
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      stopRef.current = true;
+      stopTTS();
+      stopListening();
+      if (listeningTimeoutRef.current) {
+        clearTimeout(listeningTimeoutRef.current);
+      }
+    };
+  }, []);
+
   return {
-    waitingForActor,
     currentLineIndex,
+    waitingForActor: rehearsalState === 'WAITING_FOR_ACTOR_CUE',
+    rehearsalState,
+    currentCueWords,
     stopRehearsalMode,
   };
 };

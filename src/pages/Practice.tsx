@@ -105,6 +105,9 @@ const Practice = () => {
   });
 
   // Initialize Rehearsal Mode
+  const [rehearsalState, setRehearsalState] = useState('IDLE');
+  const [currentCueWords, setCurrentCueWords] = useState<string[]>([]);
+  
   const { waitingForActor, stopRehearsalMode } = useRehearsalMode({
     scriptContent,
     characters,
@@ -114,7 +117,19 @@ const Practice = () => {
     isActive: rehearsalMode,
     onComplete: () => setRehearsalMode(false),
     onStop: () => setRehearsalMode(false),
+    onStateChange: (state) => setRehearsalState(state),
+    onCueWordsChange: (cueWords) => setCurrentCueWords(cueWords),
   });
+
+  // Master stop function for all AI operations
+  const handleMasterStop = () => {
+    console.log('🛑 Master stop - halting all operations');
+    setIsPlaying(false);
+    setRehearsalMode(false);
+    stopTTS();
+    stopListening();
+    stopRehearsalMode();
+  };
 
   // Initialize speech recognition
   const { isListening, isSupported, startListening, stopListening } = useSpeechRecognition({
@@ -568,6 +583,10 @@ const Practice = () => {
                       onScrollSpeedChange={setScrollSpeed}
                       onFontSizeChange={setFontSize}
                       onToggleFullscreen={toggleFullscreen}
+                      onMasterStop={handleMasterStop}
+                      showMasterStop={voiceActivated && rehearsalMode}
+                      rehearsalState={rehearsalState}
+                      cueWords={currentCueWords}
                     />
                   </div>
 

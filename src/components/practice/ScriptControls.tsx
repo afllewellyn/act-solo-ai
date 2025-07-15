@@ -1,6 +1,7 @@
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Play, Pause, RotateCcw, Plus, Minus, Maximize, Minimize } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Play, Pause, RotateCcw, Plus, Minus, Maximize, Minimize, Square } from 'lucide-react';
 
 /**
  * Props for ScriptControls component
@@ -16,6 +17,10 @@ interface ScriptControlsProps {
   onScrollSpeedChange: (speed: number[]) => void; // Callback when scroll speed changes
   onFontSizeChange: (size: number[]) => void; // Callback when font size changes (min: 12px, max: 32px)
   onToggleFullscreen: () => void; // Callback to toggle fullscreen mode
+  onMasterStop?: () => void; // Master stop button to halt all AI operations
+  showMasterStop?: boolean; // Whether to show the master stop button
+  rehearsalState?: string; // Current rehearsal state for display
+  cueWords?: string[]; // Current cue words being listened for
 }
 
 /**
@@ -35,6 +40,10 @@ export const ScriptControls = ({
   onScrollSpeedChange,
   onFontSizeChange,
   onToggleFullscreen,
+  onMasterStop,
+  showMasterStop = false,
+  rehearsalState,
+  cueWords = [],
 }: ScriptControlsProps) => {
   return (
     <>
@@ -43,6 +52,28 @@ export const ScriptControls = ({
         <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
           Rehearse Script
         </Label>
+        
+        {/* Rehearsal State and Cue Words Display */}
+        {showMasterStop && (rehearsalState || cueWords.length > 0) && (
+          <div className="space-y-1">
+            {rehearsalState && (
+              <div className="text-xs text-muted-foreground">
+                Status: <span className="font-medium">{rehearsalState}</span>
+              </div>
+            )}
+            {cueWords.length > 0 && (
+              <div className="flex items-center gap-1 flex-wrap">
+                <span className="text-xs text-muted-foreground">Listening for:</span>
+                {cueWords.map((word, index) => (
+                  <Badge key={index} variant="secondary" className="text-xs">
+                    "{word}"
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+        
         <div className="flex items-center gap-2">
           <Button
             variant="outline"
@@ -65,6 +96,20 @@ export const ScriptControls = ({
             <RotateCcw className="h-4 w-4" />
             <span className="ml-1">Reset</span>
           </Button>
+
+          {/* Master Stop Button - Emergency stop for all AI operations */}
+          {showMasterStop && onMasterStop && (
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onMasterStop}
+              className="flex-1"
+              aria-label="Emergency stop all AI operations"
+            >
+              <Square className="h-4 w-4" />
+              <span className="ml-1">Stop All</span>
+            </Button>
+          )}
 
           {/* Speed Display */}
           <div className="flex items-center justify-center px-2 py-1 bg-muted rounded text-sm min-w-[48px]">

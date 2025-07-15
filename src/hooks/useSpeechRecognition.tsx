@@ -4,6 +4,7 @@ interface SpeechRecognitionOptions {
   onWordMatch?: (matchedWord: string) => void;
   onError?: (error: string) => void;
   language?: string;
+  onCueDetected?: (detectedCue: string) => void;
 }
 
 // Extend the Window interface for TypeScript
@@ -110,9 +111,16 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
             const matchedWord = targetWords.find(word => 
               transcript.includes(word.toLowerCase())
             );
-            console.log(`✅ Match — triggering AI response`);
+            const detectedCue = matchedWord || targetWords[0];
+            console.log(`✅ Cue detected: "${detectedCue}" — triggering AI response`);
             stopListening();
-            options.onWordMatch?.(matchedWord || targetWords[0]);
+            
+            // Use the enhanced callback for cue detection
+            if (options.onCueDetected) {
+              options.onCueDetected(detectedCue);
+            } else {
+              options.onWordMatch?.(detectedCue);
+            }
           }
         }
       };
@@ -160,6 +168,41 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     }
   };
 
+  // Enhanced cue word extraction for rehearsal mode
+  const extractCueWords = (text: string): string[] => {
+    if (!text) return [];
+    
+    // Remove HTML tags, character names, and normalize text
+    const cleanText = text
+      .replace(/<[^>]*>/g, ' ')
+      .replace(/^[A-Z][A-Z\s\-\'\.]+:\s*/, '') // Remove character names
+      .replace(/\s+/g, ' ')
+      .trim();
+    
+    const words = cleanText.split(' ').filter(word => word.length > 1);
+    
+    // Filter out common filler words for better cue detection
+    const fillerWords = ['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as'];
+    const meaningfulWords = words.filter(word => 
+      !fillerWords.includes(word.toLowerCase()) && word.length > 2
+    );
+    
+    if (meaningfulWords.length >= 2) {
+      return [
+        meaningfulWords.slice(-2).join(' '), // Last 2 meaningful words
+        meaningfulWords[meaningfulWords.length - 1], // Last meaningful word
+        words.slice(-2).join(' '), // Last 2 words (including fillers as fallback)
+      ];
+    } else if (meaningfulWords.length === 1) {
+      return [
+        meaningfulWords[0],
+        words[words.length - 1], // Fallback to actual last word
+      ];
+    } else {
+      return words.slice(-2); // Fallback to last words even if they're fillers
+    }
+  };
+
   const startListening = useCallback((textToMatch: string) => {
     if (!isSupported || !recognitionRef.current) {
       options.onError?.('Speech recognition not supported');
@@ -180,6 +223,32 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     } catch (error) {
       console.error('Failed to start speech recognition:', error);
       options.onError?.('Failed to start listening');
+    }
+  }, [isSupported, options]);
+
+  // Enhanced function specifically for cue word detection
+  const startListeningForCue = useCallback((textToMatch: string) => {
+    if (!isSupported || !recognitionRef.current) {
+      options.onError?.('Speech recognition not supported');
+      return;
+    }
+
+    const cueWords = extractCueWords(textToMatch);
+    setTargetWords(cueWords);
+    
+    try {
+      recognitionRef.current.start();
+      setIsListening(true);
+      console.log(`🎤 Started listening for cue words: ${cueWords.join(', ')}`);
+      
+      // Set 15-second timeout for cue detection
+      timeoutRef.current = setTimeout(() => {
+        console.log('⏰ Cue detection timeout');
+        stopListening();
+      }, 15000);
+    } catch (error) {
+      console.error('Failed to start cue detection:', error);
+      options.onError?.('Failed to start listening for cue');
     }
   }, [isSupported, options]);
 
@@ -247,6 +316,7 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     isListening,
     isSupported,
     startListening,
+    startListeningForCue,
     stopListening,
     targetWords
   };
