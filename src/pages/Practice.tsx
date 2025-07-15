@@ -12,11 +12,6 @@ import { ActorLineDetector } from '@/components/ActorLineDetector';
 import { VoiceControls } from '@/components/practice/VoiceControls';
 import { ScriptControls } from '@/components/practice/ScriptControls';
 import { MobileControlsDrawer } from '@/components/practice/MobileControlsDrawer';
-// import { useRehearsalMode } from '@/components/practice/RehearsalMode'; // REMOVED: Replaced with ScriptRehearsalStateMachine
-// import { useTTSManager } from '@/components/practice/TTSManager'; // REMOVED: Replaced with useAudioManager
-import { ScriptRehearsalStateMachine } from '@/services/ScriptRehearsalStateMachine';
-import { useAudioManager } from '@/services/AudioManager';
-import { ScriptParserService } from '@/services/ScriptParserService';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ArrowLeft, 
@@ -33,20 +28,6 @@ import {
 } from "@/components/ui/breadcrumb";
 import { RehearsalProvider, useRehearsal } from '@/contexts/RehearsalContext';
 
-// Inner component that uses the RehearsalProvider
-const PracticeContent = ({ scriptContent, characters }: { scriptContent: string; characters: Character[] }) => {
-  const { initialize } = useRehearsal();
-
-  // Initialize rehearsal context when script content and characters are available
-  useEffect(() => {
-    if (scriptContent && characters.length > 0) {
-      initialize(scriptContent, characters);
-    }
-  }, [scriptContent, characters, initialize]);
-
-  return null; // This component only handles initialization
-};
-
 interface Script {
   id: string;
   title: string;
@@ -57,23 +38,15 @@ interface Script {
   user_id: string;
 }
 
-// Remove local interface - now imported from services
 import type { Character } from '@/services/ScriptRehearsalStateMachine';
 
-
-type TextFilter = 'all' | 'bold' | 'italic';
-
-
-const Practice = () => {
-  const { scriptId } = useParams();
-  const navigate = useNavigate();
-  const { user, loading: authLoading } = useAuth();
-  const { toast } = useToast();
+// Component that contains all rehearsal logic and UI - must be inside RehearsalProvider
+const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
+  const navigate = useNavigate();
 
-  const [script, setScript] = useState<Script | null>(null);
-  const [loading, setLoading] = useState(true);
   const [isPlaying, setIsPlaying] = useState(false);
   const [scrollSpeed, setScrollSpeed] = useState([2]);
   const [fontSize, setFontSize] = useState([18]);
@@ -86,7 +59,7 @@ const Practice = () => {
   const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
   const [scriptContent, setScriptContent] = useState('');
 
-  // Get rehearsal context
+  // Get rehearsal context - this is now safely inside RehearsalProvider
   const { 
     rehearsalMode, 
     setRehearsalMode, 
@@ -102,8 +75,28 @@ const Practice = () => {
     isTTSPlaying,
     isListening,
     rehearsalState,
-    handleActorLineDetected: contextHandleActorLineDetected 
+    handleActorLineDetected: contextHandleActorLineDetected,
+    initialize
   } = useRehearsal();
+
+  // Initialize script content and characters
+  useEffect(() => {
+    if (script) {
+      setScriptContent(script.content);
+      const charactersData = Array.isArray(script.characters) ? script.characters : [];
+      const parsedCharacters: Character[] = charactersData.map((char: any) => ({
+        name: char?.name || '',
+        voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
+        isUserRole: char?.isUserRole || false
+      }));
+      setCharacters(parsedCharacters);
+      
+      // Initialize rehearsal context
+      if (script.content && parsedCharacters.length > 0) {
+        initialize(script.content, parsedCharacters);
+      }
+    }
+  }, [script, initialize]);
 
   // Master stop function for all AI operations
   const handleMasterStop = () => {
@@ -117,19 +110,6 @@ const Practice = () => {
     setCurrentActorLine(line);
     contextHandleActorLineDetected(line);
   };
-
-  useEffect(() => {
-    if (!authLoading && !user) {
-      navigate('/auth');
-    }
-  }, [user, authLoading, navigate]);
-
-
-  useEffect(() => {
-    if (scriptId && user) {
-      fetchScript();
-    }
-  }, [scriptId, user]);
 
   // Session timer
   useEffect(() => {
@@ -218,39 +198,6 @@ const Practice = () => {
     return () => window.removeEventListener('keydown', handleKeyPress);
   }, [scrollSpeed, isPlaying, rehearsalMode, contextTTSPlay]);
 
-  const fetchScript = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('scripts')
-        .select('*')
-        .eq('id', scriptId)
-        .eq('user_id', user?.id)
-        .single();
-
-      if (error) throw error;
-      setScript(data);
-      setScriptContent(data.content);
-      // Parse characters data safely
-      const charactersData = Array.isArray(data.characters) ? data.characters : [];
-      const parsedCharacters: Character[] = charactersData.map((char: any) => ({
-        name: char?.name || '',
-        voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
-        isUserRole: char?.isUserRole || false
-      }));
-      setCharacters(parsedCharacters);
-    } catch (error) {
-      console.error('Error fetching script:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load script",
-        variant: "destructive",
-      });
-      navigate('/');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Handle script rehearsal play/pause (master control)
   const handlePlayPause = () => {
     if (voiceActivated) {
@@ -299,9 +246,6 @@ const Practice = () => {
     }
     
     setScriptContent(updatedContent);
-    if (script) {
-      setScript({ ...script, content: updatedContent });
-    }
   };
 
   const handleAutoSave = (success: boolean) => {
@@ -318,47 +262,20 @@ const Practice = () => {
 
   const handleRoleUpdate = (updatedCharacters: Character[]) => {
     setCharacters(updatedCharacters);
-    if (script) {
-      // Update the script's characters in the database
-      supabase
-        .from('scripts')
-        .update({ characters: updatedCharacters as any })
-        .eq('id', script.id)
-        .then(({ error }) => {
-          if (error) {
-            console.error('Error updating characters:', error);
-          }
-        });
-    }
+    // Update the script's characters in the database
+    supabase
+      .from('scripts')
+      .update({ characters: updatedCharacters as any })
+      .eq('id', script.id)
+      .then(({ error }) => {
+        if (error) {
+          console.error('Error updating characters:', error);
+        }
+      });
   };
 
-  if (authLoading || loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <p className="text-muted-foreground">Loading script...</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!script) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <p className="text-muted-foreground">Script not found</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
-            Go Back
-          </Button>
-        </div>
-      </div>
-    );
-  }
-
   return (
-    <RehearsalProvider>
-      <PracticeContent scriptContent={scriptContent} characters={characters} />
-      <div className={`min-h-screen bg-background ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+    <div className={`min-h-screen bg-background ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       {/* Header - Hidden in fullscreen */}
       {!isFullscreen && (
         <header className="border-b">
@@ -437,16 +354,14 @@ const Practice = () => {
                 </div>
               )}
               
-              {script && (
-                <InlineScriptEditor
-                  scriptId={script.id}
-                  content={scriptContent}
-                  characters={characters}
-                  fontSize={fontSize[0]}
-                  onContentChange={handleScriptUpdate}
-                  onAutoSave={handleAutoSave}
-                />
-              )}
+              <InlineScriptEditor
+                scriptId={script.id}
+                content={scriptContent}
+                characters={characters}
+                fontSize={fontSize[0]}
+                onContentChange={handleScriptUpdate}
+                onAutoSave={handleAutoSave}
+              />
               <div className="h-96" /> {/* Bottom padding for scrolling */}
             </div>
           </div>
@@ -464,7 +379,6 @@ const Practice = () => {
               onScrollSpeedChange={setScrollSpeed}
               onFontSizeChange={setFontSize}
               onToggleFullscreen={toggleFullscreen}
-              
             />
           </div>
 
@@ -485,8 +399,8 @@ const Practice = () => {
                       onScrollSpeedChange={setScrollSpeed}
                       onFontSizeChange={setFontSize}
                       onToggleFullscreen={toggleFullscreen}
-                        onMasterStop={handleMasterStop}
-                        showMasterStop={voiceActivated && rehearsalMode}
+                      onMasterStop={handleMasterStop}
+                      showMasterStop={voiceActivated && rehearsalMode}
                     />
                   </div>
 
@@ -533,7 +447,6 @@ const Practice = () => {
         </div>
       </div>
 
-
       {/* TTS Visual Indicator */}
       {isTTSPlaying && (
         <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse z-50">
@@ -556,7 +469,81 @@ const Practice = () => {
         isSupported={true}
         onActorLineDetected={handleActorLineDetected}
       />
+    </div>
+  );
+};
+
+const Practice = () => {
+  const { scriptId } = useParams();
+  const navigate = useNavigate();
+  const { user, loading: authLoading } = useAuth();
+  const { toast } = useToast();
+
+  const [script, setScript] = useState<Script | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  useEffect(() => {
+    if (scriptId && user) {
+      fetchScript();
+    }
+  }, [scriptId, user]);
+
+  const fetchScript = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('scripts')
+        .select('*')
+        .eq('id', scriptId)
+        .eq('user_id', user?.id)
+        .single();
+
+      if (error) throw error;
+      setScript(data);
+    } catch (error) {
+      console.error('Error fetching script:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load script",
+        variant: "destructive",
+      });
+      navigate('/');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (authLoading || loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="text-muted-foreground">Loading script...</p>
+        </div>
       </div>
+    );
+  }
+
+  if (!script) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center">
+          <p className="text-muted-foreground">Script not found</p>
+          <Button onClick={() => navigate('/')} className="mt-4">
+            Go Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <RehearsalProvider>
+      <PracticeWithRehearsal script={script} />
     </RehearsalProvider>
   );
 };
