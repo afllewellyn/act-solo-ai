@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Play, Pause, RotateCcw, Plus, Minus, Maximize, Minimize, Square } from 'lucide-react';
+import { useRehearsal } from '@/contexts/RehearsalContext';
 
 /**
  * Props for ScriptControls component
@@ -19,8 +20,6 @@ interface ScriptControlsProps {
   onToggleFullscreen: () => void; // Callback to toggle fullscreen mode
   onMasterStop?: () => void; // Master stop button to halt all AI operations
   showMasterStop?: boolean; // Whether to show the master stop button
-  rehearsalState?: string; // Current rehearsal state for display
-  cueWords?: string[]; // Current cue words being listened for
 }
 
 /**
@@ -42,9 +41,8 @@ export const ScriptControls = ({
   onToggleFullscreen,
   onMasterStop,
   showMasterStop = false,
-  rehearsalState,
-  cueWords = [],
 }: ScriptControlsProps) => {
+  const { rehearsalState, currentCueWords } = useRehearsal();
   return (
     <>
       {/* Rehearse Script Section */}
@@ -54,7 +52,7 @@ export const ScriptControls = ({
         </Label>
         
         {/* Rehearsal State and Cue Words Display */}
-        {(rehearsalState || cueWords.length > 0) && (
+        {(rehearsalState || currentCueWords.length > 0) && (
           <div className="space-y-1">
             {rehearsalState && rehearsalState !== 'IDLE' && (
               <div className="text-xs text-muted-foreground">
@@ -65,10 +63,10 @@ export const ScriptControls = ({
                 </span>
               </div>
             )}
-            {cueWords.length > 0 && (
+            {currentCueWords.length > 0 && (
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="text-xs text-muted-foreground">Listening for:</span>
-                {cueWords.map((word, index) => (
+                {currentCueWords.map((word, index) => (
                   <Badge key={index} variant="secondary" className="text-xs">
                     "{word}"
                   </Badge>

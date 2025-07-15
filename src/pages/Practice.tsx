@@ -31,6 +31,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { RehearsalProvider } from '@/contexts/RehearsalContext';
 
 interface Script {
   id: string;
@@ -598,7 +599,8 @@ const Practice = () => {
   }
 
   return (
-    <div className={`min-h-screen bg-background ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
+    <RehearsalProvider>
+      <div className={`min-h-screen bg-background ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       {/* Header - Hidden in fullscreen */}
       {!isFullscreen && (
         <header className="border-b">
@@ -708,11 +710,9 @@ const Practice = () => {
               // Voice controls
               selectedVoice={selectedVoice}
               voices={voices}
-              textFilter={currentTextFilter}
               voiceActivated={voiceActivated}
               playbackSpeed={playbackSpeed}
               onVoiceChange={setSelectedVoice}
-              onTextFilterChange={handleTextFilterChange}
               onVoiceActivatedChange={setVoiceActivated}
               onPlaybackSpeedChange={setPlaybackSpeed}
               isTTSPlaying={audioManager.isTTSPlaying}
@@ -741,10 +741,8 @@ const Practice = () => {
                       onScrollSpeedChange={setScrollSpeed}
                       onFontSizeChange={setFontSize}
                       onToggleFullscreen={toggleFullscreen}
-                       onMasterStop={handleMasterStop}
-                       showMasterStop={voiceActivated && rehearsalMode}
-                       rehearsalState={voiceActivated ? rehearsalState : undefined}
-                       cueWords={voiceActivated ? currentCueWords : []}
+                        onMasterStop={handleMasterStop}
+                        showMasterStop={voiceActivated && rehearsalMode}
                     />
                   </div>
 
@@ -756,11 +754,9 @@ const Practice = () => {
                     <VoiceControls
                       selectedVoice={selectedVoice}
                       voices={voices}
-                      textFilter={currentTextFilter}
                       voiceActivated={voiceActivated}
                       playbackSpeed={playbackSpeed}
                       onVoiceChange={setSelectedVoice}
-                      onTextFilterChange={handleTextFilterChange}
                       onVoiceActivatedChange={setVoiceActivated}
                       onPlaybackSpeedChange={setPlaybackSpeed}
                       isPlaying={audioManager.isTTSPlaying}
@@ -826,7 +822,8 @@ const Practice = () => {
         isSupported={audioManager.isSpeechSupported}
         onActorLineDetected={handleActorLineDetected}
       />
-    </div>
+      </div>
+    </RehearsalProvider>
   );
 };
 

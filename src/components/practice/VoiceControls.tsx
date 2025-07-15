@@ -4,6 +4,7 @@ import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Volume2, ChevronDown, Filter } from 'lucide-react';
+import { useRehearsal } from '@/contexts/RehearsalContext';
 
 /**
  * Voice data structure for ElevenLabs TTS voices
@@ -28,11 +29,9 @@ type TextFilter = 'all' | 'bold' | 'italic';
 interface VoiceControlsProps {
   selectedVoice: string; // Currently selected ElevenLabs voice ID
   voices: Voice[]; // Available voices from ElevenLabs API
-  textFilter: TextFilter; // Current text filter setting
   voiceActivated: boolean; // Whether voice activation (rehearsal mode) is enabled
   playbackSpeed: number; // TTS playback speed (0.5x - 2x)
   onVoiceChange: (voiceId: string) => void; // Callback when voice selection changes
-  onTextFilterChange: (filter: TextFilter) => void; // Callback when text filter changes
   onVoiceActivatedChange: (activated: boolean) => void; // Callback when voice activation toggles
   onPlaybackSpeedChange: (speed: number) => void; // Callback when playback speed changes
   isPlaying: boolean; // Whether TTS is currently playing
@@ -49,16 +48,15 @@ interface VoiceControlsProps {
 export const VoiceControls = ({
   selectedVoice,
   voices,
-  textFilter,
   voiceActivated,
   playbackSpeed,
   onVoiceChange,
-  onTextFilterChange,
   onVoiceActivatedChange,
   onPlaybackSpeedChange,
   isPlaying,
   onTTSPlay,
 }: VoiceControlsProps) => {
+  const { textFilter, setTextFilter } = useRehearsal();
   // Available text filter options for reading different parts of the script
   const filterOptions = [
     { value: 'all' as const, label: 'All Text' },
@@ -125,7 +123,7 @@ export const VoiceControls = ({
               {filterOptions.map((option) => (
                 <DropdownMenuItem 
                   key={option.value}
-                  onClick={() => onTextFilterChange(option.value)}
+                  onClick={() => setTextFilter(option.value)}
                   className={`cursor-pointer text-sm ${textFilter === option.value ? 'bg-accent' : ''}`}
                 >
                   {option.label}

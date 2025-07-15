@@ -49,11 +49,9 @@ interface MobileControlsDrawerProps {
   // Voice controls props
   selectedVoice: string;
   voices: Voice[];
-  textFilter: 'all' | 'bold' | 'italic';
   voiceActivated: boolean;
   playbackSpeed: number;
   onVoiceChange: (voiceId: string) => void;
-  onTextFilterChange: (filter: 'all' | 'bold' | 'italic') => void;
   onVoiceActivatedChange: (activated: boolean) => void;
   onPlaybackSpeedChange: (speed: number) => void;
   isTTSPlaying: boolean;
@@ -86,11 +84,9 @@ export const MobileControlsDrawer = ({
   // Voice controls
   selectedVoice,
   voices,
-  textFilter,
   voiceActivated,
   playbackSpeed,
   onVoiceChange,
-  onTextFilterChange,
   onVoiceActivatedChange,
   onPlaybackSpeedChange,
   isTTSPlaying,
@@ -188,11 +184,9 @@ export const MobileControlsDrawer = ({
               <VoiceControls
                 selectedVoice={selectedVoice}
                 voices={voices}
-                textFilter={textFilter}
                 voiceActivated={voiceActivated}
                 playbackSpeed={playbackSpeed}
                 onVoiceChange={onVoiceChange}
-                onTextFilterChange={onTextFilterChange}
                 onVoiceActivatedChange={onVoiceActivatedChange}
                 onPlaybackSpeedChange={onPlaybackSpeedChange}
                 isPlaying={isTTSPlaying}
