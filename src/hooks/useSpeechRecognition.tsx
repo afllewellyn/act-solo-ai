@@ -117,9 +117,11 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
             
             // Use the enhanced callback for cue detection
             if (options.onCueDetected) {
+              console.log(`🎯 Calling onCueDetected with: "${detectedCue}"`);
               options.onCueDetected(detectedCue);
-            } else {
-              options.onWordMatch?.(detectedCue);
+            } else if (options.onWordMatch) {
+              console.log(`🎯 Calling onWordMatch with: "${detectedCue}"`);
+              options.onWordMatch(detectedCue);
             }
           }
         }

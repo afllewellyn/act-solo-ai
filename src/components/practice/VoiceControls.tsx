@@ -19,7 +19,7 @@ interface Voice {
 /**
  * Text filter options for reading different parts of the script
  */
-type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+type TextFilter = 'all' | 'bold' | 'italic';
 
 /**
  * Props for VoiceControls component
@@ -64,7 +64,6 @@ export const VoiceControls = ({
     { value: 'all' as const, label: 'All Text' },
     { value: 'bold' as const, label: 'Bold Text Only' },
     { value: 'italic' as const, label: 'Italic Text Only' },
-    { value: 'characters' as const, label: 'Character Dialogue' },
   ];
 
   // Available playback speeds for TTS (0.5x to 2x)

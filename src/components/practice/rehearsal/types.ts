@@ -10,7 +10,7 @@ export interface Character {
 /**
  * Text filter options for selective script reading
  */
-export type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+export type TextFilter = 'all' | 'bold' | 'italic';
 
 /**
  * Props for RehearsalMode hook

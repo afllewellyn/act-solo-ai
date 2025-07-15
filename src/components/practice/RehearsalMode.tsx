@@ -22,7 +22,7 @@ interface Character {
   isUserRole: boolean;
 }
 
-type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+type TextFilter = 'all' | 'bold' | 'italic';
 type RehearsalState = 'IDLE' | 'WAITING_FOR_ACTOR_CUE' | 'AI_SPEAKING' | 'TRANSITIONING';
 
 export const useRehearsalMode = (props: RehearsalModeProps) => {

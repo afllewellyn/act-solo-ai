@@ -54,7 +54,7 @@ interface Voice {
   accent: string;
 }
 
-type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+type TextFilter = 'all' | 'bold' | 'italic';
 
 // Default voices that work even if the API fails
 const defaultVoices: Voice[] = [
@@ -87,7 +87,7 @@ const Practice = () => {
   const [currentLine, setCurrentLine] = useState(0);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
-  const [textFilter, setTextFilter] = useState<TextFilter>('characters');
+  const [textFilter, setTextFilter] = useState<TextFilter>('all');
   const [voiceActivated, setVoiceActivated] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [rehearsalMode, setRehearsalMode] = useState(false);
@@ -583,10 +583,10 @@ const Practice = () => {
                       onScrollSpeedChange={setScrollSpeed}
                       onFontSizeChange={setFontSize}
                       onToggleFullscreen={toggleFullscreen}
-                      onMasterStop={handleMasterStop}
-                      showMasterStop={voiceActivated && rehearsalMode}
-                      rehearsalState={rehearsalState}
-                      cueWords={currentCueWords}
+                       onMasterStop={handleMasterStop}
+                       showMasterStop={voiceActivated && rehearsalMode}
+                       rehearsalState={voiceActivated ? rehearsalState : undefined}
+                       cueWords={voiceActivated ? currentCueWords : []}
                     />
                   </div>
 

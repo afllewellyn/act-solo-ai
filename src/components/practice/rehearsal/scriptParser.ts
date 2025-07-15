@@ -10,16 +10,6 @@ export const checkLineMatchesFilter = (line: string, textFilter: TextFilter, cha
       return extractFormattedText(line, 'bold').length > 0;
     case 'italic':
       return extractFormattedText(line, 'italic').length > 0;
-    case 'characters':
-      // For characters filter, only include AI character lines
-      const cleanLine = stripHtmlTags(line).trim();
-      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
-      if (characterMatch) {
-        const characterName = characterMatch[1].trim();
-        const character = characters.find(c => c.name === characterName);
-        return !character || !character.isUserRole; // Only AI characters
-      }
-      return false;
     case 'all':
     default:
       return true; // Include all lines
@@ -43,7 +33,7 @@ export const getScriptLines = (
   
   // For rehearsal mode, we need to preserve ALL actor lines for proper listening sequence
   // Only filter AI lines based on text filter
-  return allLines.map(line => {
+  const filteredLines = allLines.map(line => {
     const cleanLine = stripHtmlTags(line).trim();
     
     // Check if this is a character line
@@ -67,4 +57,16 @@ export const getScriptLines = (
       return shouldInclude ? { type: 'ai' as const, content: line, dialogue: cleanLine } : null;
     }
   }).filter(Boolean) as ScriptLine[]; // Remove null entries
+  
+  // Check if bold/italic filter returned no AI content but has actor lines
+  if ((textFilter === 'bold' || textFilter === 'italic') && filteredLines.length > 0) {
+    const hasAILines = filteredLines.some(line => line.type === 'ai');
+    if (!hasAILines) {
+      console.warn(`No ${textFilter} text found in script. Falling back to all text.`);
+      // Return lines with all text filter applied instead
+      return getScriptLines(scriptContent, characters, 'all');
+    }
+  }
+  
+  return filteredLines;
 };

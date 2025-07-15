@@ -28,7 +28,7 @@ interface Character {
 /**
  * Text filter options for reading different parts of the script
  */
-type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+type TextFilter = 'all' | 'bold' | 'italic';
 
 /**
  * Props for MobileControlsDrawer component
@@ -49,11 +49,11 @@ interface MobileControlsDrawerProps {
   // Voice controls props
   selectedVoice: string;
   voices: Voice[];
-  textFilter: TextFilter;
+  textFilter: 'all' | 'bold' | 'italic';
   voiceActivated: boolean;
   playbackSpeed: number;
   onVoiceChange: (voiceId: string) => void;
-  onTextFilterChange: (filter: TextFilter) => void;
+  onTextFilterChange: (filter: 'all' | 'bold' | 'italic') => void;
   onVoiceActivatedChange: (activated: boolean) => void;
   onPlaybackSpeedChange: (speed: number) => void;
   isTTSPlaying: boolean;

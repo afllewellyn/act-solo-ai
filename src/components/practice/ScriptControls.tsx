@@ -54,11 +54,15 @@ export const ScriptControls = ({
         </Label>
         
         {/* Rehearsal State and Cue Words Display */}
-        {showMasterStop && (rehearsalState || cueWords.length > 0) && (
+        {(rehearsalState || cueWords.length > 0) && (
           <div className="space-y-1">
-            {rehearsalState && (
+            {rehearsalState && rehearsalState !== 'IDLE' && (
               <div className="text-xs text-muted-foreground">
-                Status: <span className="font-medium">{rehearsalState}</span>
+                Status: <span className="font-medium">
+                  {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Waiting for Actor' : 
+                   rehearsalState === 'AI_SPEAKING' ? 'AI Speaking' :
+                   rehearsalState === 'TRANSITIONING' ? 'Transitioning' : rehearsalState}
+                </span>
               </div>
             )}
             {cueWords.length > 0 && (
