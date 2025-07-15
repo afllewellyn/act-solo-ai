@@ -86,7 +86,7 @@ const Practice = () => {
   const [currentLine, setCurrentLine] = useState(0);
   const [characters, setCharacters] = useState<Character[]>([]);
   const [voices, setVoices] = useState<Voice[]>([]);
-  const [textFilter, setTextFilter] = useState<TextFilter>('all');
+  const [noMatchesBanner, setNoMatchesBanner] = useState<{ show: boolean; filter: TextFilter } | null>(null);
   const [voiceActivated, setVoiceActivated] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [rehearsalMode, setRehearsalMode] = useState(false);
@@ -98,6 +98,7 @@ const Practice = () => {
   const stateMachineRef = useRef<ScriptRehearsalStateMachine | null>(null);
   const [rehearsalState, setRehearsalState] = useState('IDLE');
   const [currentCueWords, setCurrentCueWords] = useState<string[]>([]);
+  const [currentTextFilter, setCurrentTextFilter] = useState<TextFilter>('all');
 
   // Initialize Audio Manager (replaces useTTSManager)
   const audioManager = useAudioManager({
@@ -141,7 +142,6 @@ const Practice = () => {
       stateMachineRef.current = new ScriptRehearsalStateMachine({
         scriptContent,
         characters,
-        textFilter,
         onStateChange: (state) => {
           console.log('🎭 State machine state changed:', state);
           setRehearsalState(state);
@@ -193,10 +193,28 @@ const Practice = () => {
             description: error,
             variant: "destructive",
           });
+        },
+        onScriptUpdated: (hasContent) => {
+          console.log('📝 Script updated, has content:', hasContent);
+          if (hasContent) {
+            setNoMatchesBanner(null);
+          }
+        },
+        onNoMatches: (filter) => {
+          console.log('🚫 No matches found for filter:', filter);
+          setNoMatchesBanner({ show: true, filter });
+          
+          // Show toast notification
+          toast({
+            title: "No Content Found",
+            description: `No ${filter} text found in the script. AI will remain silent.`,
+            variant: "destructive",
+          });
         }
       });
 
-      // Start the rehearsal
+      // Set the current filter and start the rehearsal
+      setCurrentTextFilter(stateMachineRef.current.getTextFilter());
       stateMachineRef.current.start();
     } else if (!rehearsalMode && stateMachineRef.current) {
       console.log('🛑 Stopping State Machine');
@@ -204,8 +222,9 @@ const Practice = () => {
       stateMachineRef.current = null;
       setRehearsalState('IDLE');
       setCurrentCueWords([]);
+      setNoMatchesBanner(null);
     }
-  }, [rehearsalMode, scriptContent, characters, textFilter]);
+  }, [rehearsalMode, scriptContent, characters]);
 
   // Master stop function for all AI operations
   const handleMasterStop = () => {
@@ -227,13 +246,13 @@ const Practice = () => {
       const { text, hasContent, fallbackApplied } = ScriptParserService.extractTextForTTS(
         scriptContent, 
         characters, 
-        textFilter
+        currentTextFilter
       );
 
       if (!hasContent) {
         toast({
           title: "No Text Found",
-          description: `No ${textFilter} text found to read.`,
+          description: `No ${currentTextFilter} text found to read.`,
           variant: "destructive",
         });
         return;
@@ -242,7 +261,7 @@ const Practice = () => {
       if (fallbackApplied) {
         toast({
           title: "Filter Fallback Applied",
-          description: `No ${textFilter} text found. Reading all text instead.`,
+          description: `No ${currentTextFilter} text found. Reading all text instead.`,
         });
       }
 
@@ -257,6 +276,14 @@ const Practice = () => {
         description: "Failed to generate speech. Check your connection.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Handle text filter changes
+  const handleTextFilterChange = (filter: TextFilter) => {
+    setCurrentTextFilter(filter);
+    if (stateMachineRef.current) {
+      stateMachineRef.current.setTextFilter(filter);
     }
   };
 
@@ -633,6 +660,23 @@ const Practice = () => {
             className="h-full overflow-y-auto"
           >
             <div className="max-w-4xl mx-auto p-4">
+              {/* No Matches Banner */}
+              {noMatchesBanner?.show && (
+                <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <div className="text-yellow-600 dark:text-yellow-400">⚠️</div>
+                    <div>
+                      <p className="font-medium text-yellow-800 dark:text-yellow-200">
+                        No {noMatchesBanner.filter} text found
+                      </p>
+                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                        AI will remain silent until you change the filter or add {noMatchesBanner.filter} text to your script.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
               {script && (
                 <InlineScriptEditor
                   scriptId={script.id}
@@ -664,11 +708,11 @@ const Practice = () => {
               // Voice controls
               selectedVoice={selectedVoice}
               voices={voices}
-              textFilter={textFilter}
+              textFilter={currentTextFilter}
               voiceActivated={voiceActivated}
               playbackSpeed={playbackSpeed}
               onVoiceChange={setSelectedVoice}
-              onTextFilterChange={setTextFilter}
+              onTextFilterChange={handleTextFilterChange}
               onVoiceActivatedChange={setVoiceActivated}
               onPlaybackSpeedChange={setPlaybackSpeed}
               isTTSPlaying={audioManager.isTTSPlaying}
@@ -712,11 +756,11 @@ const Practice = () => {
                     <VoiceControls
                       selectedVoice={selectedVoice}
                       voices={voices}
-                      textFilter={textFilter}
+                      textFilter={currentTextFilter}
                       voiceActivated={voiceActivated}
                       playbackSpeed={playbackSpeed}
                       onVoiceChange={setSelectedVoice}
-                      onTextFilterChange={setTextFilter}
+                      onTextFilterChange={handleTextFilterChange}
                       onVoiceActivatedChange={setVoiceActivated}
                       onPlaybackSpeedChange={setPlaybackSpeed}
                       isPlaying={audioManager.isTTSPlaying}

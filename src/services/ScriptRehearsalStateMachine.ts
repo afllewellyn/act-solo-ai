@@ -21,12 +21,13 @@ export interface ScriptLine {
 export interface RehearsalStateMachineConfig {
   scriptContent: string;
   characters: Character[];
-  textFilter: TextFilter;
   onStateChange?: (state: RehearsalState) => void;
   onLineChange?: (lineIndex: number, line: ScriptLine | null) => void;
   onCueWordsChange?: (cueWords: string[]) => void;
   onComplete?: () => void;
   onError?: (error: string) => void;
+  onScriptUpdated?: (hasContent: boolean) => void;
+  onNoMatches?: (filter: TextFilter) => void;
 }
 
 /**
@@ -42,6 +43,7 @@ export class ScriptRehearsalStateMachine {
   private scriptLines: ScriptLine[] = [];
   private currentCueWords: string[] = [];
   private stopRequested = false;
+  private textFilter: TextFilter = 'all';
 
   constructor(config: RehearsalStateMachineConfig) {
     this.config = config;
@@ -49,13 +51,24 @@ export class ScriptRehearsalStateMachine {
   }
 
   private initialize() {
+    this.parseScript();
+    console.log(`🎭 State Machine: Initialized with ${this.scriptLines.length} lines`);
+  }
+
+  private parseScript() {
     this.scriptLines = ScriptParserService.parseScriptLines(
       this.config.scriptContent,
       this.config.characters,
-      this.config.textFilter
+      this.textFilter
     );
     
-    console.log(`🎭 State Machine: Initialized with ${this.scriptLines.length} lines`);
+    // Check if we have content and emit appropriate events
+    if (this.scriptLines.length === 0) {
+      console.log(`📝 No content found for filter: ${this.textFilter}`);
+      this.config.onNoMatches?.(this.textFilter);
+    } else {
+      this.config.onScriptUpdated?.(true);
+    }
   }
 
   /**
@@ -222,6 +235,32 @@ export class ScriptRehearsalStateMachine {
     this.config.onStateChange?.(newState);
   }
 
+  /**
+   * Set text filter and re-parse script
+   */
+  setTextFilter(filter: TextFilter): void {
+    if (this.textFilter === filter) return;
+    
+    console.log(`🔄 State Machine: Changing text filter from ${this.textFilter} to ${filter}`);
+    this.textFilter = filter;
+    
+    // Re-parse the script with new filter
+    this.parseScript();
+    
+    // If rehearsal is active, restart from beginning
+    if (this.state !== 'IDLE') {
+      this.currentLineIndex = 0;
+      this.currentCueWords = [];
+      this.config.onCueWordsChange?.([]);
+      this.setState('TRANSITIONING');
+      setTimeout(() => {
+        if (!this.stopRequested) {
+          this.processCurrentLine();
+        }
+      }, 100);
+    }
+  }
+
   // Getters
   getState(): RehearsalState { return this.state; }
   getCurrentLineIndex(): number { return this.currentLineIndex; }
@@ -230,4 +269,5 @@ export class ScriptRehearsalStateMachine {
   }
   getCurrentCueWords(): string[] { return [...this.currentCueWords]; }
   getTotalLines(): number { return this.scriptLines.length; }
+  getTextFilter(): TextFilter { return this.textFilter; }
 }
