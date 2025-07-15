@@ -1,62 +1,35 @@
 import { Button } from '@/components/ui/button';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Volume2, ChevronDown, Filter } from 'lucide-react';
 import { useRehearsal } from '@/contexts/RehearsalContext';
 
-/**
- * Voice data structure for ElevenLabs TTS voices
- */
 interface Voice {
-  id: string; // ElevenLabs voice ID
-  name: string; // Display name for the voice
-  category: string; // Voice category/type
-  gender: string; // Voice gender
-  accent: string; // Voice accent/language
+  id: string;
+  name: string;
+  category: string;
+  gender: string;
+  accent: string;
 }
 
-/**
- * Text filter options for reading different parts of the script
- */
-type TextFilter = 'all' | 'bold' | 'italic';
-
-/**
- * Props for VoiceControls component
- * Manages AI voice selection, text filtering, playback speed, and voice activation
- */
 interface VoiceControlsProps {
-  selectedVoice: string; // Currently selected ElevenLabs voice ID
-  voices: Voice[]; // Available voices from ElevenLabs API
-  voiceActivated: boolean; // Whether voice activation (rehearsal mode) is enabled
-  playbackSpeed: number; // TTS playback speed (0.5x - 2x)
-  onVoiceChange: (voiceId: string) => void; // Callback when voice selection changes
-  onVoiceActivatedChange: (activated: boolean) => void; // Callback when voice activation toggles
-  onPlaybackSpeedChange: (speed: number) => void; // Callback when playback speed changes
-  isPlaying: boolean; // Whether TTS is currently playing
-  onTTSPlay: () => void; // Callback to start/stop TTS playback
+  voices: Voice[];
 }
 
-/**
- * VoiceControls Component
- * 
- * Provides controls for AI voice selection, text filtering, playback speed,
- * and voice activation (rehearsal mode) toggle. Includes dropdown menus for
- * voice selection and text filtering, plus a switch for voice activation.
- */
-export const VoiceControls = ({
-  selectedVoice,
-  voices,
-  voiceActivated,
-  playbackSpeed,
-  onVoiceChange,
-  onVoiceActivatedChange,
-  onPlaybackSpeedChange,
-  isPlaying,
-  onTTSPlay,
-}: VoiceControlsProps) => {
-  const { textFilter, setTextFilter } = useRehearsal();
+export const VoiceControls = ({ voices }: VoiceControlsProps) => {
+  const { 
+    selectedVoice, 
+    voiceActivated, 
+    playbackSpeed, 
+    textFilter, 
+    isTTSPlaying,
+    setSelectedVoice,
+    setVoiceActivated,
+    setPlaybackSpeed,
+    setTextFilter,
+    handleTTSPlay
+  } = useRehearsal();
   // Available text filter options for reading different parts of the script
   const filterOptions = [
     { value: 'all' as const, label: 'All Text' },
@@ -92,7 +65,7 @@ export const VoiceControls = ({
                 voices.map((voice) => (
                   <DropdownMenuItem 
                     key={voice.id}
-                    onClick={() => onVoiceChange(voice.id)}
+                    onClick={() => setSelectedVoice(voice.id)}
                     className={`cursor-pointer p-2 rounded text-sm hover:bg-accent ${selectedVoice === voice.id ? 'bg-accent' : ''}`}
                   >
                     <div className="flex flex-col">
@@ -134,14 +107,14 @@ export const VoiceControls = ({
         </DropdownMenu>
 
         <Button
-          variant={isPlaying ? "destructive" : "default"}
+          variant={isTTSPlaying ? "destructive" : "default"}
           size="sm"
-          onClick={onTTSPlay}
+          onClick={handleTTSPlay}
           className="flex-1"
-          aria-label={isPlaying ? 'Stop speech' : 'Start speech'}
+          aria-label={isTTSPlaying ? 'Stop speech' : 'Start speech'}
         >
           <Volume2 className="h-4 w-4" />
-          <span className="ml-1">{isPlaying ? 'Stop' : 'Speak'}</span>
+          <span className="ml-1">{isTTSPlaying ? 'Stop' : 'Speak'}</span>
         </Button>
       </div>
 
@@ -154,7 +127,7 @@ export const VoiceControls = ({
               key={speed}
               variant={playbackSpeed === speed ? "default" : "outline"}
               size="sm"
-              onClick={() => onPlaybackSpeedChange(speed)}
+              onClick={() => setPlaybackSpeed(speed)}
               className="text-xs px-2 py-1 h-8"
             >
               {speed}x
@@ -169,7 +142,7 @@ export const VoiceControls = ({
         <Switch
           id="voice-activation"
           checked={voiceActivated}
-          onCheckedChange={onVoiceActivatedChange}
+          onCheckedChange={setVoiceActivated}
         />
       </div>
     </div>

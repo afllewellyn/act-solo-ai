@@ -722,20 +722,8 @@ const Practice = () => {
               onFontSizeChange={setFontSize}
               onToggleFullscreen={toggleFullscreen}
               
-              // Voice controls
-              selectedVoice={selectedVoice}
+              // External data
               voices={voices}
-              voiceActivated={voiceActivated}
-              playbackSpeed={playbackSpeed}
-              onVoiceChange={setSelectedVoice}
-              onVoiceActivatedChange={setVoiceActivated}
-              onPlaybackSpeedChange={setPlaybackSpeed}
-              isTTSPlaying={audioManager.isTTSPlaying}
-              onTTSPlay={handleTTSPlay}
-              
-              // Status
-              isListening={audioManager.isListening}
-              waitingForActor={rehearsalState === 'WAITING_FOR_ACTOR_CUE'}
             />
           </div>
 
@@ -766,17 +754,7 @@ const Practice = () => {
 
                   {/* AI Reader Voice Selection Section */}
                   <div className="flex flex-col gap-3 flex-1">
-                    <VoiceControls
-                      selectedVoice={selectedVoice}
-                      voices={voices}
-                      voiceActivated={voiceActivated}
-                      playbackSpeed={playbackSpeed}
-                      onVoiceChange={setSelectedVoice}
-                      onVoiceActivatedChange={setVoiceActivated}
-                      onPlaybackSpeedChange={setPlaybackSpeed}
-                      isPlaying={audioManager.isTTSPlaying}
-                      onTTSPlay={handleTTSPlay}
-                    />
+                    <VoiceControls voices={voices} />
 
                     {/* Voice Activation Status */}
                     {audioManager.isListening && (

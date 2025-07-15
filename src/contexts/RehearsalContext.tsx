@@ -1,7 +1,16 @@
 import React, { createContext, useContext, useRef, useState, useEffect } from 'react';
 import { ScriptRehearsalStateMachine, Character, TextFilter, RehearsalState, ScriptLine } from '@/services/ScriptRehearsalStateMachine';
 import { useAudioManager } from '@/services/AudioManager';
+import { ScriptParserService } from '@/services/ScriptParserService';
 import { useToast } from '@/hooks/use-toast';
+
+interface Voice {
+  id: string;
+  name: string;
+  category: string;
+  gender: string;
+  accent: string;
+}
 
 interface RehearsalContextType {
   // State Machine
@@ -13,8 +22,14 @@ interface RehearsalContextType {
   textFilter: TextFilter;
   rehearsalMode: boolean;
   
-  // Audio State
+  // Audio State  
   isListening: boolean;
+  isTTSPlaying: boolean;
+  
+  // Voice Settings
+  selectedVoice: string;
+  voiceActivated: boolean;
+  playbackSpeed: number;
   
   // Banner State
   noMatchesBanner: { show: boolean; filter: TextFilter } | null;
@@ -22,8 +37,12 @@ interface RehearsalContextType {
   // Actions
   setTextFilter: (filter: TextFilter) => void;
   setRehearsalMode: (enabled: boolean) => void;
+  setSelectedVoice: (voiceId: string) => void;
+  setVoiceActivated: (activated: boolean) => void;
+  setPlaybackSpeed: (speed: number) => void;
   handleActorLineDetected: (line: string) => void;
   handleMasterStop: () => void;
+  handleTTSPlay: () => Promise<void>;
   reset: () => void;
   
   // Initialization
@@ -39,56 +58,168 @@ interface RehearsalProviderProps {
 export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }) => {
   const { toast } = useToast();
   const stateMachineRef = useRef<ScriptRehearsalStateMachine | null>(null);
+  const [scriptContent, setScriptContent] = useState('');
+  const [characters, setCharacters] = useState<Character[]>([]);
   
-  // State
+  // Rehearsal State
   const [rehearsalState, setRehearsalState] = useState<RehearsalState>('IDLE');
   const [currentCueWords, setCurrentCueWords] = useState<string[]>([]);
   const [textFilter, setTextFilterState] = useState<TextFilter>('all');
-  const [rehearsalMode, setRehearsalMode] = useState(false);
+  const [rehearsalMode, setRehearsalModeState] = useState(false);
   const [noMatchesBanner, setNoMatchesBanner] = useState<{ show: boolean; filter: TextFilter } | null>(null);
   
-  // Audio Manager
-  const { isListening, stopAll } = useAudioManager();
+  // Voice Settings
+  const [selectedVoice, setSelectedVoice] = useState('9BWtsMINqrJLrRacOk9x');
+  const [voiceActivated, setVoiceActivated] = useState(false);
+  const [playbackSpeed, setPlaybackSpeed] = useState(1);
+  
+  // Audio Manager with all callbacks
+  const audioManager = useAudioManager({
+    defaultVoiceId: selectedVoice,
+    defaultPlaybackSpeed: playbackSpeed,
+    onTTSComplete: () => {
+      console.log('🔊 TTS complete - continuing rehearsal if active');
+      if (stateMachineRef.current && rehearsalMode) {
+        stateMachineRef.current.handleAISpeechComplete();
+      }
+    },
+    onTTSError: (error) => {
+      console.error('TTS Error:', error);
+      toast({
+        title: "Speech Error", 
+        description: error,
+        variant: "destructive",
+      });
+    },
+    onCueDetected: () => {
+      console.log('🎤 Cue detected');
+      if (stateMachineRef.current && rehearsalMode) {
+        stateMachineRef.current.handleActorCueDetected();
+      }
+    },
+    onSpeechError: (error) => {
+      console.error('Speech recognition error:', error);
+      toast({
+        title: "Voice Recognition Error",
+        description: error,
+        variant: "destructive",
+      });
+    }
+  });
+
+  // Initialize state machine when rehearsal mode is enabled
+  useEffect(() => {
+    if (rehearsalMode && scriptContent && characters.length > 0 && !stateMachineRef.current) {
+      console.log('🎭 Initializing State Machine for rehearsal');
+      
+      const config = {
+        scriptContent,
+        characters,
+        onStateChange: (state: RehearsalState) => {
+          console.log('🎭 State machine state changed:', state);
+          setRehearsalState(state);
+        },
+        onLineChange: async (lineIndex: number, line: ScriptLine | null) => {
+          console.log('📝 Line changed:', lineIndex, line?.content?.substring(0, 50) + '...');
+          
+          // If this is an AI line, trigger TTS
+          if (line?.type === 'ai' && line.dialogue) {
+            try {
+              await audioManager.speakText(line.dialogue, {
+                voiceId: selectedVoice,
+                playbackSpeed: playbackSpeed,
+              });
+            } catch (error) {
+              console.error('Error speaking AI line:', error);
+            }
+          }
+          
+          // If this is an actor line, start listening for cue
+          if (line?.type === 'actor' && voiceActivated) {
+            const cueWords = stateMachineRef.current?.getCurrentCueWords() || [];
+            if (cueWords.length > 0) {
+              audioManager.startListeningForCue(cueWords.join(' '));
+            }
+          }
+        },
+        onCueWordsChange: (cueWords: string[]) => {
+          console.log('🎤 Cue words changed:', cueWords);
+          setCurrentCueWords(cueWords);
+        },
+        onComplete: () => {
+          console.log('🎯 Rehearsal complete!');
+          setRehearsalModeState(false);
+          toast({
+            title: "Rehearsal Complete",
+            description: "You've reached the end of the script.",
+          });
+        },
+        onError: (error: string) => {
+          console.error('State machine error:', error);
+          toast({
+            title: "Rehearsal Error",
+            description: error,
+            variant: "destructive",
+          });
+        },
+        onScriptUpdated: (hasContent: boolean) => {
+          console.log('📝 Script updated, has content:', hasContent);
+          if (hasContent) {
+            setNoMatchesBanner(null);
+          }
+        },
+        onNoMatches: (filter: TextFilter) => {
+          console.log('🚫 No matches found for filter:', filter);
+          setNoMatchesBanner({ show: true, filter });
+          
+          toast({
+            title: "No Content Found",
+            description: `No ${filter} text found in the script. AI will remain silent.`,
+            variant: "destructive",
+          });
+        }
+      };
+
+      stateMachineRef.current = new ScriptRehearsalStateMachine(config);
+      stateMachineRef.current.setTextFilter(textFilter);
+      stateMachineRef.current.start();
+    } else if (!rehearsalMode && stateMachineRef.current) {
+      console.log('🛑 Stopping State Machine');
+      stateMachineRef.current.stop();
+      stateMachineRef.current = null;
+      setRehearsalState('IDLE');
+      setCurrentCueWords([]);
+      setNoMatchesBanner(null);
+    }
+  }, [rehearsalMode, scriptContent, characters, selectedVoice, playbackSpeed, voiceActivated, textFilter]);
+
+  // Request microphone access when voice activation is enabled
+  useEffect(() => {
+    if (voiceActivated && audioManager.isSpeechSupported) {
+      navigator.mediaDevices.getUserMedia({ audio: true })
+        .then(() => {
+          console.log('Microphone access granted');
+          toast({
+            title: "Voice Activation Ready",
+            description: "Microphone access granted. Speak the last word of your lines to trigger AI responses.",
+          });
+        })
+        .catch((error) => {
+          console.error('Microphone access denied:', error);
+          setVoiceActivated(false);
+          toast({
+            title: "Microphone Access Required",
+            description: "Please allow microphone access to use voice activation.",
+            variant: "destructive",
+          });
+        });
+    }
+  }, [voiceActivated, audioManager.isSpeechSupported]);
 
   // Initialize state machine
   const initialize = (scriptContent: string, characters: Character[]) => {
-    const config = {
-      scriptContent,
-      characters,
-      onStateChange: (state: RehearsalState) => {
-        setRehearsalState(state);
-      },
-      onLineChange: (lineIndex: number, line: ScriptLine | null) => {
-        // Handle line changes if needed
-      },
-      onCueWordsChange: (cueWords: string[]) => {
-        setCurrentCueWords(cueWords);
-      },
-      onComplete: () => {
-        setRehearsalMode(false);
-        toast({
-          title: "Rehearsal Complete",
-          description: "You've reached the end of the script!",
-        });
-      },
-      onError: (error: string) => {
-        toast({
-          title: "Rehearsal Error",
-          description: error,
-          variant: "destructive",
-        });
-      },
-      onScriptUpdated: (hasContent: boolean) => {
-        if (hasContent) {
-          setNoMatchesBanner(null);
-        }
-      },
-      onNoMatches: (filter: TextFilter) => {
-        setNoMatchesBanner({ show: true, filter });
-      }
-    };
-
-    stateMachineRef.current = new ScriptRehearsalStateMachine(config);
+    setScriptContent(scriptContent);
+    setCharacters(characters);
   };
 
   // Actions
@@ -99,25 +230,77 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     }
   };
 
+  const setRehearsalMode = (enabled: boolean) => {
+    setRehearsalModeState(enabled);
+  };
+
   const handleActorLineDetected = (line: string) => {
-    if (stateMachineRef.current && rehearsalMode) {
-      stateMachineRef.current.handleActorCueDetected();
+    if (!voiceActivated || !audioManager.isSpeechSupported || audioManager.isListening) return;
+    
+    // Start listening for cue in the line
+    const characterMatch = line.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+    if (characterMatch) {
+      const dialogue = characterMatch[2].trim();
+      console.log(`Starting to listen for cue in: "${dialogue}"`);
+      audioManager.startListeningForCue(dialogue);
     }
   };
 
   const handleMasterStop = () => {
+    console.log('🛑 Master stop - halting all operations');
+    setRehearsalModeState(false);
+    audioManager.stopAll();
     if (stateMachineRef.current) {
       stateMachineRef.current.stop();
+      stateMachineRef.current = null;
     }
-    stopAll();
-    setRehearsalMode(false);
+  };
+
+  const handleTTSPlay = async () => {
+    if (!scriptContent) return;
+
+    try {
+      const { text, hasContent, fallbackApplied } = ScriptParserService.extractTextForTTS(
+        scriptContent, 
+        characters, 
+        textFilter
+      );
+
+      if (!hasContent) {
+        toast({
+          title: "No Text Found",
+          description: `No ${textFilter} text found to read.`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (fallbackApplied) {
+        toast({
+          title: "Filter Fallback Applied",
+          description: `No ${textFilter} text found. Reading all text instead.`,
+        });
+      }
+
+      await audioManager.speakText(text, {
+        voiceId: selectedVoice,
+        playbackSpeed: playbackSpeed,
+      });
+    } catch (error) {
+      console.error('TTS Error:', error);
+      toast({
+        title: "Speech Error",
+        description: "Failed to generate speech. Check your connection.",
+        variant: "destructive",
+      });
+    }
   };
 
   const reset = () => {
     if (stateMachineRef.current) {
       stateMachineRef.current.stop();
     }
-    setRehearsalMode(false);
+    setRehearsalModeState(false);
     setNoMatchesBanner(null);
   };
 
@@ -136,12 +319,20 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     currentCueWords,
     textFilter,
     rehearsalMode,
-    isListening,
+    isListening: audioManager.isListening,
+    isTTSPlaying: audioManager.isTTSPlaying,
+    selectedVoice,
+    voiceActivated,
+    playbackSpeed,
     noMatchesBanner,
     setTextFilter,
     setRehearsalMode,
+    setSelectedVoice,
+    setVoiceActivated,
+    setPlaybackSpeed,
     handleActorLineDetected,
     handleMasterStop,
+    handleTTSPlay,
     reset,
     initialize,
   };

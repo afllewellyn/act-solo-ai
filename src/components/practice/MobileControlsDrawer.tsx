@@ -4,10 +4,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { ChevronUp, ChevronDown } from 'lucide-react';
 import { ScriptControls } from './ScriptControls';
 import { VoiceControls } from './VoiceControls';
+import { useRehearsal } from '@/contexts/RehearsalContext';
 
-/**
- * Voice data structure for ElevenLabs TTS voices
- */
 interface Voice {
   id: string;
   name: string;
@@ -16,24 +14,6 @@ interface Voice {
   accent: string;
 }
 
-/**
- * Character data structure for script roles
- */
-interface Character {
-  name: string;
-  voice: string;
-  isUserRole: boolean;
-}
-
-/**
- * Text filter options for reading different parts of the script
- */
-type TextFilter = 'all' | 'bold' | 'italic';
-
-/**
- * Props for MobileControlsDrawer component
- * Mobile-specific drawer UI for practice mode controls
- */
 interface MobileControlsDrawerProps {
   // Script controls props
   isPlaying: boolean;
@@ -46,29 +26,10 @@ interface MobileControlsDrawerProps {
   onFontSizeChange: (size: number[]) => void;
   onToggleFullscreen: () => void;
   
-  // Voice controls props
-  selectedVoice: string;
+  // Only props needed from outside context
   voices: Voice[];
-  voiceActivated: boolean;
-  playbackSpeed: number;
-  onVoiceChange: (voiceId: string) => void;
-  onVoiceActivatedChange: (activated: boolean) => void;
-  onPlaybackSpeedChange: (speed: number) => void;
-  isTTSPlaying: boolean;
-  onTTSPlay: () => void;
-  
-  // Status indicators
-  isListening: boolean;
-  waitingForActor: boolean;
 }
 
-/**
- * MobileControlsDrawer Component
- * 
- * Provides a collapsible drawer interface for mobile devices to save
- * vertical space. Shows a minimal grab handle when collapsed and full
- * controls when expanded. Designed to match competitor UI patterns.
- */
 export const MobileControlsDrawer = ({
   // Script controls
   isPlaying,
@@ -81,22 +42,11 @@ export const MobileControlsDrawer = ({
   onFontSizeChange,
   onToggleFullscreen,
   
-  // Voice controls
-  selectedVoice,
+  // External data
   voices,
-  voiceActivated,
-  playbackSpeed,
-  onVoiceChange,
-  onVoiceActivatedChange,
-  onPlaybackSpeedChange,
-  isTTSPlaying,
-  onTTSPlay,
-  
-  // Status
-  isListening,
-  waitingForActor,
 }: MobileControlsDrawerProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { isListening, rehearsalState, isTTSPlaying, handleTTSPlay } = useRehearsal();
 
   return (
     <>
@@ -120,7 +70,7 @@ export const MobileControlsDrawer = ({
                   <Button
                     variant={isTTSPlaying ? "destructive" : "default"}
                     size="sm"
-                    onClick={onTTSPlay}
+                    onClick={handleTTSPlay}
                     className="flex-1"
                   >
                     {isTTSPlaying ? 'Stop' : 'Speak'}
@@ -181,23 +131,13 @@ export const MobileControlsDrawer = ({
               />
 
               {/* Voice Controls */}
-              <VoiceControls
-                selectedVoice={selectedVoice}
-                voices={voices}
-                voiceActivated={voiceActivated}
-                playbackSpeed={playbackSpeed}
-                onVoiceChange={onVoiceChange}
-                onVoiceActivatedChange={onVoiceActivatedChange}
-                onPlaybackSpeedChange={onPlaybackSpeedChange}
-                isPlaying={isTTSPlaying}
-                onTTSPlay={onTTSPlay}
-              />
+              <VoiceControls voices={voices} />
 
               {/* Voice Activation Status */}
               {isListening && (
                 <div className="text-center">
                   <span className="text-xs text-muted-foreground animate-pulse">
-                    {waitingForActor ? 'Still listening...' : 'Listening...'}
+                    {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Still listening...' : 'Listening...'}
                   </span>
                 </div>
               )}
