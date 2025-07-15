@@ -31,7 +31,21 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
-import { RehearsalProvider } from '@/contexts/RehearsalContext';
+import { RehearsalProvider, useRehearsal } from '@/contexts/RehearsalContext';
+
+// Inner component that uses the RehearsalProvider
+const PracticeContent = ({ scriptContent, characters }: { scriptContent: string; characters: Character[] }) => {
+  const { initialize } = useRehearsal();
+
+  // Initialize rehearsal context when script content and characters are available
+  useEffect(() => {
+    if (scriptContent && characters.length > 0) {
+      initialize(scriptContent, characters);
+    }
+  }, [scriptContent, characters, initialize]);
+
+  return null; // This component only handles initialization
+};
 
 interface Script {
   id: string;
@@ -600,6 +614,7 @@ const Practice = () => {
 
   return (
     <RehearsalProvider>
+      <PracticeContent scriptContent={scriptContent} characters={characters} />
       <div className={`min-h-screen bg-background ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
       {/* Header - Hidden in fullscreen */}
       {!isFullscreen && (
