@@ -12,6 +12,9 @@ import { ActorLineDetector } from '@/components/ActorLineDetector';
 import { VoiceControls } from '@/components/practice/VoiceControls';
 import { ScriptControls } from '@/components/practice/ScriptControls';
 import { MobileControlsDrawer } from '@/components/practice/MobileControlsDrawer';
+import { ScriptDisplay } from '@/components/practice/ScriptDisplay';
+import { SessionTimer } from '@/components/practice/SessionTimer';
+import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useToast } from '@/hooks/use-toast';
 import { 
   ArrowLeft, 
@@ -93,7 +96,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       // Initialize rehearsal context with script data
       initialize(script.content, parsedCharacters);
     }
-  }, [script, initialize]);
+  }, [script]);
 
   // Master stop function for all AI operations
   const handleMasterStop = () => {
@@ -539,9 +542,11 @@ const Practice = () => {
   }
 
   return (
-    <RehearsalProvider>
-      <PracticeWithRehearsal script={script} />
-    </RehearsalProvider>
+    <ErrorBoundary>
+      <RehearsalProvider>
+        <PracticeWithRehearsal script={script} />
+      </RehearsalProvider>
+    </ErrorBoundary>
   );
 };
 

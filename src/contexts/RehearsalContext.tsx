@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useRef, useState, useEffect } from 'react';
+import React, { createContext, useContext, useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ScriptRehearsalStateMachine, Character, TextFilter, RehearsalState, ScriptLine } from '@/services/ScriptRehearsalStateMachine';
 import { useAudioManager } from '@/services/AudioManager';
 import { ScriptParserService } from '@/services/ScriptParserService';
@@ -273,10 +273,10 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   };
 
   // Initialize state machine
-  const initialize = (scriptContent: string, characters: Character[]) => {
+  const initialize = useCallback((scriptContent: string, characters: Character[]) => {
     setScriptContent(scriptContent);
     setCharacters(characters);
-  };
+  }, []);
 
   // Update script content
   const updateScript = (content: string) => {
@@ -379,7 +379,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     };
   }, []);
 
-  const value: RehearsalContextType = {
+  const value: RehearsalContextType = useMemo(() => ({
     stateMachine: stateMachineRef.current,
     scriptContent,
     characters,
@@ -406,7 +406,34 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     updateScript,
     updateCharacters,
     initialize,
-  };
+  }), [
+    stateMachineRef.current,
+    scriptContent,
+    characters,
+    rehearsalState,
+    currentCueWords,
+    textFilter,
+    rehearsalMode,
+    audioManager?.isListening,
+    audioManager?.isTTSPlaying,
+    selectedVoice,
+    voiceActivated,
+    playbackSpeed,
+    voices,
+    noMatchesBanner,
+    setTextFilter,
+    setRehearsalMode,
+    setSelectedVoice,
+    setVoiceActivated,
+    setPlaybackSpeed,
+    handleActorLineDetected,
+    handleMasterStop,
+    handleTTSPlay,
+    reset,
+    updateScript,
+    updateCharacters,
+    initialize,
+  ]);
 
   return (
     <RehearsalContext.Provider value={value}>
