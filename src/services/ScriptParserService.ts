@@ -21,12 +21,13 @@ export class ScriptParserService {
   }
 
   /**
-   * Extract text for TTS based on filter type
+   * Extract text for TTS based on filter type with strict mode
    */
   static extractTextForTTS(
     scriptContent: string,
     characters: Character[],
-    textFilter: TextFilter
+    textFilter: TextFilter,
+    strictMode: boolean = true
   ): { text: string; hasContent: boolean; fallbackApplied: boolean } {
     if (!scriptContent?.trim()) {
       return { text: '', hasContent: false, fallbackApplied: false };
@@ -43,18 +44,28 @@ export class ScriptParserService {
       case 'bold':
         extractedText = extractFormattedText(scriptContent, 'bold');
         if (!extractedText.trim()) {
-          console.warn('No bold text found, falling back to all text');
-          extractedText = stripHtmlTags(scriptContent);
-          fallbackApplied = true;
+          if (strictMode) {
+            console.log('🚫 No bold text found - strict mode, returning empty');
+            return { text: '', hasContent: false, fallbackApplied: false };
+          } else {
+            console.warn('No bold text found, falling back to all text');
+            extractedText = stripHtmlTags(scriptContent);
+            fallbackApplied = true;
+          }
         }
         break;
         
       case 'italic':
         extractedText = extractFormattedText(scriptContent, 'italic');
         if (!extractedText.trim()) {
-          console.warn('No italic text found, falling back to all text');
-          extractedText = stripHtmlTags(scriptContent);
-          fallbackApplied = true;
+          if (strictMode) {
+            console.log('🚫 No italic text found - strict mode, returning empty');
+            return { text: '', hasContent: false, fallbackApplied: false };
+          } else {
+            console.warn('No italic text found, falling back to all text');
+            extractedText = stripHtmlTags(scriptContent);
+            fallbackApplied = true;
+          }
         }
         break;
         

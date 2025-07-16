@@ -41,6 +41,7 @@ interface RehearsalContextType {
   // Audio State  
   isListening: boolean;
   isTTSPlaying: boolean;
+  isManualTTSPlaying: boolean;
   
   // Voice Settings
   selectedVoice: string;
@@ -60,6 +61,7 @@ interface RehearsalContextType {
   handleActorLineDetected: (line: string) => void;
   handleMasterStop: () => void;
   handleTTSPlay: () => Promise<void>;
+  handleTTSStop: () => void;
   reset: () => void;
   updateScript: (content: string) => void;
   updateCharacters: (characters: Character[]) => void;
@@ -92,12 +94,15 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const [voiceActivated, setVoiceActivated] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [voices, setVoices] = useState<Voice[]>(defaultVoices);
+  const [isManualTTSPlaying, setIsManualTTSPlaying] = useState(false);
   
   // Audio Manager with all callbacks
   const audioManager = useAudioManager({
     defaultVoiceId: selectedVoice,
     defaultPlaybackSpeed: playbackSpeed,
     onTTSComplete: () => {
+      console.log('🔊 TTS Complete callback triggered');
+      setIsManualTTSPlaying(false);
       console.log('🔊 TTS complete - continuing rehearsal if active');
       if (stateMachineRef.current && rehearsalMode) {
         stateMachineRef.current.handleAISpeechComplete();
@@ -111,8 +116,13 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         variant: "destructive",
       });
     },
-    onCueDetected: () => {
-      console.log('🎤 Cue detected');
+    onCueDetected: (cue: string) => {
+      console.log('🎤 Cue detected:', cue);
+      toast({
+        title: "Cue Detected",
+        description: `Heard: "${cue}"`,
+        duration: 2000,
+      });
       if (stateMachineRef.current && rehearsalMode) {
         stateMachineRef.current.handleActorCueDetected();
       }
@@ -138,6 +148,13 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         onStateChange: (state: RehearsalState) => {
           console.log('🎭 State machine state changed:', state);
           setRehearsalState(state);
+          
+          // Show state change toast for debugging
+          toast({
+            title: "Rehearsal State",
+            description: `State: ${state}`,
+            duration: 1000,
+          });
         },
         onLineChange: async (lineIndex: number, line: ScriptLine | null) => {
           console.log('📝 Line changed:', lineIndex, line?.content?.substring(0, 50) + '...');
@@ -205,7 +222,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
           
           toast({
             title: "No Content Found",
-            description: `No ${filter} text found in the script. AI will remain silent.`,
+            description: `No ${filter} text found in the script. Please update your script or switch filters.`,
             variant: "destructive",
           });
         }
@@ -336,41 +353,56 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const handleTTSPlay = async () => {
     if (!scriptContent) return;
 
+    // If TTS is already playing, stop it
+    if (isManualTTSPlaying) {
+      audioManager.stopTTS();
+      setIsManualTTSPlaying(false);
+      return;
+    }
+
     try {
-      const { text, hasContent, fallbackApplied } = ScriptParserService.extractTextForTTS(
+      const { text, hasContent } = ScriptParserService.extractTextForTTS(
         scriptContent, 
         characters, 
-        textFilter
+        textFilter,
+        true // strict mode - no fallback
       );
 
       if (!hasContent) {
+        // Show specific message for the filter type
+        const filterLabel = textFilter === 'all' ? 'text' : 
+                           textFilter === 'bold' ? 'bold text' : 'italic text';
+        
         toast({
-          title: "No Text Found",
-          description: `No ${textFilter} text found to read.`,
+          title: "No Content Found",
+          description: `No ${filterLabel} found in the script. Please update your script or switch filters.`,
           variant: "destructive",
         });
         return;
       }
 
-      if (fallbackApplied) {
-        toast({
-          title: "Filter Fallback Applied",
-          description: `No ${textFilter} text found. Reading all text instead.`,
-        });
-      }
-
+      console.log('🔊 Starting manual TTS playback');
+      setIsManualTTSPlaying(true);
+      
       await audioManager.speakText(text, {
         voiceId: selectedVoice,
         playbackSpeed: playbackSpeed,
       });
     } catch (error) {
       console.error('TTS Error:', error);
+      setIsManualTTSPlaying(false);
       toast({
         title: "Speech Error",
         description: "Failed to generate speech. Check your connection.",
         variant: "destructive",
       });
     }
+  };
+
+  const handleTTSStop = () => {
+    console.log('🛑 Manual TTS stop requested');
+    audioManager.stopTTS();
+    setIsManualTTSPlaying(false);
   };
 
   const reset = () => {
@@ -400,6 +432,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     rehearsalMode,
     isListening: audioManager?.isListening ?? false,
     isTTSPlaying: audioManager?.isTTSPlaying ?? false,
+    isManualTTSPlaying,
     selectedVoice,
     voiceActivated,
     playbackSpeed,
@@ -413,6 +446,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     handleActorLineDetected,
     handleMasterStop,
     handleTTSPlay,
+    handleTTSStop,
     reset,
     updateScript,
     updateCharacters,
@@ -427,6 +461,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     rehearsalMode,
     audioManager?.isListening,
     audioManager?.isTTSPlaying,
+    isManualTTSPlaying,
     selectedVoice,
     voiceActivated,
     playbackSpeed,
@@ -440,6 +475,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     handleActorLineDetected,
     handleMasterStop,
     handleTTSPlay,
+    handleTTSStop,
     reset,
     updateScript,
     updateCharacters,

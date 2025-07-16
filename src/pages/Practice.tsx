@@ -16,6 +16,7 @@ import { ScriptDisplay } from '@/components/practice/ScriptDisplay';
 import { SessionTimer } from '@/components/practice/SessionTimer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useToast } from '@/hooks/use-toast';
+import { RehearsalStateBanner } from '@/components/practice/RehearsalStateBanner';
 import { 
   ArrowLeft, 
 } from 'lucide-react';

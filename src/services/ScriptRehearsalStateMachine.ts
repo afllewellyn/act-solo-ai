@@ -84,7 +84,13 @@ export class ScriptRehearsalStateMachine {
     this.stopRequested = false;
     this.currentLineIndex = 0;
     this.setState('TRANSITIONING');
-    this.processCurrentLine();
+    
+    // Add small delay to ensure proper initialization
+    setTimeout(() => {
+      if (!this.stopRequested) {
+        this.processCurrentLine();
+      }
+    }, 100);
   }
 
   /**
@@ -185,6 +191,10 @@ export class ScriptRehearsalStateMachine {
     this.config.onCueWordsChange?.(cueWords);
     
     this.setState('WAITING_FOR_ACTOR_CUE');
+    
+    // CRITICAL: The state machine MUST wait here for actor cue detection
+    // AudioManager should start listening via onCueWordsChange callback
+    // State machine will only advance when handleActorCueDetected() is called
   }
 
   /**
@@ -197,6 +207,9 @@ export class ScriptRehearsalStateMachine {
     this.config.onCueWordsChange?.([]);
     
     this.setState('AI_SPEAKING');
+    
+    // CRITICAL: Do not trigger TTS here - let the onLineChange callback handle it
+    // This ensures proper state management and prevents race conditions
   }
 
   /**
