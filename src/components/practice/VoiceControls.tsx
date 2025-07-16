@@ -13,6 +13,7 @@ export const VoiceControls = () => {
     textFilter, 
     isTTSPlaying,
     voices,
+    rehearsalState,
     setSelectedVoice,
     setVoiceActivated,
     setPlaybackSpeed,
@@ -100,10 +101,11 @@ export const VoiceControls = () => {
           size="sm"
           onClick={handleTTSPlay}
           className="flex-1"
-          aria-label={isTTSPlaying ? 'Stop speech' : 'Start speech'}
+          disabled={rehearsalState !== 'IDLE'}
+          aria-label={isTTSPlaying ? 'Stop speech' : 'Read script'}
         >
           <Volume2 className="h-4 w-4" />
-          <span className="ml-1">{isTTSPlaying ? 'Stop' : 'Speak'}</span>
+          <span className="ml-1">{isTTSPlaying ? 'Stop' : 'Read Script'}</span>
         </Button>
       </div>
 

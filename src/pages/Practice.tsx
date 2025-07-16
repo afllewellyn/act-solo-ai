@@ -199,6 +199,20 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   }, [scrollSpeed, isPlaying, rehearsalMode, contextTTSPlay]);
 
   // Handle script rehearsal play/pause (master control)
+  const handleStartStopRehearsal = () => {
+    if (rehearsalMode) {
+      // Stop rehearsal mode
+      console.log('🛑 User stopping rehearsal');
+      setRehearsalMode(false);
+      setIsPlaying(false);
+    } else {
+      // Start rehearsal mode
+      console.log('▶️ User starting rehearsal');
+      setRehearsalMode(true);
+      setIsPlaying(true);
+    }
+  };
+
   const handlePlayPause = () => {
     if (voiceActivated) {
       // Toggle rehearsal mode when voice activation is enabled
@@ -370,11 +384,11 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           <div className="block sm:hidden">
             <MobileControlsDrawer
               // Script controls
-              isPlaying={voiceActivated ? rehearsalMode : isPlaying}
+              isRehearsalActive={rehearsalMode}
               scrollSpeed={scrollSpeed}
               fontSize={fontSize}
               isFullscreen={isFullscreen}
-              onPlayPause={handlePlayPause}
+              onStartStopRehearsal={handleStartStopRehearsal}
               onReset={handleReset}
               onScrollSpeedChange={setScrollSpeed}
               onFontSizeChange={setFontSize}
@@ -390,11 +404,11 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                   {/* Rehearse Script Section */}
                   <div className="flex flex-col gap-3 min-w-[200px]">
                     <ScriptControls
-                      isPlaying={voiceActivated ? rehearsalMode : isPlaying}
+                      isRehearsalActive={rehearsalMode}
                       scrollSpeed={scrollSpeed}
                       fontSize={fontSize}
                       isFullscreen={isFullscreen}
-                      onPlayPause={handlePlayPause}
+                      onStartStopRehearsal={handleStartStopRehearsal}
                       onReset={handleReset}
                       onScrollSpeedChange={setScrollSpeed}
                       onFontSizeChange={setFontSize}

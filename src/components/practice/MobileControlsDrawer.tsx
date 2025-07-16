@@ -8,11 +8,11 @@ import { useRehearsal } from '@/contexts/RehearsalContext';
 
 interface MobileControlsDrawerProps {
   // Script controls props
-  isPlaying: boolean;
+  isRehearsalActive: boolean;
   scrollSpeed: number[];
   fontSize: number[];
   isFullscreen: boolean;
-  onPlayPause: () => void;
+  onStartStopRehearsal: () => void;
   onReset: () => void;
   onScrollSpeedChange: (speed: number[]) => void;
   onFontSizeChange: (size: number[]) => void;
@@ -21,11 +21,11 @@ interface MobileControlsDrawerProps {
 
 export const MobileControlsDrawer = ({
   // Script controls
-  isPlaying,
+  isRehearsalActive,
   scrollSpeed,
   fontSize,
   isFullscreen,
-  onPlayPause,
+  onStartStopRehearsal,
   onReset,
   onScrollSpeedChange,
   onFontSizeChange,
@@ -45,12 +45,12 @@ export const MobileControlsDrawer = ({
                 {/* Essential controls visible in collapsed state */}
                 <div className="flex items-center gap-2 flex-1">
                   <Button
-                    variant={isPlaying ? "default" : "outline"}
+                    variant={isRehearsalActive ? "destructive" : "default"}
                     size="sm"
-                    onClick={onPlayPause}
+                    onClick={onStartStopRehearsal}
                     className="flex-1"
                   >
-                    {isPlaying ? 'Pause' : 'Play'}
+                    {isRehearsalActive ? 'Stop Rehearsal' : 'Start Rehearsal'}
                   </Button>
                   
                   <Button
@@ -105,11 +105,11 @@ export const MobileControlsDrawer = ({
 
               {/* Script Controls */}
               <ScriptControls
-                isPlaying={isPlaying}
+                isRehearsalActive={isRehearsalActive}
                 scrollSpeed={scrollSpeed}
                 fontSize={fontSize}
                 isFullscreen={isFullscreen}
-                onPlayPause={onPlayPause}
+                onStartStopRehearsal={onStartStopRehearsal}
                 onReset={onReset}
                 onScrollSpeedChange={onScrollSpeedChange}
                 onFontSizeChange={onFontSizeChange}

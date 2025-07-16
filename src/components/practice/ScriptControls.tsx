@@ -9,11 +9,11 @@ import { useRehearsal } from '@/contexts/RehearsalContext';
  * Manages script playback, font sizing, and fullscreen controls
  */
 interface ScriptControlsProps {
-  isPlaying: boolean; // Whether script playback is currently active
+  isRehearsalActive: boolean; // Whether rehearsal session is currently active
   scrollSpeed: number[]; // Current auto-scroll speed as array for slider compatibility
   fontSize: number[]; // Current font size as array for slider compatibility  
   isFullscreen: boolean; // Whether the view is in fullscreen mode
-  onPlayPause: () => void; // Callback to toggle script playback (rehearsal or TTS)
+  onStartStopRehearsal: () => void; // Callback to start/stop rehearsal session
   onReset: () => void; // Callback to reset playback to beginning
   onScrollSpeedChange: (speed: number[]) => void; // Callback when scroll speed changes
   onFontSizeChange: (size: number[]) => void; // Callback when font size changes (min: 12px, max: 32px)
@@ -30,11 +30,11 @@ interface ScriptControlsProps {
  * buttons (±2px increments), and fullscreen toggle functionality.
  */
 export const ScriptControls = ({
-  isPlaying,
+  isRehearsalActive,
   scrollSpeed,
   fontSize,
   isFullscreen,
-  onPlayPause,
+  onStartStopRehearsal,
   onReset,
   onScrollSpeedChange,
   onFontSizeChange,
@@ -51,23 +51,27 @@ export const ScriptControls = ({
           Rehearse Script
         </Label>
         
-        {/* Rehearsal State and Cue Words Display */}
-        {(rehearsalState || currentCueWords.length > 0) && (
-          <div className="space-y-1">
-            {rehearsalState && rehearsalState !== 'IDLE' && (
-              <div className="text-xs text-muted-foreground">
-                Status: <span className="font-medium">
-                  {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Waiting for Actor' : 
-                   rehearsalState === 'AI_SPEAKING' ? 'AI Speaking' :
-                   rehearsalState === 'TRANSITIONING' ? 'Transitioning' : rehearsalState}
-                </span>
-              </div>
-            )}
+        {/* Rehearsal State Banner */}
+        {isRehearsalActive && (
+          <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-medium">Rehearsal Active</span>
+              <Badge variant={
+                rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'destructive' :
+                rehearsalState === 'AI_SPEAKING' ? 'default' :
+                rehearsalState === 'TRANSITIONING' ? 'secondary' : 'outline'
+              }>
+                {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Listening for your line...' : 
+                 rehearsalState === 'AI_SPEAKING' ? 'AI Speaking' :
+                 rehearsalState === 'TRANSITIONING' ? 'Transitioning' : rehearsalState}
+              </Badge>
+            </div>
+            
             {currentCueWords.length > 0 && (
               <div className="flex items-center gap-1 flex-wrap">
-                <span className="text-xs text-muted-foreground">Listening for:</span>
+                <span className="text-xs text-muted-foreground">Say:</span>
                 {currentCueWords.map((word, index) => (
-                  <Badge key={index} variant="secondary" className="text-xs">
+                  <Badge key={index} variant="outline" className="text-xs">
                     "{word}"
                   </Badge>
                 ))}
@@ -78,14 +82,14 @@ export const ScriptControls = ({
         
         <div className="flex items-center gap-2">
           <Button
-            variant="outline"
+            variant={isRehearsalActive ? "destructive" : "default"}
             size="sm"
-            onClick={onPlayPause}
+            onClick={onStartStopRehearsal}
             className="flex-1"
-            aria-label={isPlaying ? 'Pause playback' : 'Start playback'}
+            aria-label={isRehearsalActive ? 'Stop rehearsal' : 'Start rehearsal'}
           >
-            {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-            <span className="ml-1">{isPlaying ? 'Pause' : 'Play'}</span>
+            {isRehearsalActive ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+            <span className="ml-1">{isRehearsalActive ? 'Stop Rehearsal' : 'Start Rehearsal'}</span>
           </Button>
           
           <Button

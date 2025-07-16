@@ -145,26 +145,37 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
           // If this is an AI line, trigger TTS
           if (line?.type === 'ai' && line.dialogue) {
             try {
+              console.log('🔊 Starting TTS for AI line:', line.dialogue.substring(0, 50) + '...');
               await audioManager.speakText(line.dialogue, {
                 voiceId: selectedVoice,
                 playbackSpeed: playbackSpeed,
+                onComplete: () => {
+                  console.log('🔊 TTS completed for AI line');
+                  // Notify state machine that AI speech is complete
+                  stateMachineRef.current?.handleAISpeechComplete();
+                }
               });
             } catch (error) {
               console.error('Error speaking AI line:', error);
-            }
-          }
-          
-          // If this is an actor line, start listening for cue
-          if (line?.type === 'actor' && voiceActivated) {
-            const cueWords = stateMachineRef.current?.getCurrentCueWords() || [];
-            if (cueWords.length > 0) {
-              audioManager.startListeningForCue(cueWords.join(' '));
             }
           }
         },
         onCueWordsChange: (cueWords: string[]) => {
           console.log('🎤 Cue words changed:', cueWords);
           setCurrentCueWords(cueWords);
+          
+          // Start or stop listening based on cue words and voice activation
+          if (cueWords.length > 0 && voiceActivated) {
+            console.log('🎤 Starting to listen for cue:', cueWords.join(' '));
+            audioManager.startListeningForCue(cueWords.join(' '));
+            toast({
+              title: "Listening for your line",
+              description: `Say: "${cueWords.join(' ')}"`,
+            });
+          } else {
+            console.log('🎤 Stopping listening for cues');
+            audioManager.stopListening();
+          }
         },
         onComplete: () => {
           console.log('🎯 Rehearsal complete!');
