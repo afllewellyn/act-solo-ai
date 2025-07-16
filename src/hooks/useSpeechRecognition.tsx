@@ -25,6 +25,7 @@ declare global {
     onresult: (event: SpeechRecognitionEvent) => void;
     onerror: (event: any) => void;
     onend: () => void;
+    onstart?: () => void;
     start(): void;
     stop(): void;
     abort(): void;
@@ -45,23 +46,170 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [targetWords, setTargetWords] = useState<string[]>([]);
+  const [shouldBeListening, setShouldBeListening] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const restartTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const browserInfo = useRef<{ name: string; version: string }>({ name: 'unknown', version: 'unknown' });
 
-  // Check for browser support
+  // Browser detection utility
+  const detectBrowser = useCallback(() => {
+    const userAgent = navigator.userAgent;
+    let name = 'unknown';
+    let version = 'unknown';
+    
+    if (userAgent.includes('Chrome') && !userAgent.includes('Edge')) {
+      name = 'chrome';
+      const match = userAgent.match(/Chrome\/([0-9.]+)/);
+      version = match ? match[1] : 'unknown';
+    } else if (userAgent.includes('Firefox')) {
+      name = 'firefox';
+      const match = userAgent.match(/Firefox\/([0-9.]+)/);
+      version = match ? match[1] : 'unknown';
+    } else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) {
+      name = 'safari';
+      const match = userAgent.match(/Version\/([0-9.]+)/);
+      version = match ? match[1] : 'unknown';
+    } else if (userAgent.includes('Edge')) {
+      name = 'edge';
+      const match = userAgent.match(/Edge\/([0-9.]+)/);
+      version = match ? match[1] : 'unknown';
+    }
+    
+    browserInfo.current = { name, version };
+    return { name, version };
+  }, []);
+
+  // Enhanced logging utility
+  const logEvent = useCallback((event: string, data: any) => {
+    console.log(`🎤 [${event}]`, data);
+  }, []);
+
+  // Internal function to start recognition
+  const startRecognition = useCallback(() => {
+    if (!isSupported || !recognitionRef.current || isListening) {
+      console.log('🎤 Cannot start recognition - not supported, no ref, or already listening');
+      return;
+    }
+
+    try {
+      console.log(`🎤 Starting speech recognition (${browserInfo.current.name} ${browserInfo.current.version})`);
+      logEvent('start_attempt', { target_words: targetWords });
+      
+      recognitionRef.current.start();
+      setIsListening(true);
+      
+      // Reset retry count on successful start
+      setRetryCount(0);
+      
+      // Set timeout for recognition session
+      const timeoutDuration = 15000; // 15 seconds
+      timeoutRef.current = setTimeout(() => {
+        console.log('⏰ Recognition timeout - restarting if needed');
+        logEvent('timeout', { target_words: targetWords, retry_count: retryCount });
+        
+        if (shouldBeListening && isListening) {
+          console.log('🎤 Timeout restart triggered');
+          stopRecognition();
+          // Schedule restart after a short delay
+          setTimeout(() => {
+            if (shouldBeListening && !isListening) {
+              attemptRestart();
+            }
+          }, 100);
+        }
+      }, timeoutDuration);
+      
+    } catch (error) {
+      console.error('🎤 Failed to start recognition:', error);
+      setIsListening(false);
+      logEvent('start_error', { error: error instanceof Error ? error.message : 'Unknown error' });
+      
+      // Handle specific errors
+      if (error instanceof Error) {
+        if (error.name === 'InvalidStateError') {
+          console.log('🎤 InvalidStateError - recognition already started, stopping first');
+          stopRecognition();
+          setTimeout(() => attemptRestart(), 100);
+        } else if (error.name === 'NotAllowedError') {
+          setShouldBeListening(false);
+          options.onError?.('Microphone permission denied');
+        } else {
+          setTimeout(() => attemptRestart(), 100);
+        }
+      } else {
+        setTimeout(() => attemptRestart(), 100);
+      }
+    }
+  }, [isSupported, isListening, shouldBeListening, targetWords, retryCount, logEvent, options]);
+
+  // Auto-restart logic with retry mechanism
+  const attemptRestart = useCallback(() => {
+    if (!shouldBeListening || !isSupported || !recognitionRef.current) {
+      console.log('🎤 Skip restart - not needed or not supported');
+      return;
+    }
+
+    const maxRetries = 3;
+    const currentRetry = retryCount;
+
+    if (currentRetry >= maxRetries) {
+      console.error('🎤 Max retries exceeded, stopping auto-restart');
+      logEvent('max_retries_exceeded', { retry_count: currentRetry });
+      setShouldBeListening(false);
+      setRetryCount(0);
+      options.onError?.('Speech recognition failed after multiple attempts');
+      return;
+    }
+
+    // Exponential backoff: 500ms, 1000ms, 2000ms
+    const delay = Math.min(500 * Math.pow(2, currentRetry), 2000);
+    console.log(`🎤 Scheduling restart attempt ${currentRetry + 1}/${maxRetries} in ${delay}ms`);
+    
+    restartTimeoutRef.current = setTimeout(() => {
+      if (shouldBeListening && !isListening) {
+        console.log(`🎤 Auto-restart attempt ${currentRetry + 1}/${maxRetries}`);
+        setRetryCount(currentRetry + 1);
+        startRecognition();
+      }
+    }, delay);
+  }, [shouldBeListening, isSupported, isListening, retryCount, startRecognition, logEvent, options]);
+
+  // Internal function to stop recognition
+  const stopRecognition = useCallback(() => {
+    if (recognitionRef.current && isListening) {
+      console.log('🎤 Stopping speech recognition');
+      recognitionRef.current.stop();
+    }
+    setIsListening(false);
+    
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, [isListening]);
+
+  // Initialize recognition and set up event handlers
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     setIsSupported(!!SpeechRecognition);
+    
+    // Detect browser for compatibility handling
+    detectBrowser();
+    console.log(`🎤 Browser detected: ${browserInfo.current.name} ${browserInfo.current.version}`);
     
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
       const recognition = recognitionRef.current;
       
+      // Configure recognition
       recognition.continuous = true;
       recognition.interimResults = true;
       recognition.lang = options.language || 'en-US';
       
+      // Enhanced result handler
       recognition.onresult = (event) => {
         const results = Array.from(event.results);
         const transcript = results
@@ -70,7 +218,7 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
           .toLowerCase()
           .trim();
         
-        console.log(`Listening for: "${targetWords.join('", "')}" | Heard: "${transcript}"`);
+        console.log(`🎤 [${browserInfo.current.name}] Listening for: "${targetWords.join('", "')}" | Heard: "${transcript}"`);
         
         if (transcript && targetWords.length > 0) {
           // Use fuzzy matching for better detection
@@ -113,7 +261,10 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
             );
             const detectedCue = matchedWord || targetWords[0];
             console.log(`✅ Cue detected: "${detectedCue}" — triggering AI response`);
-            stopListening();
+            
+            // Stop listening and clear should-be-listening state
+            setShouldBeListening(false);
+            stopRecognition();
             
             // Use the enhanced callback for cue detection
             if (options.onCueDetected) {
@@ -127,15 +278,46 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
         }
       };
       
+      // Enhanced error handler with auto-restart
       recognition.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
+        console.error(`🎤 Speech recognition error [${browserInfo.current.name}]:`, event.error);
         setIsListening(false);
-        options.onError?.(event.error);
+        
+        // Handle specific errors
+        if (event.error === 'not-allowed') {
+          console.error('🎤 Microphone permission denied');
+          setShouldBeListening(false);
+          options.onError?.('Microphone permission denied');
+        } else if (event.error === 'network') {
+          console.error('🎤 Network error - will retry');
+          attemptRestart();
+        } else if (event.error === 'aborted') {
+          console.log('🎤 Recognition aborted - normal stop');
+          // Don't restart on abort
+        } else {
+          console.error('🎤 Other error - will retry');
+          attemptRestart();
+        }
       };
       
+      // Enhanced end handler with auto-restart
       recognition.onend = () => {
+        console.log(`🎤 Speech recognition ended [${browserInfo.current.name}]`);
         setIsListening(false);
+        
+        // Auto-restart if we should still be listening
+        if (shouldBeListening) {
+          console.log('🎤 Auto-restart triggered from onend');
+          attemptRestart();
+        }
       };
+      
+      // Start handler for logging
+      if (recognition.onstart !== undefined) {
+        recognition.onstart = () => {
+          console.log(`🎤 Speech recognition started [${browserInfo.current.name}]`);
+        };
+      }
     }
     
     return () => {
@@ -144,6 +326,9 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
       }
       if (timeoutRef.current) {
         clearTimeout(timeoutRef.current);
+      }
+      if (restartTimeoutRef.current) {
+        clearTimeout(restartTimeoutRef.current);
       }
     };
   }, [options.language]);
@@ -211,61 +396,45 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
       return;
     }
 
+    console.log('🎤 [API] Starting to listen for:', textToMatch);
     const lastWords = extractLastWords(textToMatch);
     setTargetWords(lastWords);
+    setShouldBeListening(true);
+    setRetryCount(0);
     
-    try {
-      recognitionRef.current.start();
-      setIsListening(true);
-      
-      // Set 10-second timeout for silent fail
-      timeoutRef.current = setTimeout(() => {
-        stopListening();
-      }, 10000);
-    } catch (error) {
-      console.error('Failed to start speech recognition:', error);
-      options.onError?.('Failed to start listening');
-    }
-  }, [isSupported, options]);
+    startRecognition();
+  }, [isSupported, options, startRecognition]);
 
-  // Enhanced function specifically for cue word detection
+  // Enhanced function specifically for cue word detection with auto-restart
   const startListeningForCue = useCallback((textToMatch: string) => {
     if (!isSupported || !recognitionRef.current) {
       options.onError?.('Speech recognition not supported');
       return;
     }
 
+    console.log('🎤 [API] Starting to listen for cue:', textToMatch);
     const cueWords = extractCueWords(textToMatch);
     setTargetWords(cueWords);
+    setShouldBeListening(true);
+    setRetryCount(0);
     
-    try {
-      recognitionRef.current.start();
-      setIsListening(true);
-      console.log(`🎤 Started listening for cue words: ${cueWords.join(', ')}`);
-      
-      // Set 15-second timeout for cue detection
-      timeoutRef.current = setTimeout(() => {
-        console.log('⏰ Cue detection timeout');
-        stopListening();
-      }, 15000);
-    } catch (error) {
-      console.error('Failed to start cue detection:', error);
-      options.onError?.('Failed to start listening for cue');
-    }
-  }, [isSupported, options]);
+    console.log(`🎤 Extracted cue words: ${cueWords.join(', ')}`);
+    startRecognition();
+  }, [isSupported, options, startRecognition]);
 
   const stopListening = useCallback(() => {
-    if (recognitionRef.current && isListening) {
-      recognitionRef.current.stop();
-    }
-    setIsListening(false);
+    console.log('🎤 [API] Stopping listening');
+    setShouldBeListening(false);
+    setRetryCount(0);
     setTargetWords([]);
     
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-      timeoutRef.current = null;
+    stopRecognition();
+    
+    if (restartTimeoutRef.current) {
+      clearTimeout(restartTimeoutRef.current);
+      restartTimeoutRef.current = null;
     }
-  }, [isListening]);
+  }, [stopRecognition]);
 
   // Simple phonetic similarity function
   const soundsLike = (word1: string, word2: string): boolean => {
