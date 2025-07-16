@@ -54,13 +54,12 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   const [currentPosition, setCurrentPosition] = useState(0);
   const [sessionTime, setSessionTime] = useState(0);
   const [currentLine, setCurrentLine] = useState(0);
-  const [characters, setCharacters] = useState<Character[]>([]);
-  
   const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
-  const [scriptContent, setScriptContent] = useState('');
 
   // Get rehearsal context - this is now safely inside RehearsalProvider
   const { 
+    scriptContent,
+    characters,
     rehearsalMode, 
     setRehearsalMode, 
     handleMasterStop: contextMasterStop,
@@ -76,25 +75,23 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     isListening,
     rehearsalState,
     handleActorLineDetected: contextHandleActorLineDetected,
-    initialize
+    initialize,
+    updateScript,
+    updateCharacters
   } = useRehearsal();
 
   // Initialize script content and characters
   useEffect(() => {
     if (script) {
-      setScriptContent(script.content);
       const charactersData = Array.isArray(script.characters) ? script.characters : [];
       const parsedCharacters: Character[] = charactersData.map((char: any) => ({
         name: char?.name || '',
         voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
         isUserRole: char?.isUserRole || false
       }));
-      setCharacters(parsedCharacters);
       
-      // Initialize rehearsal context
-      if (script.content && parsedCharacters.length > 0) {
-        initialize(script.content, parsedCharacters);
-      }
+      // Initialize rehearsal context with script data
+      initialize(script.content, parsedCharacters);
     }
   }, [script, initialize]);
 
@@ -245,7 +242,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       setCurrentActorLine(null);
     }
     
-    setScriptContent(updatedContent);
+    updateScript(updatedContent);
   };
 
   const handleAutoSave = (success: boolean) => {
@@ -261,7 +258,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   };
 
   const handleRoleUpdate = (updatedCharacters: Character[]) => {
-    setCharacters(updatedCharacters);
+    updateCharacters(updatedCharacters);
     // Update the script's characters in the database
     supabase
       .from('scripts')

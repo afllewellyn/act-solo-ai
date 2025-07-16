@@ -28,6 +28,10 @@ interface RehearsalContextType {
   // State Machine
   stateMachine: ScriptRehearsalStateMachine | null;
   
+  // Script State
+  scriptContent: string;
+  characters: Character[];
+  
   // Rehearsal State
   rehearsalState: RehearsalState;
   currentCueWords: string[];
@@ -57,6 +61,8 @@ interface RehearsalContextType {
   handleMasterStop: () => void;
   handleTTSPlay: () => Promise<void>;
   reset: () => void;
+  updateScript: (content: string) => void;
+  updateCharacters: (characters: Character[]) => void;
   
   // Initialization
   initialize: (scriptContent: string, characters: Character[]) => void;
@@ -272,6 +278,16 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setCharacters(characters);
   };
 
+  // Update script content
+  const updateScript = (content: string) => {
+    setScriptContent(content);
+  };
+
+  // Update characters
+  const updateCharacters = (characters: Character[]) => {
+    setCharacters(characters);
+  };
+
   // Actions
   const setTextFilter = (filter: TextFilter) => {
     setTextFilterState(filter);
@@ -365,6 +381,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
 
   const value: RehearsalContextType = {
     stateMachine: stateMachineRef.current,
+    scriptContent,
+    characters,
     rehearsalState,
     currentCueWords,
     textFilter,
@@ -385,6 +403,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     handleMasterStop,
     handleTTSPlay,
     reset,
+    updateScript,
+    updateCharacters,
     initialize,
   };
 
