@@ -352,22 +352,10 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
             className="h-full overflow-y-auto"
           >
             <div className="max-w-4xl mx-auto p-4">
-              {/* No Matches Banner */}
-              {noMatchesBanner?.show && (
-                <div className="mb-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
-                  <div className="flex items-center gap-2">
-                    <div className="text-yellow-600 dark:text-yellow-400">⚠️</div>
-                    <div>
-                      <p className="font-medium text-yellow-800 dark:text-yellow-200">
-                        No {noMatchesBanner.filter} text found
-                      </p>
-                      <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                        AI will remain silent until you change the filter or add {noMatchesBanner.filter} text to your script.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+              {/* Rehearsal State Banner */}
+              <div className="mb-4">
+                <RehearsalStateBanner />
+              </div>
               
               <InlineScriptEditor
                 scriptId={script.id}
@@ -466,13 +454,6 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       {isTTSPlaying && (
         <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse z-50">
           🔊 {rehearsalMode ? 'Rehearsal Mode' : 'AI Reading...'}
-        </div>
-      )}
-
-      {/* Rehearsal Status Indicator */}
-      {rehearsalMode && rehearsalState === 'WAITING_FOR_ACTOR_CUE' && (
-        <div className="fixed top-16 right-4 bg-orange-500 text-white px-3 py-2 rounded-full text-sm font-medium shadow-lg z-50">
-          🎭 Your turn to speak
         </div>
       )}
 
