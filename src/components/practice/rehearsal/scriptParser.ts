@@ -17,7 +17,11 @@ export const checkLineMatchesFilter = (line: string, textFilter: TextFilter, cha
 };
 
 /**
- * Parse script lines for rehearsal mode with text filtering
+ * Parse script lines with text filtering
+ * 
+ * IMPORTANT: When textFilter is 'all', this returns the complete script for rehearsal.
+ * When textFilter is 'bold' or 'italic', this filters AI lines but preserves ALL actor lines
+ * to maintain proper turn-taking sequence.
  */
 export const getScriptLines = (
   scriptContent: string,

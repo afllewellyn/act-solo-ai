@@ -10,7 +10,19 @@ import { stripHtmlTags, extractFormattedText } from '@/components/practice/rehea
  */
 export class ScriptParserService {
   /**
+   * Parse script content for rehearsal mode - ALWAYS uses complete script (no filtering)
+   * This ensures reliable turn-taking between actor and AI lines
+   */
+  static parseScriptLinesForRehearsal(
+    scriptContent: string,
+    characters: Character[]
+  ) {
+    return getScriptLines(scriptContent, characters, 'all');
+  }
+
+  /**
    * Parse script content into processable lines with filtering
+   * Used for manual TTS and UI display only
    */
   static parseScriptLines(
     scriptContent: string,

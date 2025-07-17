@@ -56,16 +56,18 @@ export class ScriptRehearsalStateMachine {
   }
 
   private parseScript() {
-    this.scriptLines = ScriptParserService.parseScriptLines(
+    // CRITICAL: Always use complete script for rehearsal flow to ensure proper turn-taking
+    this.scriptLines = ScriptParserService.parseScriptLinesForRehearsal(
       this.config.scriptContent,
-      this.config.characters,
-      this.textFilter
+      this.config.characters
     );
+    
+    console.log(`🎭 State Machine: Parsed ${this.scriptLines.length} lines for rehearsal (filter: ${this.textFilter})`);
     
     // Check if we have content and emit appropriate events
     if (this.scriptLines.length === 0) {
-      console.log(`📝 No content found for filter: ${this.textFilter}`);
-      this.config.onNoMatches?.(this.textFilter);
+      console.log(`📝 No script content found`);
+      this.config.onScriptUpdated?.(false);
     } else {
       this.config.onScriptUpdated?.(true);
     }
@@ -249,29 +251,16 @@ export class ScriptRehearsalStateMachine {
   }
 
   /**
-   * Set text filter and re-parse script
+   * Set text filter - NOTE: This only affects manual TTS, not rehearsal flow
    */
   setTextFilter(filter: TextFilter): void {
     if (this.textFilter === filter) return;
     
-    console.log(`🔄 State Machine: Changing text filter from ${this.textFilter} to ${filter}`);
+    console.log(`🔄 State Machine: Text filter changed to ${filter} (rehearsal flow unaffected)`);
     this.textFilter = filter;
     
-    // Re-parse the script with new filter
-    this.parseScript();
-    
-    // If rehearsal is active, restart from beginning
-    if (this.state !== 'IDLE') {
-      this.currentLineIndex = 0;
-      this.currentCueWords = [];
-      this.config.onCueWordsChange?.([]);
-      this.setState('TRANSITIONING');
-      setTimeout(() => {
-        if (!this.stopRequested) {
-          this.processCurrentLine();
-        }
-      }, 100);
-    }
+    // NOTE: We don't re-parse the script because rehearsal always uses complete script
+    // The filter is only used for manual TTS operations via the context
   }
 
   // Getters
