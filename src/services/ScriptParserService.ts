@@ -34,6 +34,7 @@ export class ScriptParserService {
 
   /**
    * Extract text for TTS based on filter type with strict mode
+   * Prioritizes AI character lines and applies formatting filters only to those lines
    */
   static extractTextForTTS(
     scriptContent: string,
@@ -45,49 +46,69 @@ export class ScriptParserService {
       return { text: '', hasContent: false, fallbackApplied: false };
     }
 
-    let extractedText = '';
+    const lines = scriptContent.split('\n');
+    const aiCharacters = characters.filter(char => !char.isUserRole);
+    const aiLines: string[] = [];
     let fallbackApplied = false;
 
+    // First, extract only AI character lines
+    for (const line of lines) {
+      const cleanLine = stripHtmlTags(line).trim();
+      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      
+      if (characterMatch) {
+        const characterName = characterMatch[1].trim();
+        const character = characters.find(c => c.name === characterName);
+        
+        // Only include AI character lines
+        if (!character || !character.isUserRole) {
+          aiLines.push(line);
+        }
+      }
+    }
+
+    console.log(`🎭 TTS: Found ${aiLines.length} AI character lines for filter: ${textFilter}`);
+
+    let extractedText = '';
+
+    // Apply text filter to AI lines only
     switch (textFilter) {
       case 'all':
-        extractedText = stripHtmlTags(scriptContent);
+        extractedText = aiLines.map(line => stripHtmlTags(line)).join(' ');
         break;
         
       case 'bold':
-        extractedText = extractFormattedText(scriptContent, 'bold');
-        if (!extractedText.trim()) {
-          if (strictMode) {
-            console.log('🚫 No bold text found - strict mode, returning empty');
-            return { text: '', hasContent: false, fallbackApplied: false };
-          } else {
-            console.warn('No bold text found, falling back to all text');
-            extractedText = stripHtmlTags(scriptContent);
-            fallbackApplied = true;
-          }
+        const boldLines = aiLines.filter(line => /<strong>.*<\/strong>/.test(line));
+        extractedText = boldLines.map(line => stripHtmlTags(line)).join(' ');
+        
+        if (!extractedText.trim() && !strictMode) {
+          console.warn('🔄 No bold text in AI lines, falling back to all AI dialogue');
+          extractedText = aiLines.map(line => stripHtmlTags(line)).join(' ');
+          fallbackApplied = true;
         }
         break;
         
       case 'italic':
-        extractedText = extractFormattedText(scriptContent, 'italic');
-        if (!extractedText.trim()) {
-          if (strictMode) {
-            console.log('🚫 No italic text found - strict mode, returning empty');
-            return { text: '', hasContent: false, fallbackApplied: false };
-          } else {
-            console.warn('No italic text found, falling back to all text');
-            extractedText = stripHtmlTags(scriptContent);
-            fallbackApplied = true;
-          }
+        const italicLines = aiLines.filter(line => /<em>.*<\/em>/.test(line));
+        extractedText = italicLines.map(line => stripHtmlTags(line)).join(' ');
+        
+        if (!extractedText.trim() && !strictMode) {
+          console.warn('🔄 No italic text in AI lines, falling back to all AI dialogue');
+          extractedText = aiLines.map(line => stripHtmlTags(line)).join(' ');
+          fallbackApplied = true;
         }
         break;
         
       default:
-        extractedText = stripHtmlTags(scriptContent);
+        extractedText = aiLines.map(line => stripHtmlTags(line)).join(' ');
     }
+
+    const hasContent = extractedText.trim().length > 0;
+    console.log(`📝 TTS: Extracted ${extractedText.length} characters ${fallbackApplied ? '(with fallback)' : ''}`);
 
     return {
       text: extractedText.trim(),
-      hasContent: extractedText.trim().length > 0,
+      hasContent,
       fallbackApplied
     };
   }
