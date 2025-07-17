@@ -41,11 +41,13 @@ export const getScriptLines = (
     const cleanLine = stripHtmlTags(line).trim();
     
     // Check if this is a character line
-    const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+    const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/i);
     
     if (characterMatch) {
       const characterName = characterMatch[1].trim();
-      const character = characters.find(c => c.name === characterName);
+      const character = characters.find(c => 
+        c.name.toLowerCase() === characterName.toLowerCase()
+      );
       
       if (character && character.isUserRole) {
         // This is an actor line - ALWAYS include it for proper listening sequence

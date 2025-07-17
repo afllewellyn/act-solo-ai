@@ -66,9 +66,12 @@ export class ScriptParserService {
           c.name.toLowerCase() === characterName.toLowerCase()
         );
         
-        if (character && !character.isUserRole) {
-          aiLines.push(line);
-        }
+    console.log(`🔍 Found AI character: ${characterName} (isUser: ${character?.isUserRole})`);
+        
+    if (character && !character.isUserRole) {
+      aiLines.push(line);
+      console.log(`✅ Added AI line: "${line}"`);
+    }
       }
     }
 
@@ -87,7 +90,8 @@ export class ScriptParserService {
         break;
         
       case 'bold':
-        const boldLines = aiLines.filter(line => /<strong>.*<\/strong>/.test(line));
+        const boldLines = aiLines.filter(line => /<strong>[^<]+<\/strong>/.test(line));
+        console.log(`🔍 Found ${boldLines.length} bold lines out of ${aiLines.length} AI lines`);
         extractedText = boldLines.map(line => {
           const cleanLine = stripHtmlTags(line).trim();
           const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
@@ -106,7 +110,8 @@ export class ScriptParserService {
         break;
         
       case 'italic':
-        const italicLines = aiLines.filter(line => /<em>.*<\/em>/.test(line));
+        const italicLines = aiLines.filter(line => /<em>[^<]+<\/em>/.test(line));
+        console.log(`🔍 Found ${italicLines.length} italic lines out of ${aiLines.length} AI lines`);
         extractedText = italicLines.map(line => {
           const cleanLine = stripHtmlTags(line).trim();
           const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
@@ -153,15 +158,17 @@ export class ScriptParserService {
     const dialogueLines: string[] = [];
     
     lines.forEach(line => {
-      const cleanLine = stripHtmlTags(line);
-      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      const cleanLine = stripHtmlTags(line).trim();
+      const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/i);
       
       if (characterMatch) {
         const characterName = characterMatch[1].trim();
         const dialogue = characterMatch[2].trim();
         
         // Check if character should be spoken by AI
-        const character = characters.find(c => c.name === characterName);
+        const character = characters.find(c => 
+          c.name.toLowerCase() === characterName.toLowerCase()
+        );
         if (!character || !character.isUserRole) {
           dialogueLines.push(dialogue);
         }
@@ -206,11 +213,13 @@ export class ScriptParserService {
     // Analyze character lines
     lines.forEach(line => {
       const cleanLine = stripHtmlTags(line).trim();
-      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/i);
       
       if (characterMatch) {
         const characterName = characterMatch[1].trim();
-        const character = characters.find(c => c.name === characterName);
+        const character = characters.find(c => 
+          c.name.toLowerCase() === characterName.toLowerCase()
+        );
         
         // Count lines by type
         if (character?.isUserRole) {
@@ -275,7 +284,7 @@ export class ScriptParserService {
    */
   static extractDialogueFromLine(line: string): string {
     // Remove character name prefix
-    const withoutCharacter = line.replace(/^[A-Z][A-Z\s\-\'\.]+:\s*/, '');
+    const withoutCharacter = line.replace(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*/i, '');
     // Remove HTML tags
     const cleanText = stripHtmlTags(withoutCharacter);
     return cleanText.trim();
@@ -286,11 +295,13 @@ export class ScriptParserService {
    */
   static isUserCharacterLine(line: string, characters: Character[]): boolean {
     const cleanLine = stripHtmlTags(line).trim();
-    const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):/);
+    const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):/i);
     
     if (characterMatch) {
       const characterName = characterMatch[1].trim();
-      const character = characters.find(c => c.name === characterName);
+      const character = characters.find(c => 
+        c.name.toLowerCase() === characterName.toLowerCase()
+      );
       return character?.isUserRole || false;
     }
     
