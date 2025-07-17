@@ -33,8 +33,7 @@ export class ScriptParserService {
   }
 
   /**
-   * Extract text for TTS based on filter type with strict mode
-   * Prioritizes AI character lines and applies formatting filters only to those lines
+   * Extract text for TTS based on filter type - expects CHARACTER_NAME: dialogue format
    */
   static extractTextForTTS(
     scriptContent: string,
@@ -47,21 +46,27 @@ export class ScriptParserService {
     }
 
     const lines = scriptContent.split('\n');
-    const aiCharacters = characters.filter(char => !char.isUserRole);
     const aiLines: string[] = [];
     let fallbackApplied = false;
 
-    // First, extract only AI character lines
+    // Extract AI character lines using character name matching
     for (const line of lines) {
       const cleanLine = stripHtmlTags(line).trim();
-      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      if (!cleanLine) continue;
+      
+      // Match character name format: CHARACTER_NAME: dialogue
+      const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/);
       
       if (characterMatch) {
         const characterName = characterMatch[1].trim();
-        const character = characters.find(c => c.name === characterName);
+        const dialogue = characterMatch[2].trim();
         
-        // Only include AI character lines
-        if (!character || !character.isUserRole) {
+        // Check if this character is an AI character (not user role)
+        const character = characters.find(c => 
+          c.name.toLowerCase() === characterName.toLowerCase()
+        );
+        
+        if (character && !character.isUserRole) {
           aiLines.push(line);
         }
       }
@@ -74,37 +79,61 @@ export class ScriptParserService {
     // Apply text filter to AI lines only
     switch (textFilter) {
       case 'all':
-        extractedText = aiLines.map(line => stripHtmlTags(line)).join(' ');
+        extractedText = aiLines.map(line => {
+          const cleanLine = stripHtmlTags(line).trim();
+          const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
+          return match ? match[1] : cleanLine;
+        }).join(' ');
         break;
         
       case 'bold':
         const boldLines = aiLines.filter(line => /<strong>.*<\/strong>/.test(line));
-        extractedText = boldLines.map(line => stripHtmlTags(line)).join(' ');
+        extractedText = boldLines.map(line => {
+          const cleanLine = stripHtmlTags(line).trim();
+          const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
+          return match ? match[1] : cleanLine;
+        }).join(' ');
         
         if (!extractedText.trim() && !strictMode) {
           console.warn('🔄 No bold text in AI lines, falling back to all AI dialogue');
-          extractedText = aiLines.map(line => stripHtmlTags(line)).join(' ');
+          extractedText = aiLines.map(line => {
+            const cleanLine = stripHtmlTags(line).trim();
+            const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
+            return match ? match[1] : cleanLine;
+          }).join(' ');
           fallbackApplied = true;
         }
         break;
         
       case 'italic':
         const italicLines = aiLines.filter(line => /<em>.*<\/em>/.test(line));
-        extractedText = italicLines.map(line => stripHtmlTags(line)).join(' ');
+        extractedText = italicLines.map(line => {
+          const cleanLine = stripHtmlTags(line).trim();
+          const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
+          return match ? match[1] : cleanLine;
+        }).join(' ');
         
         if (!extractedText.trim() && !strictMode) {
           console.warn('🔄 No italic text in AI lines, falling back to all AI dialogue');
-          extractedText = aiLines.map(line => stripHtmlTags(line)).join(' ');
+          extractedText = aiLines.map(line => {
+            const cleanLine = stripHtmlTags(line).trim();
+            const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
+            return match ? match[1] : cleanLine;
+          }).join(' ');
           fallbackApplied = true;
         }
         break;
         
       default:
-        extractedText = aiLines.map(line => stripHtmlTags(line)).join(' ');
+        extractedText = aiLines.map(line => {
+          const cleanLine = stripHtmlTags(line).trim();
+          const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
+          return match ? match[1] : cleanLine;
+        }).join(' ');
     }
 
     const hasContent = extractedText.trim().length > 0;
-    console.log(`📝 TTS: Extracted ${extractedText.length} characters ${fallbackApplied ? '(with fallback)' : ''}`);
+    console.log(`📝 TTS: Extracted ${extractedText.length} characters from dialogue ${fallbackApplied ? '(with fallback)' : ''}`);
 
     return {
       text: extractedText.trim(),
