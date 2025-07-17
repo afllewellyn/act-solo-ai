@@ -149,6 +149,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
           console.log('🎭 State machine state changed:', state);
           setRehearsalState(state);
           
+          // Auto-enable voice activation when entering WAITING_FOR_ACTOR_CUE
+          if (state === 'WAITING_FOR_ACTOR_CUE' && !voiceActivated) {
+            console.log('🎤 Auto-enabling voice activation for rehearsal');
+            setVoiceActivated(true);
+          }
+          
           // Show state change toast for debugging
           toast({
             title: "Rehearsal State",
@@ -181,8 +187,14 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
           console.log('🎤 Cue words changed:', cueWords);
           setCurrentCueWords(cueWords);
           
-          // Start or stop listening based on cue words and voice activation
-          if (cueWords.length > 0 && voiceActivated) {
+          // CRITICAL: Always start listening for cues during rehearsal, auto-enable voice activation
+          if (cueWords.length > 0 && rehearsalMode) {
+            // Auto-enable voice activation if not already enabled
+            if (!voiceActivated) {
+              console.log('🎤 Auto-enabling voice activation for cue detection');
+              setVoiceActivated(true);
+            }
+            
             console.log('🎤 Starting to listen for cue:', cueWords.join(' '));
             audioManager.startListeningForCue(cueWords.join(' '));
             toast({
@@ -325,7 +337,14 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   };
 
   const setRehearsalMode = (enabled: boolean) => {
+    console.log('🎭 Setting rehearsal mode:', enabled);
     setRehearsalModeState(enabled);
+    
+    // Auto-enable voice activation when starting rehearsal
+    if (enabled && !voiceActivated) {
+      console.log('🎤 Auto-enabling voice activation for rehearsal mode');
+      setVoiceActivated(true);
+    }
   };
 
   const handleActorLineDetected = (line: string) => {

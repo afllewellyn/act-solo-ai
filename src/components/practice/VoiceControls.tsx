@@ -2,7 +2,8 @@ import { Button } from '@/components/ui/button';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Volume2, ChevronDown, Filter } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Volume2, ChevronDown, Filter, Mic, MicOff } from 'lucide-react';
 import { useRehearsal } from '@/contexts/RehearsalContext';
 
 export const VoiceControls = () => {
@@ -13,6 +14,7 @@ export const VoiceControls = () => {
     textFilter, 
     isTTSPlaying,
     isManualTTSPlaying,
+    isListening,
     voices,
     rehearsalState,
     setSelectedVoice,
@@ -128,14 +130,39 @@ export const VoiceControls = () => {
         </div>
       </div>
 
-      {/* Voice Activation */}
-      <div className="flex items-center justify-between">
-        <Label htmlFor="voice-activation" className="text-sm">Voice Activation</Label>
-        <Switch
-          id="voice-activation"
-          checked={voiceActivated}
-          onCheckedChange={setVoiceActivated}
-        />
+      {/* Voice Activation with Listening Status */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <Label htmlFor="voice-activation" className="text-sm">Voice Activation</Label>
+          <div className="flex items-center gap-2">
+            {/* Mic Listening Active Badge */}
+            {voiceActivated && isListening && (
+              <Badge variant="secondary" className="text-xs flex items-center gap-1 animate-pulse">
+                <Mic className="h-3 w-3" />
+                Listening
+              </Badge>
+            )}
+            {voiceActivated && !isListening && rehearsalState === 'WAITING_FOR_ACTOR_CUE' && (
+              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                <MicOff className="h-3 w-3" />
+                Ready
+              </Badge>
+            )}
+            <Switch
+              id="voice-activation"
+              checked={voiceActivated}
+              onCheckedChange={setVoiceActivated}
+              disabled={rehearsalState !== 'IDLE'}
+            />
+          </div>
+        </div>
+        {voiceActivated && (
+          <p className="text-xs text-muted-foreground">
+            {isListening 
+              ? "🎤 Microphone is actively listening for your cues..." 
+              : "Microphone ready for rehearsal mode"}
+          </p>
+        )}
       </div>
     </div>
   );
