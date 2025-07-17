@@ -28,8 +28,10 @@ export interface AudioManagerReturn {
   pauseTTS: () => void;
   resumeTTS: () => void;
   stopTTS: () => void;
+  enableAudio: () => Promise<void>;
   isTTSPlaying: boolean;
   isTTSPaused: boolean;
+  needsUserGesture: boolean;
   
   // Speech Recognition Controls
   startListeningForCue: (targetText: string) => void;
@@ -57,8 +59,10 @@ export function useAudioManager(config: AudioManagerConfig = {}): AudioManagerRe
     pause: pauseTTS,
     resume: resumeTTS,
     stop: stopTTS,
+    enableAudio,
     isPlaying: isTTSPlaying,
-    isPaused: isTTSPaused
+    isPaused: isTTSPaused,
+    needsUserGesture
   } = useTTS();
 
   // Initialize Speech Recognition
@@ -123,8 +127,10 @@ export function useAudioManager(config: AudioManagerConfig = {}): AudioManagerRe
     pauseTTS,
     resumeTTS,
     stopTTS,
+    enableAudio,
     isTTSPlaying,
     isTTSPaused,
+    needsUserGesture,
     
     // Speech Recognition Controls
     startListeningForCue,

@@ -17,6 +17,7 @@ export const VoiceControls = () => {
     isListening,
     voices,
     rehearsalState,
+    audioManager,
     setSelectedVoice,
     setVoiceActivated,
     setPlaybackSpeed,
@@ -99,17 +100,31 @@ export const VoiceControls = () => {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Button
-          variant={isManualTTSPlaying ? "destructive" : "default"}
-          size="sm"
-          onClick={handleTTSPlay}
-          className="flex-1"
-          disabled={rehearsalState !== 'IDLE'}
-          aria-label={isManualTTSPlaying ? 'Stop speech' : 'Read script'}
-        >
-          <Volume2 className="h-4 w-4" />
-          <span className="ml-1">{isManualTTSPlaying ? 'Stop' : 'Read Script'}</span>
-        </Button>
+        <div className="flex flex-1 gap-1">
+          <Button
+            variant={isManualTTSPlaying ? "destructive" : "default"}
+            size="sm"
+            onClick={handleTTSPlay}
+            className="flex-1"
+            disabled={rehearsalState !== 'IDLE'}
+            aria-label={isManualTTSPlaying ? 'Stop speech' : 'Read script'}
+          >
+            <Volume2 className="h-4 w-4" />
+            <span className="ml-1">{isManualTTSPlaying ? 'Stop' : 'Read Script'}</span>
+          </Button>
+          
+          {audioManager?.needsUserGesture && (
+            <Button 
+              onClick={audioManager.enableAudio}
+              variant="outline"
+              size="sm"
+              className="px-2"
+              aria-label="Enable audio playback"
+            >
+              <Volume2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Playback Speed Control - Moved outside dropdown for better UX */}
@@ -137,15 +152,21 @@ export const VoiceControls = () => {
           <div className="flex items-center gap-2">
             {/* Mic Listening Active Badge */}
             {voiceActivated && isListening && (
-              <Badge variant="secondary" className="text-xs flex items-center gap-1 animate-pulse">
+              <Badge variant="default" className="text-xs flex items-center gap-1 animate-pulse bg-green-600 hover:bg-green-700">
                 <Mic className="h-3 w-3" />
-                Listening
+                Mic Listening Active
               </Badge>
             )}
             {voiceActivated && !isListening && rehearsalState === 'WAITING_FOR_ACTOR_CUE' && (
               <Badge variant="outline" className="text-xs flex items-center gap-1">
                 <MicOff className="h-3 w-3" />
-                Ready
+                Voice Ready
+              </Badge>
+            )}
+            {audioManager?.needsUserGesture && (
+              <Badge variant="destructive" className="text-xs flex items-center gap-1">
+                <Volume2 className="h-3 w-3" />
+                Audio Blocked
               </Badge>
             )}
             <Switch
@@ -160,7 +181,9 @@ export const VoiceControls = () => {
           <p className="text-xs text-muted-foreground">
             {isListening 
               ? "🎤 Microphone is actively listening for your cues..." 
-              : "Microphone ready for rehearsal mode"}
+              : audioManager?.needsUserGesture 
+                ? "⚠️ Click 'Enable Audio' button to allow audio playback" 
+                : "Microphone ready for rehearsal mode"}
           </p>
         )}
       </div>

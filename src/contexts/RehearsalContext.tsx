@@ -42,6 +42,7 @@ interface RehearsalContextType {
   isListening: boolean;
   isTTSPlaying: boolean;
   isManualTTSPlaying: boolean;
+  audioManager: any; // AudioManagerReturn type
   
   // Voice Settings
   selectedVoice: string;
@@ -452,6 +453,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     isListening: audioManager?.isListening ?? false,
     isTTSPlaying: audioManager?.isTTSPlaying ?? false,
     isManualTTSPlaying,
+    audioManager,
     selectedVoice,
     voiceActivated,
     playbackSpeed,
