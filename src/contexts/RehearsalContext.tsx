@@ -135,6 +135,14 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         description: error,
         variant: "destructive",
       });
+    },
+    onMobileListenRequest: () => {
+      console.log('📱 Mobile listen request - showing tap to listen UI');
+      toast({
+        title: "Ready to Listen",
+        description: "Tap the 'Tap to Listen' button when you're ready to speak your line",
+        duration: 3000,
+      });
     }
   });
 

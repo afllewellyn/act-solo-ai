@@ -1,10 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { useIsMobile } from './use-mobile';
 
 interface SpeechRecognitionOptions {
   onWordMatch?: (matchedWord: string) => void;
   onError?: (error: string) => void;
   language?: string;
   onCueDetected?: (detectedCue: string) => void;
+  onMobileListenRequest?: () => void; // Called when mobile needs manual listen trigger
 }
 
 // Extend the Window interface for TypeScript
@@ -43,11 +45,13 @@ declare global {
 }
 
 export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => {
+  const isMobile = useIsMobile();
   const [isListening, setIsListening] = useState(false);
   const [isSupported, setIsSupported] = useState(false);
   const [targetWords, setTargetWords] = useState<string[]>([]);
   const [shouldBeListening, setShouldBeListening] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
+  const [waitingForUserTrigger, setWaitingForUserTrigger] = useState(false);
   
   const recognitionRef = useRef<SpeechRecognition | null>(null);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -204,10 +208,12 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
       recognitionRef.current = new SpeechRecognition();
       const recognition = recognitionRef.current;
       
-      // Configure recognition
-      recognition.continuous = true;
-      recognition.interimResults = true;
+      // Configure recognition - Mobile-aware settings
+      recognition.continuous = !isMobile; // Mobile devices work better with single-shot
+      recognition.interimResults = !isMobile; // Mobile devices prefer final results only
       recognition.lang = options.language || 'en-US';
+      
+      console.log(`🎤 [${isMobile ? 'Mobile' : 'Desktop'}] Speech recognition configured - continuous: ${recognition.continuous}, interimResults: ${recognition.interimResults}`);
       
       // Enhanced result handler
       recognition.onresult = (event) => {
@@ -327,13 +333,19 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     });
     setIsListening(false);
     
-    // Auto-restart if we should still be listening
-    if (shouldBeListening) {
-      console.log('🎤 [onend] ✅ Auto-restart triggered from onend - will attempt restart');
-      attemptRestart();
-    } else {
-      console.log('🎤 [onend] ❌ No auto-restart needed - shouldBeListening is false');
-    }
+      // Mobile-aware auto-restart logic
+      if (shouldBeListening) {
+        if (isMobile) {
+          console.log('🎤 [onend] 📱 Mobile device - waiting for user trigger instead of auto-restart');
+          setWaitingForUserTrigger(true);
+          options.onMobileListenRequest?.();
+        } else {
+          console.log('🎤 [onend] 🖥️ Desktop device - auto-restart triggered');
+          attemptRestart();
+        }
+      } else {
+        console.log('🎤 [onend] ❌ No auto-restart needed - shouldBeListening is false');
+      }
   };
       
       // Start handler for logging
@@ -430,7 +442,7 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     startRecognition();
   }, [isSupported, options, startRecognition]);
 
-  // Enhanced function specifically for cue word detection with auto-restart
+  // Enhanced function specifically for cue word detection with mobile-aware logic
   const startListeningForCue = useCallback((textToMatch: string) => {
     if (!isSupported || !recognitionRef.current) {
       console.error('🎤 [startListeningForCue] ❌ Speech recognition not supported');
@@ -438,21 +450,38 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
       return;
     }
 
-    console.log('🎤 [startListeningForCue] 🚀 Starting to listen for cue:', textToMatch);
+    console.log(`🎤 [startListeningForCue] 🚀 [${isMobile ? 'Mobile' : 'Desktop'}] Starting to listen for cue:`, textToMatch);
     console.log('🎤 [startListeningForCue] Previous state - shouldBeListening:', shouldBeListening, 'isListening:', isListening);
-    logEvent('start_listening_for_cue_called', { textToMatch, previousShouldBeListening: shouldBeListening, previousIsListening: isListening });
+    logEvent('start_listening_for_cue_called', { textToMatch, previousShouldBeListening: shouldBeListening, previousIsListening: isListening, isMobile });
     
     const cueWords = extractCueWords(textToMatch);
     setTargetWords(cueWords);
     setShouldBeListening(true);
     setRetryCount(0);
+    setWaitingForUserTrigger(false);
     
     console.log(`🎤 [startListeningForCue] ✅ Extracted cue words: [${cueWords.join(', ')}]`);
     console.log('🎤 [startListeningForCue] Updated state - shouldBeListening: true');
-    logEvent('cue_words_extracted', { cueWords, shouldBeListening: true });
+    logEvent('cue_words_extracted', { cueWords, shouldBeListening: true, isMobile });
     
+    if (isMobile) {
+      console.log('🎤 [startListeningForCue] 📱 Mobile device - setting up for manual trigger');
+      setWaitingForUserTrigger(true);
+      options.onMobileListenRequest?.();
+    } else {
+      console.log('🎤 [startListeningForCue] 🖥️ Desktop device - starting recognition immediately');
+      startRecognition();
+    }
+  }, [isSupported, options, startRecognition, logEvent, shouldBeListening, isListening, isMobile]);
+
+  // Mobile-specific manual trigger function
+  const manualTriggerListen = useCallback(() => {
+    if (!isMobile || !waitingForUserTrigger) return;
+    
+    console.log('🎤 [manualTriggerListen] 📱 Manual trigger activated');
+    setWaitingForUserTrigger(false);
     startRecognition();
-  }, [isSupported, options, startRecognition, logEvent, shouldBeListening, isListening]);
+  }, [isMobile, waitingForUserTrigger, startRecognition]);
 
   const stopListening = useCallback(() => {
     console.log('🎤 [stopListening] 🛑 Stopping listening');
@@ -462,6 +491,7 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     setShouldBeListening(false);
     setRetryCount(0);
     setTargetWords([]);
+    setWaitingForUserTrigger(false);
     
     console.log('🎤 [stopListening] ✅ Updated state - shouldBeListening: false, targetWords: []');
     
@@ -526,6 +556,9 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     startListening,
     startListeningForCue,
     stopListening,
-    targetWords
+    targetWords,
+    isMobile,
+    waitingForUserTrigger,
+    manualTriggerListen,
   };
 };

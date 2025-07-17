@@ -3,7 +3,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
-import { Volume2, ChevronDown, Filter, Mic, MicOff } from 'lucide-react';
+import { Volume2, ChevronDown, Filter, Mic, MicOff, Smartphone, Monitor } from 'lucide-react';
 import { useRehearsal } from '@/contexts/RehearsalContext';
 
 export const VoiceControls = () => {
@@ -24,6 +24,10 @@ export const VoiceControls = () => {
     setTextFilter,
     handleTTSPlay
   } = useRehearsal();
+  
+  // Mobile-specific state
+  const isMobile = audioManager?.isMobile ?? false;
+  const waitingForUserTrigger = audioManager?.waitingForUserTrigger ?? false;
   // Available text filter options for reading different parts of the script
   const filterOptions = [
     { value: 'all' as const, label: 'All Text' },
@@ -148,13 +152,27 @@ export const VoiceControls = () => {
       {/* Voice Activation with Listening Status */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
-          <Label htmlFor="voice-activation" className="text-sm">Voice Activation</Label>
+          <Label htmlFor="voice-activation" className="text-sm flex items-center gap-2">
+            Voice Activation
+            {/* Device Type Indicator */}
+            {isMobile ? (
+              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                <Smartphone className="h-3 w-3" />
+                Mobile Mode
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="text-xs flex items-center gap-1">
+                <Monitor className="h-3 w-3" />
+                Desktop Mode
+              </Badge>
+            )}
+          </Label>
           <div className="flex items-center gap-2">
             {/* Mic Listening Active Badge */}
             {voiceActivated && isListening && (
               <Badge variant="default" className="text-xs flex items-center gap-1 animate-pulse bg-green-600 hover:bg-green-700">
                 <Mic className="h-3 w-3" />
-                Mic Listening Active
+                {isMobile ? "Listening" : "Mic Active"}
               </Badge>
             )}
             {voiceActivated && !isListening && rehearsalState === 'WAITING_FOR_ACTOR_CUE' && (
@@ -177,13 +195,29 @@ export const VoiceControls = () => {
             />
           </div>
         </div>
+        
+        {/* Mobile-specific Tap to Listen Button */}
+        {voiceActivated && isMobile && waitingForUserTrigger && (
+          <Button
+            onClick={audioManager?.manualTriggerListen}
+            variant="default"
+            size="sm"
+            className="w-full animate-pulse bg-green-600 hover:bg-green-700"
+          >
+            <Mic className="h-4 w-4 mr-2" />
+            Tap to Listen
+          </Button>
+        )}
+        
         {voiceActivated && (
           <p className="text-xs text-muted-foreground">
             {isListening 
-              ? "🎤 Microphone is actively listening for your cues..." 
+              ? `🎤 ${isMobile ? "Tap detected - listening for your cues..." : "Microphone is actively listening for your cues..."}` 
+              : waitingForUserTrigger && isMobile
+                ? "📱 Ready to listen - tap the button above when you're ready to speak"
               : audioManager?.needsUserGesture 
                 ? "⚠️ Click 'Enable Audio' button to allow audio playback" 
-                : "Microphone ready for rehearsal mode"}
+                : `${isMobile ? "📱 Mobile mode - tap to listen when prompted" : "🖥️ Desktop mode - continuous listening enabled"}`}
           </p>
         )}
       </div>

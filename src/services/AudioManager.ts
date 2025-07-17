@@ -20,6 +20,7 @@ export interface AudioManagerConfig {
   onTTSError?: (error: string) => void;
   onCueDetected?: (cue: string) => void;
   onSpeechError?: (error: string) => void;
+  onMobileListenRequest?: () => void;
 }
 
 export interface AudioManagerReturn {
@@ -38,6 +39,11 @@ export interface AudioManagerReturn {
   stopListening: () => void;
   isListening: boolean;
   isSpeechSupported: boolean;
+  
+  // Mobile-aware Speech Recognition
+  isMobile: boolean;
+  waitingForUserTrigger: boolean;
+  manualTriggerListen: () => void;
   
   // Master Controls
   stopAll: () => void;
@@ -70,7 +76,10 @@ export function useAudioManager(config: AudioManagerConfig = {}): AudioManagerRe
     isListening,
     isSupported: isSpeechSupported,
     startListeningForCue,
-    stopListening
+    stopListening,
+    isMobile,
+    waitingForUserTrigger,
+    manualTriggerListen
   } = useSpeechRecognition({
     onCueDetected: (detectedCue: string) => {
       console.log('🎤 AudioManager: Cue detected:', detectedCue);
@@ -79,6 +88,10 @@ export function useAudioManager(config: AudioManagerConfig = {}): AudioManagerRe
     onError: (error: any) => {
       console.error('🎤 AudioManager: Speech error:', error);
       config.onSpeechError?.(error);
+    },
+    onMobileListenRequest: () => {
+      console.log('📱 AudioManager: Mobile listen request');
+      config.onMobileListenRequest?.();
     },
     language: config.language || 'en-US'
   });
@@ -137,6 +150,11 @@ export function useAudioManager(config: AudioManagerConfig = {}): AudioManagerRe
     stopListening,
     isListening,
     isSpeechSupported,
+    
+    // Mobile-aware Speech Recognition
+    isMobile,
+    waitingForUserTrigger,
+    manualTriggerListen,
     
     // Master Controls
     stopAll
