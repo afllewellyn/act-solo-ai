@@ -70,7 +70,8 @@ const Index = () => {
           </TabsContent>
           
           <TabsContent value="create" className="space-y-4 mt-6">
-            <h2 className="text-lg sm:text-xl font-semibold">Create New Script</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">
+          </h2>
             <ScriptInput onScriptSaved={handleScriptSaved} />
           </TabsContent>
         </Tabs>
