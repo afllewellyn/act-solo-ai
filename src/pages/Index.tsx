@@ -65,7 +65,7 @@ const Index = () => {
           </TabsList>
           
           <TabsContent value="scripts" className="space-y-4 mt-6">
-            <h2 className="text-lg sm:text-xl font-semibold">Manage Your Scripts Below</h2>
+            <h2 className="text-lg sm:text-xl font-semibold">Manage Scripts Below</h2>
             <ScriptList refresh={refreshScripts} onSelectScript={handleSelectScript} />
           </TabsContent>
           
