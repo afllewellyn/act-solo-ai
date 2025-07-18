@@ -1,4 +1,6 @@
+
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -46,38 +48,38 @@ export const VoiceControls = () => {
       
       {/* Voice and Filter Controls */}
       <div className="flex items-center gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="flex-1 bg-background border-border" aria-label="Select voice for text-to-speech">
+        <Select value={selectedVoice} onValueChange={setSelectedVoice}>
+          <SelectTrigger className="flex-1 bg-background border-border" aria-label="Select voice for text-to-speech">
+            <div className="flex items-center">
               <Volume2 className="h-4 w-4" />
-              <span className="ml-1 truncate">
-                {voices.find(v => v.id === selectedVoice)?.name || 'Voice'}
-              </span>
-              <ChevronDown className="h-3 w-3 ml-1" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-56 bg-background border-border shadow-lg z-50">
-            <div className="p-2">
-              <p className="text-xs text-muted-foreground mb-2">Select Voice:</p>
-              {voices.length > 0 ? (
-                voices.map((voice) => (
-                  <DropdownMenuItem 
-                    key={voice.id}
-                    onClick={() => setSelectedVoice(voice.id)}
-                    className={`cursor-pointer p-2 rounded text-sm hover:bg-accent ${selectedVoice === voice.id ? 'bg-accent' : ''}`}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-medium">{voice.name}</span>
-                      <span className="text-xs text-muted-foreground">{voice.gender} • {voice.accent}</span>
-                    </div>
-                  </DropdownMenuItem>
-                ))
-              ) : (
-                <div className="p-2 text-xs text-muted-foreground">No voices available</div>
-              )}
+              <SelectValue placeholder="Select Voice" className="ml-1">
+                <span className="ml-1 truncate">
+                  {voices.find(v => v.id === selectedVoice)?.name || 'Voice'}
+                </span>
+              </SelectValue>
             </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </SelectTrigger>
+          <SelectContent className="max-h-96 bg-background border-border shadow-lg">
+            {voices.length > 0 ? (
+              voices.map((voice) => (
+                <SelectItem 
+                  key={voice.id}
+                  value={voice.id}
+                  className="cursor-pointer p-3"
+                >
+                  <div className="flex flex-col">
+                    <span className="font-medium">{voice.name}</span>
+                    <span className="text-xs text-muted-foreground">{voice.gender} • {voice.accent}</span>
+                  </div>
+                </SelectItem>
+              ))
+            ) : (
+              <SelectItem value="no-voices" disabled>
+                No voices available
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
