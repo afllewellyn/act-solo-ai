@@ -387,11 +387,15 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
 
           {/* Desktop Controls */}
           <div className="hidden sm:block absolute bottom-4 left-4 right-4">
-            <Card className="bg-background/95 backdrop-blur-sm">
-              <CardContent className="p-4">
-                <div className="flex items-start gap-6">
-                  {/* Rehearse Script Section */}
-                  <div className="flex flex-col gap-3 min-w-[200px]">
+            <Card className={`bg-background/95 backdrop-blur-sm transition-all duration-300 ${
+              isFullscreen ? 'bg-background/70 backdrop-blur-md' : ''
+            }`}>
+              <CardContent className={`transition-all duration-300 ${
+                isFullscreen ? 'p-2' : 'p-4'
+              }`}>
+                {isFullscreen ? (
+                  /* Compact Fullscreen Controls */
+                  <div className="flex items-center justify-center gap-4">
                     <ScriptControls
                       isRehearsalActive={rehearsalMode}
                       scrollSpeed={scrollSpeed}
@@ -406,47 +410,69 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                       showMasterStop={voiceActivated && rehearsalMode}
                     />
                   </div>
+                ) : (
+                  /* Full Desktop Controls */
+                  <>
+                    <div className="flex items-start gap-6">
+                      {/* Rehearse Script Section */}
+                      <div className="flex flex-col gap-3 min-w-[200px]">
+                        <ScriptControls
+                          isRehearsalActive={rehearsalMode}
+                          scrollSpeed={scrollSpeed}
+                          fontSize={fontSize}
+                          isFullscreen={isFullscreen}
+                          onStartStopRehearsal={handleStartStopRehearsal}
+                          onReset={handleReset}
+                          onScrollSpeedChange={setScrollSpeed}
+                          onFontSizeChange={setFontSize}
+                          onToggleFullscreen={toggleFullscreen}
+                          onMasterStop={handleMasterStop}
+                          showMasterStop={voiceActivated && rehearsalMode}
+                        />
+                      </div>
 
-                  {/* Visual Separator */}
-                  <Separator orientation="vertical" className="h-24 mx-3" />
+                      {/* Visual Separator */}
+                      <Separator orientation="vertical" className="h-24 mx-3" />
 
-                  {/* AI Reader Voice Selection Section */}
-                  <div className="flex flex-col gap-3 flex-1">
-                    <VoiceControls />
+                      {/* AI Reader Voice Selection Section */}
+                      <div className="flex flex-col gap-3 flex-1">
+                        <VoiceControls />
 
-                    {/* Voice Activation Status */}
-                    {isListening && (
-                      <div className="text-center">
-                        <span className="text-xs text-muted-foreground animate-pulse">
-                          {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Still listening...' : 'Listening...'}
-                        </span>
+                        {/* Voice Activation Status */}
+                        {isListening && (
+                          <div className="text-center">
+                            <span className="text-xs text-muted-foreground animate-pulse">
+                              {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Still listening...' : 'Listening...'}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Visual Separator */}
+                      <Separator orientation="vertical" className="h-24 mx-3" />
+
+                    </div>
+
+                    {/* Script Speed Control Slider - Only show when not using voice activation */}
+                    {!voiceActivated && (
+                      <div className="flex items-center gap-4 mt-4 pt-4 border-t">
+                        <Label className="text-sm whitespace-nowrap">Scroll Speed:</Label>
+                        <div className="flex-1">
+                          <Slider
+                            value={scrollSpeed}
+                            onValueChange={setScrollSpeed}
+                            max={5}
+                            min={0.5}
+                            step={0.5}
+                            className="w-full"
+                          />
+                        </div>
+                         <span className="text-sm text-muted-foreground w-12 text-center font-mono">
+                           {scrollSpeed[0]}x
+                         </span>
                       </div>
                     )}
-                  </div>
-
-                  {/* Visual Separator */}
-                  <Separator orientation="vertical" className="h-24 mx-3" />
-
-                </div>
-
-                {/* Script Speed Control Slider - Only show when not using voice activation */}
-                {!voiceActivated && (
-                  <div className="flex items-center gap-4 mt-4 pt-4 border-t">
-                    <Label className="text-sm whitespace-nowrap">Scroll Speed:</Label>
-                    <div className="flex-1">
-                      <Slider
-                        value={scrollSpeed}
-                        onValueChange={setScrollSpeed}
-                        max={5}
-                        min={0.5}
-                        step={0.5}
-                        className="w-full"
-                      />
-                    </div>
-                     <span className="text-sm text-muted-foreground w-12 text-center font-mono">
-                       {scrollSpeed[0]}x
-                     </span>
-                  </div>
+                  </>
                 )}
               </CardContent>
             </Card>

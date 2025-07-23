@@ -56,8 +56,13 @@ export function MobileControlsDrawer({
     <div className="fixed bottom-4 right-4 z-40">
       <Drawer open={isOpen} onOpenChange={setIsOpen}>
         <DrawerTrigger asChild>
-          <Button size="lg" className="rounded-full shadow-lg">
-            <Settings className="h-5 w-5" />
+          <Button 
+            size={isFullscreen ? "default" : "lg"} 
+            className={`rounded-full shadow-lg transition-all duration-300 ${
+              isFullscreen ? 'bg-background/70 backdrop-blur-md' : ''
+            }`}
+          >
+            <Settings className={isFullscreen ? "h-4 w-4" : "h-5 w-5"} />
           </Button>
         </DrawerTrigger>
         <DrawerContent className="max-h-[80vh]">

@@ -57,6 +57,7 @@ export const ScriptDisplay: React.FC<ScriptDisplayProps> = ({
           content={scriptContent}
           onChange={onScriptUpdate}
           placeholder="Write your script here..."
+          showToolbar={!isFullscreen}
         />
       </div>
 

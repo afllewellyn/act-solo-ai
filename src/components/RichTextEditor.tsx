@@ -11,11 +11,13 @@ interface RichTextEditorProps {
   content: string;
   onChange: (content: string) => void;
   placeholder?: string;
+  showToolbar?: boolean;
 }
 export function RichTextEditor({
   content,
   onChange,
-  placeholder
+  placeholder,
+  showToolbar = true
 }: RichTextEditorProps) {
   const editor = useEditor({
     extensions: [StarterKit, TextStyle, FontFamily],
@@ -42,58 +44,60 @@ export function RichTextEditor({
     }
   };
   return <Card className="w-full">
-      <CardHeader className="pb-2">
-        <div className="flex flex-wrap items-center gap-2">
-          {/* Text formatting */}
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleBold().run()} data-active={editor.isActive('bold')} className="data-[active=true]:bg-accent">
-              <Bold className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleItalic().run()} data-active={editor.isActive('italic')} className="data-[active=true]:bg-accent">
-              <Italic className="h-4 w-4" />
-            </Button>
+      {showToolbar && (
+        <CardHeader className="pb-2">
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Text formatting */}
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleBold().run()} data-active={editor.isActive('bold')} className="data-[active=true]:bg-accent">
+                <Bold className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleItalic().run()} data-active={editor.isActive('italic')} className="data-[active=true]:bg-accent">
+                <Italic className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-8" />
+
+            {/* Font family */}
+            <Select onValueChange={setFontFamily}>
+              <SelectTrigger className="w-[140px]">
+                <Type className="h-4 w-4 mr-2" />
+                <SelectValue placeholder="Font" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="serif">Serif</SelectItem>
+                <SelectItem value="monospace">Monospace</SelectItem>
+                <SelectItem value="cursive">Cursive</SelectItem>
+                <SelectItem value="fantasy">Fantasy</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Separator orientation="vertical" className="h-8" />
+
+            {/* Lists */}
+            
+
+            
+
+            {/* Block formatting */}
+            
+
+            
+
+            {/* Undo/Redo */}
+            <div className="flex items-center gap-1">
+              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
+                <Undo className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
+                <Redo className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
-
-          <Separator orientation="vertical" className="h-8" />
-
-          {/* Font family */}
-          <Select onValueChange={setFontFamily}>
-            <SelectTrigger className="w-[140px]">
-              <Type className="h-4 w-4 mr-2" />
-              <SelectValue placeholder="Font" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Default</SelectItem>
-              <SelectItem value="serif">Serif</SelectItem>
-              <SelectItem value="monospace">Monospace</SelectItem>
-              <SelectItem value="cursive">Cursive</SelectItem>
-              <SelectItem value="fantasy">Fantasy</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Separator orientation="vertical" className="h-8" />
-
-          {/* Lists */}
-          
-
-          
-
-          {/* Block formatting */}
-          
-
-          
-
-          {/* Undo/Redo */}
-          <div className="flex items-center gap-1">
-            <Button variant="outline" size="sm" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
-              <Undo className="h-4 w-4" />
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
-              <Redo className="h-4 w-4" />
-            </Button>
-          </div>
-        </div>
-      </CardHeader>
+        </CardHeader>
+      )}
       <CardContent>
         <div className="border rounded-md min-h-[300px]">
           <EditorContent editor={editor} />
