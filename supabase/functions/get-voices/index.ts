@@ -1,8 +1,53 @@
+
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Content-Security-Policy': "default-src 'self'",
+  'X-Content-Type-Options': 'nosniff',
+  'X-Frame-Options': 'DENY',
+  'X-XSS-Protection': '1; mode=block'
+}
+
+// Rate limiting map
+const rateLimits = new Map<string, { count: number; resetTime: number }>()
+
+const isRateLimited = (clientId: string): boolean => {
+  const now = Date.now()
+  const limit = rateLimits.get(clientId)
+  
+  if (!limit || now > limit.resetTime) {
+    rateLimits.set(clientId, { count: 1, resetTime: now + 300000 }) // 5 minute window
+    return false
+  }
+  
+  if (limit.count >= 5) { // 5 requests per 5 minutes
+    return true
+  }
+  
+  limit.count++
+  return false
+}
+
+const sanitizeVoiceData = (voice: any) => {
+  // Validate and sanitize voice data
+  if (!voice || typeof voice !== 'object') return null
+
+  const sanitized = {
+    id: typeof voice.voice_id === 'string' ? voice.voice_id.replace(/[^A-Za-z0-9_-]/g, '') : '',
+    name: typeof voice.name === 'string' ? voice.name.slice(0, 50).replace(/[<>]/g, '') : 'Unknown',
+    category: typeof voice.category === 'string' ? voice.category.slice(0, 20).replace(/[<>]/g, '') : 'Unknown',
+    gender: voice.labels?.gender ? String(voice.labels.gender).slice(0, 10).replace(/[<>]/g, '') : 'Unknown',
+    accent: voice.labels?.accent ? String(voice.labels.accent).slice(0, 20).replace(/[<>]/g, '') : 'Unknown'
+  }
+
+  // Validate ID format
+  if (!/^[A-Za-z0-9_-]+$/.test(sanitized.id)) {
+    return null
+  }
+
+  return sanitized
 }
 
 serve(async (req) => {
@@ -14,10 +59,27 @@ serve(async (req) => {
   console.log(`[${timestamp}] Get voices request received`)
 
   try {
+    // Rate limiting check
+    const clientIp = req.headers.get('x-forwarded-for') || 'unknown'
+    if (isRateLimited(clientIp)) {
+      console.log(`[${timestamp}] Rate limit exceeded for ${clientIp}`)
+      return new Response(
+        JSON.stringify({ 
+          error: 'Rate limit exceeded. Please wait before making another request.',
+          timestamp,
+          type: 'RATE_LIMIT_ERROR'
+        }),
+        {
+          status: 429,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
+    }
+
     // Validate API key
     const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
     if (!apiKey) {
-      throw new Error('ElevenLabs API key not configured')
+      throw new Error('API configuration error')
     }
 
     console.log(`[${timestamp}] Fetching voices from ElevenLabs API`)
@@ -26,7 +88,7 @@ serve(async (req) => {
       method: 'GET',
       headers: {
         'Accept': 'application/json',
-        'xi-api-key': apiKey,
+        'xi-api-key': apiKey.trim(),
       },
     })
 
@@ -37,26 +99,27 @@ serve(async (req) => {
       console.error(`[${timestamp}] ElevenLabs API error: ${response.status} - ${errorText}`)
       
       if (response.status === 401) {
-        throw new Error('Invalid API key')
+        throw new Error('Authentication failed')
       } else if (response.status === 429) {
-        throw new Error('Rate limit exceeded. Please wait and try again.')
+        throw new Error('Service rate limit exceeded. Please wait and try again.')
       } else {
-        throw new Error(`ElevenLabs API error: ${response.status} - ${errorText}`)
+        throw new Error('External service error')
       }
     }
 
     const voicesData = await response.json()
     
-    // Transform the response to include only the needed data
-    const voices = voicesData.voices.map((voice: any) => ({
-      id: voice.voice_id,
-      name: voice.name,
-      category: voice.category,
-      gender: voice.labels?.gender || 'Unknown',
-      accent: voice.labels?.accent || 'Unknown'
-    }))
+    if (!voicesData.voices || !Array.isArray(voicesData.voices)) {
+      throw new Error('Invalid response format')
+    }
+    
+    // Transform and sanitize the response to include only the needed data
+    const voices = voicesData.voices
+      .map(sanitizeVoiceData)
+      .filter(Boolean) // Remove any null results from sanitization
+      .slice(0, 100) // Limit to 100 voices max
 
-    console.log(`[${timestamp}] Successfully fetched ${voices.length} voices`)
+    console.log(`[${timestamp}] Successfully fetched and sanitized ${voices.length} voices`)
 
     return new Response(
       JSON.stringify({ voices }),
@@ -66,9 +129,19 @@ serve(async (req) => {
     )
   } catch (error) {
     console.error(`[${timestamp}] Get voices error:`, error.message)
+    
+    // Don't expose sensitive error details
+    const sanitizedError = error.message.includes('API key') 
+      ? 'Authentication error'
+      : error.message.includes('network')
+      ? 'Network error'
+      : error.message.includes('ELEVENLABS_API_KEY')
+      ? 'Configuration error'
+      : error.message
+
     return new Response(
       JSON.stringify({ 
-        error: error.message,
+        error: sanitizedError,
         timestamp,
         type: 'GET_VOICES_ERROR'
       }),

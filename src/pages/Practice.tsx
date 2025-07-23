@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { Label } from '@/components/ui/label';
-import { RoleAssignmentDialog } from '@/components/RoleAssignmentDialog';
+import { SecureRoleAssignmentDialog } from '@/components/practice/SecureRoleAssignmentDialog';
 import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
 import { InlineScriptEditor } from '@/components/InlineScriptEditor';
@@ -423,6 +423,19 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                       </div>
                     )}
                   </div>
+
+                  {/* Visual Separator */}
+                  <Separator orientation="vertical" className="h-24 mx-3" />
+
+                  {/* Role Assignment Section */}
+                  <div className="flex flex-col gap-3">
+                    <Label className="text-sm font-medium">Character Roles</Label>
+                    <SecureRoleAssignmentDialog
+                      characters={characters}
+                      onRoleUpdate={handleRoleUpdate}
+                      content={scriptContent}
+                    />
+                  </div>
                 </div>
 
                 {/* Script Speed Control Slider - Only show when not using voice activation */}
@@ -464,6 +477,13 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
         voiceActivated={voiceActivated}
         isSupported={true}
         onActorLineDetected={handleActorLineDetected}
+      />
+
+      {/* Secure Role Assignment Dialog */}
+      <SecureRoleAssignmentDialog
+        characters={characters}
+        onRoleUpdate={handleRoleUpdate}
+        content={scriptContent}
       />
     </div>
   );

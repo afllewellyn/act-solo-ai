@@ -1,26 +1,42 @@
+
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { ChevronUp, ChevronDown } from 'lucide-react';
-import { ScriptControls } from './ScriptControls';
-import { VoiceControls } from './VoiceControls';
-import { useRehearsal } from '@/contexts/RehearsalContext';
+import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { 
+  Settings,
+  Play,
+  Pause,
+  RotateCcw,
+  Maximize,
+  Minimize,
+  Users
+} from 'lucide-react';
+import { SecureRoleAssignmentDialog } from './SecureRoleAssignmentDialog';
+
+interface Character {
+  name: string;
+  voice: string;
+  isUserRole: boolean;
+}
 
 interface MobileControlsDrawerProps {
-  // Script controls props
   isRehearsalActive: boolean;
   scrollSpeed: number[];
   fontSize: number[];
   isFullscreen: boolean;
   onStartStopRehearsal: () => void;
   onReset: () => void;
-  onScrollSpeedChange: (speed: number[]) => void;
-  onFontSizeChange: (size: number[]) => void;
+  onScrollSpeedChange: (value: number[]) => void;
+  onFontSizeChange: (value: number[]) => void;
   onToggleFullscreen: () => void;
+  characters?: Character[];
+  onRoleUpdate?: (characters: Character[]) => void;
+  scriptContent?: string;
 }
 
-export const MobileControlsDrawer = ({
-  // Script controls
+export function MobileControlsDrawer({
   isRehearsalActive,
   scrollSpeed,
   fontSize,
@@ -30,107 +46,107 @@ export const MobileControlsDrawer = ({
   onScrollSpeedChange,
   onFontSizeChange,
   onToggleFullscreen,
-}: MobileControlsDrawerProps) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const { isListening, rehearsalState, isTTSPlaying, handleTTSPlay } = useRehearsal();
+  characters = [],
+  onRoleUpdate,
+  scriptContent = ''
+}: MobileControlsDrawerProps) {
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <>
-      {/* Collapsed State - Grab Handle */}
-      {!isExpanded && (
-        <div className="fixed bottom-0 left-0 right-0 z-40">
-          <Card className="rounded-t-xl rounded-b-none border-b-0 bg-background/95 backdrop-blur-sm">
-            <CardContent className="p-3">
-              <div className="flex items-center justify-between">
-                {/* Essential controls visible in collapsed state */}
-                <div className="flex items-center gap-2 flex-1">
-                  <Button
-                    variant={isRehearsalActive ? "destructive" : "default"}
-                    size="sm"
-                    onClick={onStartStopRehearsal}
-                    className="flex-1"
-                  >
-                    {isRehearsalActive ? 'Stop Rehearsal' : 'Start Rehearsal'}
-                  </Button>
-                  
-                  <Button
-                    variant={isTTSPlaying ? "destructive" : "default"}
-                    size="sm"
-                    onClick={handleTTSPlay}
-                    className="flex-1"
-                  >
-                    {isTTSPlaying ? 'Stop' : 'Speak'}
-                  </Button>
-                </div>
-
-                {/* Expand Button */}
+    <div className="fixed bottom-4 right-4 z-40">
+      <Drawer open={isOpen} onOpenChange={setIsOpen}>
+        <DrawerTrigger asChild>
+          <Button size="lg" className="rounded-full shadow-lg">
+            <Settings className="h-5 w-5" />
+          </Button>
+        </DrawerTrigger>
+        <DrawerContent className="max-h-[80vh]">
+          <div className="p-6 space-y-6">
+            <h3 className="text-lg font-semibold">Practice Controls</h3>
+            
+            {/* Rehearsal Controls */}
+            <div className="space-y-4">
+              <Label className="text-base font-medium">Script Controls</Label>
+              <div className="grid grid-cols-3 gap-2">
                 <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsExpanded(true)}
-                  className="ml-2 px-3"
-                  aria-label="Expand controls"
+                  onClick={onStartStopRehearsal}
+                  variant={isRehearsalActive ? "destructive" : "default"}
+                  className="flex-1"
                 >
-                  <ChevronUp className="h-4 w-4" />
+                  {isRehearsalActive ? (
+                    <>
+                      <Pause className="h-4 w-4 mr-2" />
+                      Stop
+                    </>
+                  ) : (
+                    <>
+                      <Play className="h-4 w-4 mr-2" />
+                      Start
+                    </>
+                  )}
+                </Button>
+                
+                <Button onClick={onReset} variant="outline" className="flex-1">
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Reset
+                </Button>
+                
+                <Button onClick={onToggleFullscreen} variant="outline" className="flex-1">
+                  {isFullscreen ? (
+                    <>
+                      <Minimize className="h-4 w-4 mr-2" />
+                      Exit
+                    </>
+                  ) : (
+                    <>
+                      <Maximize className="h-4 w-4 mr-2" />
+                      Full
+                    </>
+                  )}
                 </Button>
               </div>
-              
-              {/* Grab handle visual indicator */}
-              <div className="flex justify-center mt-1">
-                <div className="w-8 h-1 bg-muted-foreground/20 rounded-full"></div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      )}
+            </div>
 
-      {/* Expanded State - Full Controls */}
-      {isExpanded && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 max-h-[80vh] overflow-y-auto">
-          <Card className="rounded-t-xl rounded-b-none border-b-0 bg-background/95 backdrop-blur-sm">
-            <CardContent className="p-4 space-y-4">
-              {/* Header with collapse button */}
-              <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium">Practice Controls</h3>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsExpanded(false)}
-                  className="px-3"
-                  aria-label="Collapse controls"
-                >
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
+            {/* Character Roles */}
+            {onRoleUpdate && (
+              <div className="space-y-4">
+                <Label className="text-base font-medium">Character Assignments</Label>
+                <SecureRoleAssignmentDialog
+                  characters={characters}
+                  onRoleUpdate={onRoleUpdate}
+                  content={scriptContent}
+                />
               </div>
+            )}
 
-              {/* Script Controls */}
-              <ScriptControls
-                isRehearsalActive={isRehearsalActive}
-                scrollSpeed={scrollSpeed}
-                fontSize={fontSize}
-                isFullscreen={isFullscreen}
-                onStartStopRehearsal={onStartStopRehearsal}
-                onReset={onReset}
-                onScrollSpeedChange={onScrollSpeedChange}
-                onFontSizeChange={onFontSizeChange}
-                onToggleFullscreen={onToggleFullscreen}
+            {/* Scroll Speed */}
+            <div className="space-y-4">
+              <Label className="text-base font-medium">Scroll Speed: {scrollSpeed[0]}x</Label>
+              <Slider
+                value={scrollSpeed}
+                onValueChange={onScrollSpeedChange}
+                max={5}
+                min={0.5}
+                step={0.5}
+                className="w-full"
               />
+            </div>
 
-              {/* Voice Controls */}
-              <VoiceControls />
-
-              {/* Voice Activation Status */}
-              {isListening && (
-                <div className="text-center">
-                  <span className="text-xs text-muted-foreground animate-pulse">
-                    {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Still listening...' : 'Listening...'}
-                  </span>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-      )}
-    </>
+            {/* Font Size */}
+            <div className="space-y-4">
+              <Label className="text-base font-medium">Font Size: {fontSize[0]}px</Label>
+              <Slider
+                value={fontSize}
+                onValueChange={onFontSizeChange}
+                max={24}
+                min={12}
+                step={1}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </DrawerContent>
+      </Drawer>
+    </div>
   );
-};
+}
