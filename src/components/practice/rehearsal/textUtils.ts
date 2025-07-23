@@ -17,7 +17,7 @@ export const stripHtmlTags = (html: string): string => {
 };
 
 /**
- * Extract formatted text (bold or italic)
+ * Extract formatted text (bold or italic) and strip character names
  */
 export const extractFormattedText = (content: string, format: 'bold' | 'italic'): string => {
   const tempDiv = document.createElement('div');
@@ -31,7 +31,12 @@ export const extractFormattedText = (content: string, format: 'bold' | 'italic')
   }
   
   return Array.from(elements)
-    .map(element => element.textContent || '')
+    .map(element => {
+      let text = element.textContent || '';
+      // Strip character names (e.g., "Anna: Hello" -> "Hello")
+      const characterMatch = text.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/);
+      return characterMatch ? characterMatch[2] : text;
+    })
     .filter(text => text.trim().length > 0)
     .join(' ')
     .trim();
