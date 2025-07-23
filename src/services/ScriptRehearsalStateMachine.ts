@@ -1,4 +1,4 @@
-import { ScriptParserService } from './ScriptParserService';
+import { getScriptLines } from '@/components/practice/rehearsal/scriptParser';
 
 /**
  * Core interfaces for the rehearsal state machine
@@ -56,10 +56,10 @@ export class ScriptRehearsalStateMachine {
   }
 
   private parseScript() {
-    // CRITICAL: Always use complete script for rehearsal flow to ensure proper turn-taking
-    this.scriptLines = ScriptParserService.parseScriptLinesForRehearsal(
+    // Use simplified text-based parsing
+    this.scriptLines = getScriptLines(
       this.config.scriptContent,
-      this.config.characters
+      this.textFilter
     );
     
     console.log(`🎭 State Machine: Parsed ${this.scriptLines.length} lines for rehearsal (filter: ${this.textFilter})`);

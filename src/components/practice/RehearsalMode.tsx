@@ -128,7 +128,7 @@ export const useRehearsalMode = (props: RehearsalModeProps) => {
       return;
     }
 
-    const lines = getScriptLines(scriptContent, characters, textFilter);
+    const lines = getScriptLines(scriptContent, textFilter);
     
     if (currentLineIndex >= lines.length) {
       console.log('🎯 Rehearsal complete!');

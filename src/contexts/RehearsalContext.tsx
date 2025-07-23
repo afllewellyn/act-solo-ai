@@ -391,7 +391,6 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     try {
       const { text, hasContent } = ScriptParserService.extractTextForTTS(
         scriptContent, 
-        characters, 
         textFilter,
         true // strict mode - no fallback
       );

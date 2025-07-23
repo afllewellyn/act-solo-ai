@@ -13,7 +13,7 @@ import {
   Minimize,
   Users
 } from 'lucide-react';
-import { SecureRoleAssignmentDialog } from './SecureRoleAssignmentDialog';
+
 
 interface Character {
   name: string;
@@ -107,17 +107,6 @@ export function MobileControlsDrawer({
               </div>
             </div>
 
-            {/* Character Roles */}
-            {onRoleUpdate && (
-              <div className="space-y-4">
-                <Label className="text-base font-medium">Character Assignments</Label>
-                <SecureRoleAssignmentDialog
-                  characters={characters}
-                  onRoleUpdate={onRoleUpdate}
-                  content={scriptContent}
-                />
-              </div>
-            )}
 
             {/* Scroll Speed */}
             <div className="space-y-4">

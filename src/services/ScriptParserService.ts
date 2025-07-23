@@ -1,43 +1,22 @@
-import { Character, TextFilter } from './ScriptRehearsalStateMachine';
-import { getScriptLines, checkLineMatchesFilter } from '@/components/practice/rehearsal/scriptParser';
+import { TextFilter } from './ScriptRehearsalStateMachine';
 import { stripHtmlTags, extractFormattedText } from '@/components/practice/rehearsal/textUtils';
 
 /**
- * Script Parser Service
+ * Script Parser Service - Text-Based Filtering Only
  * 
- * Centralized service for all script parsing operations.
- * Handles text filtering, character analysis, and content extraction.
+ * Simplified service that works purely on text formatting without character role assignments.
+ * - Bold text = AI should read
+ * - Italic text = AI should read  
+ * - All text = AI reads everything
+ * - Character names are automatically stripped from TTS output
  */
 export class ScriptParserService {
   /**
-   * Parse script content for rehearsal mode - ALWAYS uses complete script (no filtering)
-   * This ensures reliable turn-taking between actor and AI lines
-   */
-  static parseScriptLinesForRehearsal(
-    scriptContent: string,
-    characters: Character[]
-  ) {
-    return getScriptLines(scriptContent, characters, 'all');
-  }
-
-  /**
-   * Parse script content into processable lines with filtering
-   * Used for manual TTS and UI display only
-   */
-  static parseScriptLines(
-    scriptContent: string,
-    characters: Character[],
-    textFilter: TextFilter
-  ) {
-    return getScriptLines(scriptContent, characters, textFilter);
-  }
-
-  /**
-   * Extract text for TTS based on filter type - expects CHARACTER_NAME: dialogue format
+   * Extract text for TTS based on text formatting only
+   * No character role dependencies - purely text-based filtering
    */
   static extractTextForTTS(
     scriptContent: string,
-    characters: Character[],
     textFilter: TextFilter,
     strictMode: boolean = true
   ): { text: string; hasContent: boolean; fallbackApplied: boolean } {
@@ -45,100 +24,40 @@ export class ScriptParserService {
       return { text: '', hasContent: false, fallbackApplied: false };
     }
 
-    const lines = scriptContent.split('\n');
-    const aiLines: string[] = [];
+    console.log(`📝 Extracting TTS text with filter: ${textFilter}`);
+    let extractedText = '';
     let fallbackApplied = false;
 
-    // Extract AI character lines using character name matching
-    for (const line of lines) {
-      const cleanLine = stripHtmlTags(line).trim();
-      if (!cleanLine) continue;
-      
-      // Match character name format: CHARACTER_NAME: dialogue
-      const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/);
-      
-      if (characterMatch) {
-        const characterName = characterMatch[1].trim();
-        const dialogue = characterMatch[2].trim();
-        
-        // Check if this character is an AI character (not user role)
-        const character = characters.find(c => 
-          c.name.toLowerCase() === characterName.toLowerCase()
-        );
-        
-    console.log(`🔍 Found AI character: ${characterName} (isUser: ${character?.isUserRole})`);
-        
-    if (character && !character.isUserRole) {
-      aiLines.push(line);
-      console.log(`✅ Added AI line: "${line}"`);
-    }
-      }
-    }
-
-    console.log(`🎭 TTS: Found ${aiLines.length} AI character lines for filter: ${textFilter}`);
-
-    let extractedText = '';
-
-    // Apply text filter to AI lines only
     switch (textFilter) {
       case 'all':
-        extractedText = aiLines.map(line => {
-          const cleanLine = stripHtmlTags(line).trim();
-          const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
-          return match ? match[1] : cleanLine;
-        }).join(' ');
+        // Extract all text, remove character names
+        extractedText = this.extractAllTextWithoutNames(scriptContent);
         break;
         
       case 'bold':
-        const boldLines = aiLines.filter(line => /<strong>[^<]+<\/strong>/.test(line));
-        console.log(`🔍 Found ${boldLines.length} bold lines out of ${aiLines.length} AI lines`);
-        extractedText = boldLines.map(line => {
-          const cleanLine = stripHtmlTags(line).trim();
-          const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
-          return match ? match[1] : cleanLine;
-        }).join(' ');
-        
+        extractedText = extractFormattedText(scriptContent, 'bold');
         if (!extractedText.trim() && !strictMode) {
-          console.warn('🔄 No bold text in AI lines, falling back to all AI dialogue');
-          extractedText = aiLines.map(line => {
-            const cleanLine = stripHtmlTags(line).trim();
-            const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
-            return match ? match[1] : cleanLine;
-          }).join(' ');
+          console.warn('🔄 No bold text found, falling back to all text');
+          extractedText = this.extractAllTextWithoutNames(scriptContent);
           fallbackApplied = true;
         }
         break;
         
       case 'italic':
-        const italicLines = aiLines.filter(line => /<em>[^<]+<\/em>/.test(line));
-        console.log(`🔍 Found ${italicLines.length} italic lines out of ${aiLines.length} AI lines`);
-        extractedText = italicLines.map(line => {
-          const cleanLine = stripHtmlTags(line).trim();
-          const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
-          return match ? match[1] : cleanLine;
-        }).join(' ');
-        
+        extractedText = extractFormattedText(scriptContent, 'italic');
         if (!extractedText.trim() && !strictMode) {
-          console.warn('🔄 No italic text in AI lines, falling back to all AI dialogue');
-          extractedText = aiLines.map(line => {
-            const cleanLine = stripHtmlTags(line).trim();
-            const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
-            return match ? match[1] : cleanLine;
-          }).join(' ');
+          console.warn('🔄 No italic text found, falling back to all text');
+          extractedText = this.extractAllTextWithoutNames(scriptContent);
           fallbackApplied = true;
         }
         break;
         
       default:
-        extractedText = aiLines.map(line => {
-          const cleanLine = stripHtmlTags(line).trim();
-          const match = cleanLine.match(/^[A-Za-z][A-Za-z\s\-\'\.]+:\s*(.+)$/);
-          return match ? match[1] : cleanLine;
-        }).join(' ');
+        extractedText = this.extractAllTextWithoutNames(scriptContent);
     }
 
     const hasContent = extractedText.trim().length > 0;
-    console.log(`📝 TTS: Extracted ${extractedText.length} characters from dialogue ${fallbackApplied ? '(with fallback)' : ''}`);
+    console.log(`📝 TTS: Extracted ${extractedText.length} characters ${fallbackApplied ? '(with fallback)' : ''}`);
 
     return {
       text: extractedText.trim(),
@@ -148,30 +67,29 @@ export class ScriptParserService {
   }
 
   /**
-   * Extract only AI character dialogue for TTS
+   * Extract all text from script, removing character names
+   * Converts "Anna: Hello there" to "Hello there"
    */
-  static extractAIDialogue(
-    scriptContent: string,
-    characters: Character[]
-  ): string {
+  private static extractAllTextWithoutNames(scriptContent: string): string {
     const lines = scriptContent.split('\n');
     const dialogueLines: string[] = [];
     
     lines.forEach(line => {
       const cleanLine = stripHtmlTags(line).trim();
-      const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/i);
+      if (!cleanLine) return;
+      
+      // Check if line has character name format: "NAME: dialogue"
+      const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/);
       
       if (characterMatch) {
-        const characterName = characterMatch[1].trim();
+        // Extract just the dialogue part, not the character name
         const dialogue = characterMatch[2].trim();
-        
-        // Check if character should be spoken by AI
-        const character = characters.find(c => 
-          c.name.toLowerCase() === characterName.toLowerCase()
-        );
-        if (!character || !character.isUserRole) {
+        if (dialogue) {
           dialogueLines.push(dialogue);
         }
+      } else {
+        // Non-character line (stage directions, etc.)
+        dialogueLines.push(cleanLine);
       }
     });
     
@@ -179,21 +97,15 @@ export class ScriptParserService {
   }
 
   /**
-   * Analyze script for content availability
+   * Analyze script for content availability - simplified version
    */
-  static analyzeScriptContent(
-    scriptContent: string,
-    characters: Character[]
-  ) {
+  static analyzeScriptContent(scriptContent: string) {
     const analysis = {
       totalLines: 0,
-      actorLines: 0,
-      aiLines: 0,
       hasFormattedText: {
         bold: false,
         italic: false
-      },
-      characterBreakdown: new Map<string, number>()
+      }
     };
 
     if (!scriptContent?.trim()) {
@@ -205,34 +117,8 @@ export class ScriptParserService {
     );
 
     analysis.totalLines = lines.length;
-
-    // Check for formatted text
     analysis.hasFormattedText.bold = extractFormattedText(scriptContent, 'bold').length > 0;
     analysis.hasFormattedText.italic = extractFormattedText(scriptContent, 'italic').length > 0;
-
-    // Analyze character lines
-    lines.forEach(line => {
-      const cleanLine = stripHtmlTags(line).trim();
-      const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/i);
-      
-      if (characterMatch) {
-        const characterName = characterMatch[1].trim();
-        const character = characters.find(c => 
-          c.name.toLowerCase() === characterName.toLowerCase()
-        );
-        
-        // Count lines by type
-        if (character?.isUserRole) {
-          analysis.actorLines++;
-        } else {
-          analysis.aiLines++;
-        }
-
-        // Track character breakdown
-        const currentCount = analysis.characterBreakdown.get(characterName) || 0;
-        analysis.characterBreakdown.set(characterName, currentCount + 1);
-      }
-    });
 
     return analysis;
   }
@@ -242,8 +128,7 @@ export class ScriptParserService {
    */
   static validateTextFilter(
     scriptContent: string,
-    textFilter: TextFilter,
-    characters: Character[]
+    textFilter: TextFilter
   ): { isValid: boolean; reason?: string; fallbackFilter?: TextFilter } {
     if (!scriptContent?.trim()) {
       return { isValid: false, reason: 'No script content' };
@@ -280,7 +165,7 @@ export class ScriptParserService {
   }
 
   /**
-   * Extract dialogue text from a script line
+   * Extract dialogue text from a script line, removing character names
    */
   static extractDialogueFromLine(line: string): string {
     // Remove character name prefix
@@ -288,23 +173,5 @@ export class ScriptParserService {
     // Remove HTML tags
     const cleanText = stripHtmlTags(withoutCharacter);
     return cleanText.trim();
-  }
-
-  /**
-   * Check if a line belongs to a user character
-   */
-  static isUserCharacterLine(line: string, characters: Character[]): boolean {
-    const cleanLine = stripHtmlTags(line).trim();
-    const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):/i);
-    
-    if (characterMatch) {
-      const characterName = characterMatch[1].trim();
-      const character = characters.find(c => 
-        c.name.toLowerCase() === characterName.toLowerCase()
-      );
-      return character?.isUserRole || false;
-    }
-    
-    return false;
   }
 }
