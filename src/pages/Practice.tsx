@@ -364,6 +364,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                 fontSize={fontSize[0]}
                 onContentChange={handleScriptUpdate}
                 onAutoSave={handleAutoSave}
+                showToolbar={!isFullscreen}
               />
               <div className="h-96" /> {/* Bottom padding for scrolling */}
             </div>

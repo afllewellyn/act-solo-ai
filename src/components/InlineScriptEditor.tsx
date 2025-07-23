@@ -24,6 +24,7 @@ interface InlineScriptEditorProps {
   fontSize: number;
   onContentChange: (content: string) => void;
   onAutoSave?: (success: boolean) => void;
+  showToolbar?: boolean;
 }
 
 // Custom extension for character highlighting
@@ -60,7 +61,8 @@ export function InlineScriptEditor({
   characters, 
   fontSize, 
   onContentChange,
-  onAutoSave 
+  onAutoSave,
+  showToolbar = true
 }: InlineScriptEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
@@ -216,92 +218,94 @@ export function InlineScriptEditor({
   return (
     <div className="w-full">
       {/* Floating Toolbar */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b mb-4 p-2">
-        <div className="flex flex-wrap items-center gap-2 justify-center">
-          {/* Text formatting */}
-          <div className="flex items-center gap-1">
+      {showToolbar && (
+        <div className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-b mb-4 p-2">
+          <div className="flex flex-wrap items-center gap-2 justify-center">
+            {/* Text formatting */}
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => editor.chain().focus().toggleBold().run()}
+                data-active={editor.isActive('bold')}
+                className="data-[active=true]:bg-accent"
+              >
+                <Bold className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => editor.chain().focus().toggleItalic().run()}
+                data-active={editor.isActive('italic')}
+                className="data-[active=true]:bg-accent"
+              >
+                <Italic className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-8" />
+
+
+            {/* Font family */}
+            <Select onValueChange={setFontFamily}>
+              <SelectTrigger className="w-[120px] h-8">
+                <Type className="h-3 w-3 mr-1" />
+                <SelectValue placeholder="Font" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Default</SelectItem>
+                <SelectItem value="serif">Serif</SelectItem>
+                <SelectItem value="monospace">Monospace</SelectItem>
+                <SelectItem value="cursive">Cursive</SelectItem>
+                <SelectItem value="fantasy">Fantasy</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Separator orientation="vertical" className="h-8" />
+
+            {/* Undo/Redo */}
+            <div className="flex items-center gap-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => editor.chain().focus().undo().run()}
+                disabled={!editor.can().undo()}
+              >
+                <Undo className="h-4 w-4" />
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => editor.chain().focus().redo().run()}
+                disabled={!editor.can().redo()}
+              >
+                <Redo className="h-4 w-4" />
+              </Button>
+            </div>
+
+            <Separator orientation="vertical" className="h-8" />
+
+            {/* Save button */}
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              data-active={editor.isActive('bold')}
-              className="data-[active=true]:bg-accent"
+              onClick={handleManualSave}
+              disabled={isSaving}
+              className="gap-1"
             >
-              <Bold className="h-4 w-4" />
+              <Save className="h-3 w-3" />
+              {isSaving ? 'Saving...' : 'Save'}
             </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              data-active={editor.isActive('italic')}
-              className="data-[active=true]:bg-accent"
-            >
-              <Italic className="h-4 w-4" />
-            </Button>
+
+            {/* Auto-save indicator */}
+            {lastSaved && (
+              <span className="text-xs text-muted-foreground">
+                Saved {lastSaved.toLocaleTimeString()}
+              </span>
+            )}
           </div>
-
-          <Separator orientation="vertical" className="h-8" />
-
-
-          {/* Font family */}
-          <Select onValueChange={setFontFamily}>
-            <SelectTrigger className="w-[120px] h-8">
-              <Type className="h-3 w-3 mr-1" />
-              <SelectValue placeholder="Font" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Default</SelectItem>
-              <SelectItem value="serif">Serif</SelectItem>
-              <SelectItem value="monospace">Monospace</SelectItem>
-              <SelectItem value="cursive">Cursive</SelectItem>
-              <SelectItem value="fantasy">Fantasy</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Separator orientation="vertical" className="h-8" />
-
-          {/* Undo/Redo */}
-          <div className="flex items-center gap-1">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => editor.chain().focus().undo().run()}
-              disabled={!editor.can().undo()}
-            >
-              <Undo className="h-4 w-4" />
-            </Button>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => editor.chain().focus().redo().run()}
-              disabled={!editor.can().redo()}
-            >
-              <Redo className="h-4 w-4" />
-            </Button>
-          </div>
-
-          <Separator orientation="vertical" className="h-8" />
-
-          {/* Save button */}
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleManualSave}
-            disabled={isSaving}
-            className="gap-1"
-          >
-            <Save className="h-3 w-3" />
-            {isSaving ? 'Saving...' : 'Save'}
-          </Button>
-
-          {/* Auto-save indicator */}
-          {lastSaved && (
-            <span className="text-xs text-muted-foreground">
-              Saved {lastSaved.toLocaleTimeString()}
-            </span>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Editor Content */}
       <div className="relative">
