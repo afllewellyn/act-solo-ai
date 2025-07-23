@@ -204,12 +204,12 @@ export function SecureRoleAssignmentDialog({ characters, onRoleUpdate, content }
   const handleSave = () => {
     try {
       // Validate all characters
-      const validatedCharacters = localCharacters.map(char => {
+      const validatedCharacters: Character[] = localCharacters.map(char => {
         const result = characterSchema.safeParse(char);
         if (!result.success) {
           throw new Error(`Invalid character data for ${char.name}: ${result.error.message}`);
         }
-        return result.data;
+        return result.data as Character;
       });
 
       // Ensure at least one user role is assigned
