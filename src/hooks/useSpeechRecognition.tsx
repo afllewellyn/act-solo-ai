@@ -260,7 +260,7 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
               }
             }
             
-            // Phonetic similarity check for single words
+            // Phonetic similarity check for single words with bounded matching
             if (targetWords.length === 1 && transcriptWords.length > 0) {
               const lastWord = transcriptWords[transcriptWords.length - 1];
               if (soundsLike(lastWord, targetWords[0])) {
