@@ -1,5 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useIsMobile } from './use-mobile';
+import { logger, logSpeechRecognition } from '@/lib/logger';
+import { isFeatureEnabled } from '@/lib/featureFlags';
 
 interface SpeechRecognitionOptions {
   onWordMatch?: (matchedWord: string) => void;
@@ -86,10 +88,19 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     return { name, version };
   }, []);
 
-  // Enhanced logging utility
+  // Enhanced logging utility with session tracking
   const logEvent = useCallback((event: string, data: any) => {
-    console.log(`🎤 [Speech Recognition] [${event}]`, data);
-  }, []);
+    if (isFeatureEnabled('structured_logging')) {
+      logSpeechRecognition(event, {
+        sessionId: logger.getSessionId(),
+        browser: browserInfo.current,
+        isMobile,
+        ...data
+      });
+    } else {
+      console.log(`🎤 [Speech Recognition] [${event}]`, data);
+    }
+  }, [isMobile]);
 
   // Internal function to start recognition
   const startRecognition = useCallback(() => {
@@ -392,30 +403,31 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     }
   };
 
-  // Enhanced cue word extraction for rehearsal mode
+  // Enhanced cue word extraction with mixed-case role name support
   const extractCueWords = (text: string): string[] => {
     if (!text) return [];
     
-    // Remove HTML tags, character names, and normalize text
+    // Enhanced regex to handle mixed-case character names like "Sarah:", "MIKE:", "Dr. Smith:"
     const cleanText = text
       .replace(/<[^>]*>/g, ' ')
-      .replace(/^[A-Z][A-Z\s\-\'\.]+:\s*/, '') // Remove character names
+      .replace(/^[A-Za-z][A-Za-z\s\-\'\.]*:\s*/, '') // Enhanced character name removal
       .replace(/\s+/g, ' ')
       .trim();
     
     const words = cleanText.split(' ').filter(word => word.length > 1);
     
-    // Filter out common filler words for better cue detection
-    const fillerWords = ['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as'];
+    // Enhanced filler word filtering with common rehearsal terms
+    const fillerWords = ['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as', 'then', 'now', 'well', 'so', 'um', 'uh'];
     const meaningfulWords = words.filter(word => 
       !fillerWords.includes(word.toLowerCase()) && word.length > 2
     );
     
+    // Return prioritized cue words for better matching
     if (meaningfulWords.length >= 2) {
       return [
-        meaningfulWords.slice(-2).join(' '), // Last 2 meaningful words
+        meaningfulWords.slice(-2).join(' '), // Last 2 meaningful words (primary)
         meaningfulWords[meaningfulWords.length - 1], // Last meaningful word
-        words.slice(-2).join(' '), // Last 2 words (including fillers as fallback)
+        words.slice(-2).join(' '), // Last 2 words including fillers (fallback)
       ];
     } else if (meaningfulWords.length === 1) {
       return [

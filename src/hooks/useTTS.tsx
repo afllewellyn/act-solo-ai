@@ -1,6 +1,8 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { logger, logTTS } from '@/lib/logger';
+import { isFeatureEnabled } from '@/lib/featureFlags';
 
 interface TTSOptions {
   voiceId?: string;
@@ -61,22 +63,59 @@ export const useTTS = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [needsUserGesture, setNeedsUserGesture] = useState(false);
+  const [showTapToResume, setShowTapToResume] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextManager = AudioContextManager.getInstance();
   const { toast } = useToast();
+
+  // Phase 1 - Visibility change handling for mobile "Tap to resume audio" UX
+  useEffect(() => {
+    if (!isFeatureEnabled('mobile_audio_optimization')) return;
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        // Page is hidden - pause TTS if playing
+        if (isPlaying && audioRef.current && !audioRef.current.paused) {
+          audioRef.current.pause();
+          logTTS('visibility_paused', { 
+            reason: 'page_hidden',
+            sessionId: logger.getSessionId() 
+          });
+        }
+      } else {
+        // Page is visible again - show tap to resume if needed
+        if (isPaused && audioRef.current) {
+          setShowTapToResume(true);
+          logTTS('visibility_resumed', { 
+            showTapToResume: true,
+            sessionId: logger.getSessionId() 
+          });
+        }
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isPlaying, isPaused]);
 
   const speak = useCallback(async (text: string, options: TTSOptions = {}) => {
     if (isLoading) return;
     
     setIsLoading(true);
     setNeedsUserGesture(false);
+    setShowTapToResume(false);
     
     try {
-      console.log('[TTS] Starting speech generation for text length:', text.length);
-      console.log('[TTS] Using voice ID:', options.voiceId || '9BWtsMINqrJLrRacOk9x');
-      console.log('[TTS] Text content:', text.substring(0, 100) + '...');
-      console.log('[TTS] User gesture detected:', audioContextManager.hasUserGesture());
-      console.log('[TTS] Audio context unlocked:', audioContextManager.isAudioUnlocked());
+      logTTS('speech_generation_started', {
+        textLength: text.length,
+        voiceId: options.voiceId || '9BWtsMINqrJLrRacOk9x',
+        textPreview: text.substring(0, 100),
+        hasUserGesture: audioContextManager.hasUserGesture(),
+        audioUnlocked: audioContextManager.isAudioUnlocked(),
+        sessionId: logger.getSessionId()
+      });
       
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
@@ -85,20 +124,22 @@ export const useTTS = () => {
         }
       });
 
-      console.log('[TTS] Supabase response received - data:', !!data, 'error:', error);
+      logTTS('supabase_response', { 
+        hasData: !!data, 
+        hasError: !!error,
+        sessionId: logger.getSessionId() 
+      });
 
       if (error) {
-        console.error('[TTS] Supabase function error:', error);
         throw new Error(error.message || 'Failed to invoke TTS function');
       }
 
       if (data?.error) {
-        console.error('[TTS] API error:', data.error);
         throw new Error(data.error);
       }
 
       if (data?.audioContent) {
-        console.log('[TTS] Audio content received, converting to blob');
+        logTTS('audio_content_received', { sessionId: logger.getSessionId() });
         
         // Ensure audio context is unlocked before playing
         await audioContextManager.unlockAudioContext();
@@ -123,45 +164,56 @@ export const useTTS = () => {
         }
         
         audioRef.current.onplay = () => {
-          console.log('[TTS] Audio playback started successfully');
+          logTTS('playback_started', { sessionId: logger.getSessionId() });
           setIsPlaying(true);
           setIsPaused(false);
           setNeedsUserGesture(false);
+          setShowTapToResume(false);
         };
         audioRef.current.onpause = () => {
-          console.log('[TTS] Audio playback paused');
+          logTTS('playback_paused', { sessionId: logger.getSessionId() });
           setIsPlaying(false);
           setIsPaused(true);
         };
         audioRef.current.onended = () => {
-          console.log('[TTS] Audio playback completed');
+          logTTS('playback_completed', { sessionId: logger.getSessionId() });
           setIsPlaying(false);
           setIsPaused(false);
+          setShowTapToResume(false);
           options.onComplete?.();
           URL.revokeObjectURL(audioUrl);
         };
         audioRef.current.onerror = (e) => {
-          console.error('[TTS] Audio playback error:', e);
+          logTTS('playback_error', { error: e, sessionId: logger.getSessionId() });
           setIsPlaying(false);
           setIsPaused(false);
+          setShowTapToResume(false);
           URL.revokeObjectURL(audioUrl);
         };
         
-        // Attempt to play audio with autoplay policy handling
+        // Attempt to play audio with enhanced autoplay policy handling
         try {
           await audioRef.current.play();
-          console.log('[TTS] Audio play() succeeded');
+          logTTS('play_succeeded', { sessionId: logger.getSessionId() });
         } catch (playError: any) {
-          console.error('[TTS] Audio play() failed:', playError);
+          logTTS('play_failed', { 
+            error: playError.name, 
+            message: playError.message,
+            sessionId: logger.getSessionId() 
+          });
           
           if (playError.name === 'NotAllowedError') {
-            console.warn('[TTS] Autoplay blocked - user gesture required');
             setNeedsUserGesture(true);
+            if (isFeatureEnabled('mobile_audio_optimization')) {
+              setShowTapToResume(true);
+            }
             
-            // Show user-friendly toast for Safari/strict autoplay policies
+            // Enhanced user feedback for autoplay restrictions
             toast({
-              title: "Audio Blocked",
-              description: "Click the play button to enable audio playback",
+              title: "Audio Requires Interaction",
+              description: isFeatureEnabled('mobile_audio_optimization') ? 
+                "Tap the audio button to enable playback" : 
+                "Click the play button to enable audio playback",
               variant: "default",
             });
           } else {
@@ -172,7 +224,11 @@ export const useTTS = () => {
         throw new Error('No audio content received from TTS service');
       }
     } catch (error: any) {
-      console.error('[TTS] Error:', error);
+      logTTS('error', { 
+        error: error.message, 
+        name: error.name,
+        sessionId: logger.getSessionId() 
+      });
       
       let errorMessage = 'Failed to generate speech. Please try again.';
       
@@ -199,23 +255,30 @@ export const useTTS = () => {
 
   const pause = useCallback(() => {
     if (audioRef.current && !audioRef.current.paused) {
-      console.log('[TTS] Pausing audio');
+      logTTS('pause_called', { sessionId: logger.getSessionId() });
       audioRef.current.pause();
     }
   }, []);
 
   const resume = useCallback(async () => {
     if (audioRef.current && audioRef.current.paused) {
-      console.log('[TTS] Resuming audio');
+      logTTS('resume_called', { sessionId: logger.getSessionId() });
       try {
         // Mark as user gesture for autoplay policy compliance
         audioContextManager.setUserGesture();
         await audioRef.current.play();
         setNeedsUserGesture(false);
+        setShowTapToResume(false);
       } catch (error: any) {
-        console.error('[TTS] Resume failed:', error);
+        logTTS('resume_failed', { 
+          error: error.name,
+          sessionId: logger.getSessionId() 
+        });
         if (error.name === 'NotAllowedError') {
           setNeedsUserGesture(true);
+          if (isFeatureEnabled('mobile_audio_optimization')) {
+            setShowTapToResume(true);
+          }
         }
       }
     }
@@ -223,30 +286,40 @@ export const useTTS = () => {
 
   const stop = useCallback(() => {
     if (audioRef.current) {
-      console.log('[TTS] Stopping audio');
+      logTTS('stop_called', { sessionId: logger.getSessionId() });
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsPlaying(false);
       setIsPaused(false);
       setNeedsUserGesture(false);
+      setShowTapToResume(false);
     }
   }, []);
 
-  // Add function to enable audio after user gesture
+  // Enhanced function to enable audio after user gesture
   const enableAudio = useCallback(async () => {
     audioContextManager.setUserGesture();
     await audioContextManager.unlockAudioContext();
     
+    logTTS('audio_enabled', { 
+      hadPendingAudio: needsUserGesture,
+      sessionId: logger.getSessionId() 
+    });
+    
     // If we have pending audio and user just clicked, try to play it
-    if (audioRef.current && needsUserGesture) {
+    if (audioRef.current && (needsUserGesture || showTapToResume)) {
       try {
         await audioRef.current.play();
         setNeedsUserGesture(false);
+        setShowTapToResume(false);
       } catch (error) {
-        console.error('[TTS] Failed to play after user gesture:', error);
+        logTTS('enable_audio_failed', { 
+          error: error,
+          sessionId: logger.getSessionId() 
+        });
       }
     }
-  }, [audioContextManager, needsUserGesture]);
+  }, [audioContextManager, needsUserGesture, showTapToResume]);
 
   return {
     speak,
@@ -257,6 +330,7 @@ export const useTTS = () => {
     isPlaying,
     isLoading,
     isPaused,
-    needsUserGesture
+    needsUserGesture,
+    showTapToResume // New state for mobile UX
   };
 };
