@@ -43,40 +43,65 @@ serve(async (req) => {
     const ephemeralData = await ephemeralResponse.json();
     console.log('[Health Realtime] Ephemeral token generated successfully');
 
-    // Step 2: Test WebSocket handshake with OpenAI Realtime API
-    const wsTestUrl = `wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17`;
-    
-    // Create a test WebSocket connection
-    const ws = new WebSocket(wsTestUrl, [], {
-      headers: {
-        "Authorization": `Bearer ${ephemeralData.client_secret.value}`,
-        "OpenAI-Beta": "realtime=v1"
+    // Step 2: Test WebSocket handshake with OpenAI Realtime API (authenticated)
+    // Note: The standard WebSocket constructor in Edge Functions cannot send custom headers.
+    // We'll perform a manual TLS WebSocket handshake so we can include Authorization and OpenAI-Beta headers.
+    const testWebSocketHandshake = async (token: string): Promise<{ success: boolean; error?: string }> => {
+      try {
+        const hostname = 'api.openai.com';
+        const port = 443;
+        const path = '/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
+
+        const conn = await Deno.connectTls({ hostname, port });
+        const enc = new TextEncoder();
+        const dec = new TextDecoder();
+
+        // Generate Sec-WebSocket-Key
+        const keyBytes = crypto.getRandomValues(new Uint8Array(16));
+        const secKey = btoa(String.fromCharCode(...Array.from(keyBytes)));
+
+        const request =
+          `GET ${path} HTTP/1.1\r\n` +
+          `Host: ${hostname}\r\n` +
+          `Connection: Upgrade\r\n` +
+          `Upgrade: websocket\r\n` +
+          `Sec-WebSocket-Version: 13\r\n` +
+          `Sec-WebSocket-Key: ${secKey}\r\n` +
+          `Authorization: Bearer ${token}\r\n` +
+          `OpenAI-Beta: realtime=v1\r\n` +
+          `Origin: https://functions.supabase.co\r\n` +
+          `\r\n`;
+
+        await conn.write(enc.encode(request));
+
+        // Read response headers
+        let headerText = '';
+        const buf = new Uint8Array(4096);
+        const deadline = Date.now() + 5000;
+        while (Date.now() < deadline) {
+          const n = await conn.read(buf);
+          if (n === null) break;
+          headerText += dec.decode(buf.subarray(0, n));
+          if (headerText.includes('\r\n\r\n')) break; // end of headers
+        }
+
+        try { conn.close(); } catch (_) {}
+
+        const statusLine = headerText.split('\r\n')[0] || headerText;
+        if (headerText.startsWith('HTTP/1.1 101')) {
+          console.log('[Health Realtime] WebSocket handshake 101 Switching Protocols');
+          return { success: true };
+        } else {
+          console.error('[Health Realtime] WebSocket handshake failed:', statusLine);
+          return { success: false, error: statusLine };
+        }
+      } catch (err) {
+        console.error('[Health Realtime] WebSocket handshake exception:', err);
+        return { success: false, error: err instanceof Error ? err.message : String(err) };
       }
-    });
+    };
 
-    const wsTestResult = await new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        ws.close();
-        resolve({ success: false, error: 'WebSocket connection timeout' });
-      }, 5000);
-
-      ws.onopen = () => {
-        console.log('[Health Realtime] WebSocket connection opened successfully');
-        clearTimeout(timeout);
-        ws.close();
-        resolve({ success: true });
-      };
-
-      ws.onerror = (error) => {
-        console.error('[Health Realtime] WebSocket connection error:', error);
-        clearTimeout(timeout);
-        resolve({ success: false, error: 'WebSocket connection failed' });
-      };
-
-      ws.onmessage = (event) => {
-        console.log('[Health Realtime] WebSocket message received:', event.data);
-      };
-    });
+    const wsTestResult = await testWebSocketHandshake(ephemeralData.client_secret.value);
 
     // Return health check results
     return new Response(JSON.stringify({
