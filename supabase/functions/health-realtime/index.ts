@@ -1,4 +1,4 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
+
 
 
 const corsHeaders = {
@@ -118,11 +118,12 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
 
-  } catch (error) {
-    console.error('[Health Realtime] Health check failed:', error);
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error));
+    console.error('[Health Realtime] Health check failed:', err.message);
     return new Response(JSON.stringify({
       status: 'unhealthy',
-      error: error.message,
+      error: err.message,
       timestamp: new Date().toISOString()
     }), {
       status: 500,

@@ -127,17 +127,18 @@ Deno.serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       },
     )
-  } catch (error) {
-    console.error(`[${timestamp}] Get voices error:`, error.message)
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    console.error(`[${timestamp}] Get voices error:`, err.message)
     
     // Don't expose sensitive error details
-    const sanitizedError = error.message.includes('API key') 
+    const sanitizedError = err.message.includes('API key') 
       ? 'Authentication error'
-      : error.message.includes('network')
+      : err.message.includes('network')
       ? 'Network error'
-      : error.message.includes('ELEVENLABS_API_KEY')
+      : err.message.includes('ELEVENLABS_API_KEY')
       ? 'Configuration error'
-      : error.message
+      : err.message
 
     return new Response(
       JSON.stringify({ 
