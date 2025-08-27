@@ -1,7 +1,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { logger, logTTS } from '@/lib/logger';
+import { logger, logTTS, logClientTiming, generateRequestId } from '@/lib/logger';
 import { isFeatureEnabled } from '@/lib/featureFlags';
 
 interface TTSOptions {
@@ -9,6 +9,9 @@ interface TTSOptions {
   playbackSpeed?: number;
   onWordSpoken?: (wordIndex: number) => void;
   onComplete?: () => void;
+  engine?: 'webspeech' | 's2s';
+  lineIdx?: number;
+  requestId?: string;
 }
 
 // Audio context manager for autoplay policy compliance
@@ -67,6 +70,9 @@ export const useTTS = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioContextManager = AudioContextManager.getInstance();
   const { toast } = useToast();
+  const currentRequestIdRef = useRef<string | null>(null);
+  const currentEngineRef = useRef<'webspeech' | 's2s'>('webspeech');
+  const currentLineIdxRef = useRef<number | undefined>(undefined);
 
   // Phase 1 - Visibility change handling for mobile "Tap to resume audio" UX
   useEffect(() => {
@@ -108,6 +114,13 @@ export const useTTS = () => {
     setShowTapToResume(false);
     
     try {
+      const engine = options.engine || 'webspeech';
+      const requestId = options.requestId || generateRequestId();
+      const lineIdx = options.lineIdx;
+      currentEngineRef.current = engine;
+      currentRequestIdRef.current = requestId;
+      currentLineIdxRef.current = lineIdx;
+      logClientTiming('speak_requested', { engine, requestId, lineIdx });
       logTTS('speech_generation_started', {
         textLength: text.length,
         voiceId: options.voiceId || '9BWtsMINqrJLrRacOk9x',
@@ -116,11 +129,12 @@ export const useTTS = () => {
         audioUnlocked: audioContextManager.isAudioUnlocked(),
         sessionId: logger.getSessionId()
       });
-      
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: text.trim(),
-          voice_id: options.voiceId || '9BWtsMINqrJLrRacOk9x'
+          voice_id: options.voiceId || '9BWtsMINqrJLrRacOk9x',
+          request_id: requestId,
+          line_idx: lineIdx
         }
       });
 
@@ -165,6 +179,12 @@ export const useTTS = () => {
         
         audioRef.current.onplay = () => {
           logTTS('playback_started', { sessionId: logger.getSessionId() });
+          logClientTiming('play_start', {
+            engine: currentEngineRef.current,
+            requestId: currentRequestIdRef.current || undefined,
+            lineIdx: currentLineIdxRef.current,
+            t_play_start: performance.now(),
+          });
           setIsPlaying(true);
           setIsPaused(false);
           setNeedsUserGesture(false);
@@ -177,6 +197,12 @@ export const useTTS = () => {
         };
         audioRef.current.onended = () => {
           logTTS('playback_completed', { sessionId: logger.getSessionId() });
+          logClientTiming('silence_complete', {
+            engine: currentEngineRef.current,
+            requestId: currentRequestIdRef.current || undefined,
+            lineIdx: currentLineIdxRef.current,
+            t_silence_complete: performance.now(),
+          });
           setIsPlaying(false);
           setIsPaused(false);
           setShowTapToResume(false);
@@ -287,6 +313,12 @@ export const useTTS = () => {
   const stop = useCallback(() => {
     if (audioRef.current) {
       logTTS('stop_called', { sessionId: logger.getSessionId() });
+      logClientTiming('cut_event', {
+        engine: currentEngineRef.current,
+        requestId: currentRequestIdRef.current || undefined,
+        lineIdx: currentLineIdxRef.current,
+        t_cut_event: performance.now(),
+      });
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
       setIsPlaying(false);

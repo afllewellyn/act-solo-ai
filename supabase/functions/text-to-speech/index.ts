@@ -63,6 +63,22 @@ const validateVoiceId = (voiceId: any): boolean => {
   return /^[A-Za-z0-9_-]+$/.test(voiceId)
 }
 
+// Structured server logging helper
+const serverLog = (event: string, context: Record<string, unknown> = {}) => {
+  const payload = {
+    event,
+    component: 'TTSServer',
+    engine: 'webspeech',
+    ts: new Date().toISOString(),
+    ...context,
+  }
+  try {
+    console.log(JSON.stringify(payload))
+  } catch (_) {
+    console.log(`[TTSServer] ${event}`)
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -96,7 +112,9 @@ serve(async (req) => {
     }
 
     const requestData = await req.json()
-    const { text, voice_id = '9BWtsMINqrJLrRacOk9x' } = requestData
+    const { text, voice_id = '9BWtsMINqrJLrRacOk9x', request_id, line_idx } = requestData
+    const requestId = request_id || (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `req_${Date.now()}`)
+    const lineIdx = typeof line_idx === 'number' ? line_idx : undefined
 
     // Validate and sanitize inputs
     const textValidation = validateInput(text)
@@ -111,6 +129,10 @@ serve(async (req) => {
     const cleanText = textValidation.sanitized!
 
     console.log(`[${timestamp}] Processing TTS for voice: ${voice_id}, text length: ${cleanText.length}`)
+
+    // Server timing: request start
+    const t_tts_request_start = new Date().toISOString()
+    serverLog('tts_request_start', { requestId, lineIdx, t_tts_request_start })
 
     // Validate API key with detailed logging
     const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
@@ -158,8 +180,43 @@ serve(async (req) => {
       }
     }
 
-    const responseData = await response.json()
-    
+    // Stream and measure timings
+    if (!response.body) {
+      throw new Error('No response body from ElevenLabs')
+    }
+
+    const reader = response.body.getReader()
+    let bytes_streamed = 0
+    let t_tts_first_byte: string | null = null
+    const chunks: Uint8Array[] = []
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) break
+      if (value) {
+        if (!t_tts_first_byte) {
+          t_tts_first_byte = new Date().toISOString()
+          const latency_ms_endToFirstByte = new Date(t_tts_first_byte).getTime() - new Date(t_tts_request_start).getTime()
+          serverLog('tts_first_byte', { requestId, lineIdx, t_tts_request_start, t_tts_first_byte, latency_ms_endToFirstByte })
+        }
+        bytes_streamed += value.byteLength
+        chunks.push(value)
+      }
+    }
+
+    const t_tts_stream_end = new Date().toISOString()
+    serverLog('tts_stream_end', { requestId, lineIdx, t_tts_stream_end, bytes_streamed })
+
+    // Concatenate chunks and parse JSON
+    const total = new Uint8Array(bytes_streamed)
+    let offset = 0
+    for (const chunk of chunks) {
+      total.set(chunk, offset)
+      offset += chunk.byteLength
+    }
+    const jsonText = new TextDecoder().decode(total)
+    const responseData = JSON.parse(jsonText)
+
     if (!responseData.audio_base64) {
       throw new Error('No audio content in response')
     }
@@ -171,7 +228,9 @@ serve(async (req) => {
         audioContent: responseData.audio_base64,
         timestamps: responseData.alignment || null,
         voiceId: voice_id,
-        textLength: cleanText.length 
+        textLength: cleanText.length,
+        requestId,
+        lineIdx
       }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

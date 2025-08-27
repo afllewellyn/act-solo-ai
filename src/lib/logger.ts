@@ -21,6 +21,7 @@ export interface StreamingTTSLogContext extends LogContext {
   lineIdx?: number;
   engine?: 'webspeech' | 's2s';
   requestId?: string;
+  ts?: string | number;
   // Timing markers (server-side - ISO timestamps)
   t_turn_end_detected?: string;
   t_tts_request_start?: string;

@@ -6,7 +6,7 @@
 import { useCallback, useRef } from 'react';
 import { useTTS } from '@/hooks/useTTS';
 import { useSpeechRecognition } from '@/hooks/useSpeechRecognition';
-import { logger, logAudioManager } from '@/lib/logger';
+import { logger, logAudioManager, generateRequestId } from '@/lib/logger';
 import { isFeatureEnabled } from '@/lib/featureFlags';
 
 export type AudioEngine = 'webspeech' | 's2s'; // s2s = speech-to-speech (OpenAI Realtime)
@@ -55,6 +55,8 @@ export interface TTSSpeakOptions {
   voiceId?: string;
   playbackSpeed?: number;
   onComplete?: () => void;
+  lineIdx?: number;
+  requestId?: string;
 }
 
 export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerReturn => {
@@ -124,9 +126,13 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
       }
       
       // Use Web Speech engine (current implementation)
+      const reqId = options.requestId || generateRequestId();
       await speak(text, {
         voiceId: options.voiceId || config.defaultVoice || '9BWtsMINqrJLrRacOk9x',
         playbackSpeed: options.playbackSpeed,
+        engine: currentEngineRef.current,
+        lineIdx: options.lineIdx,
+        requestId: reqId,
         onComplete: () => {
           logAudioManager('speech_completed', {
             engine: currentEngineRef.current,
