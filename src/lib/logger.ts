@@ -4,6 +4,7 @@
  */
 
 import { isFeatureEnabled } from './featureFlags';
+import { merge } from 'lodash';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -24,12 +25,26 @@ export interface LogEvent {
   error?: Error;
 }
 
+interface AudioEventData {
+  [key: string]: any;
+}
+
 class Logger {
+  private static instance: Logger;
+
   private sessionId: string;
   private defaultContext: LogContext = {};
+  private logLevelThreshold: LogLevel = 'debug'; // Default threshold
 
-  constructor() {
+  private constructor() {
     this.sessionId = this.generateSessionId();
+  }
+
+  static getInstance(): Logger {
+    if (!Logger.instance) {
+      Logger.instance = new Logger();
+    }
+    return Logger.instance;
   }
 
   private generateSessionId(): string {
@@ -43,6 +58,7 @@ class Logger {
       message,
       context: {
         sessionId: this.sessionId,
+        environment: process.env.NODE_ENV || 'development', // Add environment metadata
         ...this.defaultContext,
         ...context,
       },
@@ -51,14 +67,23 @@ class Logger {
   }
 
   private shouldLog(level: LogLevel): boolean {
+    const levels: LogLevel[] = ['debug', 'info', 'warn', 'error'];
+    const currentLevelIndex = levels.indexOf(this.logLevelThreshold);
+    const messageLevelIndex = levels.indexOf(level);
+
     if (!isFeatureEnabled('structured_logging')) {
       return level === 'error'; // Always log errors
     }
-    return true;
+
+    return messageLevelIndex >= currentLevelIndex;
   }
 
   setDefaultContext(context: LogContext): void {
-    this.defaultContext = { ...this.defaultContext, ...context };
+    this.defaultContext = merge({}, this.defaultContext, context);
+  }
+
+  setLogLevelThreshold(level: LogLevel): void {
+    this.logLevelThreshold = level;
   }
 
   debug(message: string, context?: LogContext): void {
@@ -85,20 +110,25 @@ class Logger {
   error(message: string, context?: LogContext, error?: Error): void {
     if (this.shouldLog('error')) {
       const logEvent = this.formatLog('error', message, context, error);
-      console.error(`❌ [${logEvent.context?.component || 'Unknown'}]`, message, logEvent.context, error);
+      console.error(
+        `❌ [${logEvent.context?.component || 'Unknown'}]`,
+        message,
+        logEvent.context,
+        error?.stack || error
+      );
     }
   }
 
   // Specific logging methods for audio components
-  speechRecognition(event: string, data: any): void {
+  speechRecognition(event: string, data: AudioEventData): void {
     this.info(`Speech Recognition: ${event}`, { component: 'SpeechRecognition', ...data });
   }
 
-  tts(event: string, data: any): void {
+  tts(event: string, data: AudioEventData): void {
     this.info(`TTS: ${event}`, { component: 'TTS', ...data });
   }
 
-  audioManager(event: string, data: any): void {
+  audioManager(event: string, data: AudioEventData): void {
     this.info(`Audio Manager: ${event}`, { component: 'AudioManager', ...data });
   }
 
@@ -108,7 +138,7 @@ class Logger {
 }
 
 // Export singleton instance
-export const logger = new Logger();
+export const logger = Logger.getInstance();
 
 // Convenience exports
 export const logSpeechRecognition = (event: string, data: any) => logger.speechRecognition(event, data);
