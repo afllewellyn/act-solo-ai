@@ -79,6 +79,7 @@ const serverLog = (event: string, context: Record<string, unknown> = {}) => {
   }
 }
 
+// @ts-ignore - Deno-specific API
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -135,6 +136,7 @@ Deno.serve(async (req) => {
     serverLog('tts_request_start', { requestId, lineIdx, t_tts_request_start })
 
     // Validate API key with detailed logging
+// @ts-ignore - Deno-specific API
     const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
     if (!apiKey) {
       console.error(`[${timestamp}] ELEVENLABS_API_KEY environment variable not found`)

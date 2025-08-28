@@ -6,6 +6,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// @ts-ignore - Deno-specific API
 Deno.serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -13,6 +14,7 @@ Deno.serve(async (req) => {
   }
 
   try {
+// @ts-ignore - Deno-specific API
     const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not configured');
@@ -52,6 +54,7 @@ Deno.serve(async (req) => {
         const port = 443;
         const path = '/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
 
+// @ts-ignore - Deno-specific API
         const conn = await Deno.connectTls({ hostname, port });
         const enc = new TextEncoder();
         const dec = new TextDecoder();

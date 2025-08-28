@@ -50,6 +50,7 @@ const sanitizeVoiceData = (voice: any) => {
   return sanitized
 }
 
+// @ts-ignore - Deno-specific API
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -77,7 +78,8 @@ Deno.serve(async (req) => {
     }
 
     // Validate API key
-    const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
+// @ts-ignore - Deno-specific API
+const apiKey = Deno.env.get('ELEVENLABS_API_KEY')
     if (!apiKey) {
       throw new Error('API configuration error')
     }
