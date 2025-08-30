@@ -16,6 +16,16 @@ export const stripHtmlTags = (html: string): string => {
   return cleanText;
 };
 
+// Standardized character line helpers
+export const CHARACTER_LINE_REGEX = /^([A-Za-z][A-Za-z\s\-'.]+):\s*(.+)$/i;
+export function matchCharacterLine(text: string) {
+  return text.match(CHARACTER_LINE_REGEX);
+}
+export function stripCharacterNamePrefix(text: string): string {
+  const match = matchCharacterLine(text.trim());
+  return match ? match[2].trim() : text.trim();
+}
+
 /**
  * Extract formatted text (bold or italic) and strip character names
  */
@@ -30,14 +40,12 @@ export const extractFormattedText = (content: string, format: 'bold' | 'italic')
     return '';
   }
   
-  return Array.from(elements)
+  const texts = Array.from(elements)
     .map(element => {
-      let text = element.textContent || '';
-      // Strip character names (e.g., "Anna: Hello" -> "Hello")
-      const characterMatch = text.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/);
-      return characterMatch ? characterMatch[2] : text;
+      const text = element.textContent || '';
+      return stripCharacterNamePrefix(text);
     })
-    .filter(text => text.trim().length > 0)
-    .join(' ')
-    .trim();
+    .filter(text => text.trim().length > 0);
+
+  return texts.join(' ').trim();
 };

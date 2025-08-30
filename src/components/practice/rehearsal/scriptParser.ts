@@ -1,5 +1,5 @@
 import { TextFilter, ScriptLine } from './types';
-import { stripHtmlTags, extractFormattedText } from './textUtils';
+import { stripHtmlTags, extractFormattedText, matchCharacterLine } from './textUtils';
 
 /**
  * Helper function to check if a line matches the current text filter
@@ -40,7 +40,7 @@ export const getScriptLines = (
     const cleanLine = stripHtmlTags(line).trim();
     
     // Check if this is a character line format: "NAME: dialogue"
-    const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/i);
+    const characterMatch = matchCharacterLine(cleanLine);
     
     if (characterMatch) {
       const dialogue = characterMatch[2].trim();

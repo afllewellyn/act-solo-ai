@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react';
-
+import { matchCharacterLine } from '@/components/practice/rehearsal/textUtils';
 interface ActorLineDetectorProps {
   scriptContent: string;
   characters: Array<{ name: string; voice: string; isUserRole: boolean }>;
@@ -36,14 +36,14 @@ export function ActorLineDetector({
             
             // Check if this is an actor line
             const cleanText = textContent.trim();
-            const characterMatch = cleanText.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+            const characterMatch = matchCharacterLine(cleanText);
             
             if (characterMatch) {
               const characterName = characterMatch[1].trim();
               const dialogue = characterMatch[2].trim();
               
               // Check if this character is assigned to the actor (user role)
-              const character = characters.find(c => c.name === characterName);
+              const character = characters.find(c => c.name.toLowerCase() === characterName.toLowerCase());
               if (character && character.isUserRole) {
                 console.log(`Actor line detected: ${characterName}: ${dialogue}`);
                 currentActorLineRef.current = cleanText;

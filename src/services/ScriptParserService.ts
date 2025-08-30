@@ -1,5 +1,5 @@
 import { TextFilter } from './ScriptRehearsalStateMachine';
-import { stripHtmlTags, extractFormattedText } from '@/components/practice/rehearsal/textUtils';
+import { stripHtmlTags, extractFormattedText, matchCharacterLine, stripCharacterNamePrefix } from '@/components/practice/rehearsal/textUtils';
 
 /**
  * Script Parser Service - Text-Based Filtering Only
@@ -78,17 +78,15 @@ export class ScriptParserService {
       const cleanLine = stripHtmlTags(line).trim();
       if (!cleanLine) return;
       
-      // Check if line has character name format: "NAME: dialogue"
-      const characterMatch = cleanLine.match(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*(.+)$/);
+      // Check if line has character name format: "Name: dialogue" (mixed-case supported)
+      const characterMatch = matchCharacterLine(cleanLine);
       
       if (characterMatch) {
-        // Extract just the dialogue part, not the character name
         const dialogue = characterMatch[2].trim();
         if (dialogue) {
           dialogueLines.push(dialogue);
         }
       } else {
-        // Non-character line (stage directions, etc.)
         dialogueLines.push(cleanLine);
       }
     });
@@ -168,10 +166,9 @@ export class ScriptParserService {
    * Extract dialogue text from a script line, removing character names
    */
   static extractDialogueFromLine(line: string): string {
-    // Remove character name prefix
-    const withoutCharacter = line.replace(/^([A-Za-z][A-Za-z\s\-\'\.]+):\s*/i, '');
-    // Remove HTML tags
-    const cleanText = stripHtmlTags(withoutCharacter);
-    return cleanText.trim();
+    // Remove HTML tags and then character name prefix (mixed-case)
+    const withoutHtml = stripHtmlTags(line);
+    const dialogue = stripCharacterNamePrefix(withoutHtml);
+    return dialogue;
   }
 }

@@ -7,6 +7,7 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { RichTextEditor } from '@/components/RichTextEditor';
+import { stripHtmlTags, CHARACTER_LINE_REGEX } from '@/components/practice/rehearsal/textUtils';
 
 interface Character {
   name: string;
@@ -26,13 +27,15 @@ const ScriptInput = ({ onScriptSaved }: ScriptInputProps) => {
   const { user } = useAuth();
 
   const detectCharacters = (scriptContent: string): Character[] => {
-    // Simple regex to detect character names (assumes format "CHARACTER NAME:")
-    const characterRegex = /^([A-Z][A-Z\s]+):/gm;
-    const matches = scriptContent.match(characterRegex);
-    
-    if (!matches) return [];
-    
-    const uniqueCharacters = [...new Set(matches.map(match => match.replace(':', '').trim()))];
+    const plainText = stripHtmlTags(scriptContent);
+    const regex = new RegExp(CHARACTER_LINE_REGEX.source, 'gmi');
+    const names = new Set<string>();
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(plainText)) !== null) {
+      names.add(m[1].trim());
+    }
+
+    const uniqueCharacters = Array.from(names);
     const colors = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
     
     return uniqueCharacters.map((name, index) => ({
