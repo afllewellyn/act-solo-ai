@@ -5,6 +5,7 @@
 
 import { isFeatureEnabled } from '@/lib/featureFlags';
 import { supabase } from '@/integrations/supabase/client';
+import { logClientTiming, generateRequestId } from '@/lib/logger';
 
 interface AudioChunk {
   id: number;
@@ -27,6 +28,8 @@ export class StreamingAudioManager {
   private isPlaying = false;
   private chunkCounter = 0;
   private abortController: AbortController | null = null;
+  private requestId: string | null = null;
+  private requestStart: number | null = null;
 
   constructor() {
     this.initializeAudioContext();
@@ -69,6 +72,8 @@ export class StreamingAudioManager {
     this.audioQueue = [];
     this.chunkCounter = 0;
     this.abortController = new AbortController();
+    this.requestId = generateRequestId();
+    this.requestStart = performance.now();
 
     try {
       await this.unlockAudioContext();
@@ -129,6 +134,13 @@ export class StreamingAudioManager {
         // Start playback on first chunk
         if (isFirstChunk) {
           isFirstChunk = false;
+          // Emit end-to-first-byte latency for streaming
+          if (this.requestStart) {
+            logClientTiming('latency_ms_endToFirstByte', {
+              requestId: this.requestId || undefined,
+              latency_ms_endToFirstByte: Math.round(performance.now() - this.requestStart),
+            });
+          }
           this.startPlayback();
         }
       }

@@ -129,6 +129,9 @@ export const useTTS = () => {
         audioUnlocked: audioContextManager.isAudioUnlocked(),
         sessionId: logger.getSessionId()
       });
+
+      const tRequestStart = performance.now();
+
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: text.trim(),
@@ -154,6 +157,13 @@ export const useTTS = () => {
 
       if (data?.audioContent) {
         logTTS('audio_content_received', { sessionId: logger.getSessionId() });
+        // Emit end-to-first-byte latency (client-perceived)
+        logClientTiming('latency_ms_endToFirstByte', {
+          engine: currentEngineRef.current,
+          requestId: currentRequestIdRef.current || undefined,
+          lineIdx: currentLineIdxRef.current,
+          latency_ms_endToFirstByte: Math.round(performance.now() - tRequestStart),
+        });
         
         // Ensure audio context is unlocked before playing
         await audioContextManager.unlockAudioContext();
@@ -313,14 +323,25 @@ export const useTTS = () => {
   const stop = useCallback(() => {
     if (audioRef.current) {
       logTTS('stop_called', { sessionId: logger.getSessionId() });
+      const tCut = performance.now();
       logClientTiming('cut_event', {
         engine: currentEngineRef.current,
         requestId: currentRequestIdRef.current || undefined,
         lineIdx: currentLineIdxRef.current,
-        t_cut_event: performance.now(),
+        t_cut_event: tCut,
       });
+
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
+
+      // Emit cut_to_silence_ms (time from cut to silence achieved)
+      logClientTiming('cut_to_silence_ms', {
+        engine: currentEngineRef.current,
+        requestId: currentRequestIdRef.current || undefined,
+        lineIdx: currentLineIdxRef.current,
+        cut_to_silence_ms: Math.round(performance.now() - tCut),
+      });
+
       setIsPlaying(false);
       setIsPaused(false);
       setNeedsUserGesture(false);
