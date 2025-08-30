@@ -383,6 +383,30 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
               onScrollSpeedChange={setScrollSpeed}
               onFontSizeChange={setFontSize}
               onToggleFullscreen={toggleFullscreen}
+              
+              // Voice control props from rehearsal context
+              voices={useRehearsal().voices}
+              selectedVoice={useRehearsal().selectedVoice}
+              onVoiceChange={useRehearsal().setSelectedVoice}
+              textFilter={useRehearsal().textFilter}
+              onTextFilterChange={useRehearsal().setTextFilter}
+              playbackSpeed={useRehearsal().playbackSpeed}
+              onPlaybackSpeedChange={useRehearsal().setPlaybackSpeed}
+              voiceActivated={useRehearsal().voiceActivated}
+              onVoiceActivatedChange={useRehearsal().setVoiceActivated}
+              isListening={useRehearsal().isListening}
+              isTTSPlaying={useRehearsal().isTTSPlaying}
+              isManualTTSPlaying={useRehearsal().isManualTTSPlaying}
+              rehearsalState={useRehearsal().rehearsalState}
+              onTTSPlay={useRehearsal().handleTTSPlay}
+              onMasterStop={handleMasterStop}
+              
+              // Audio manager props
+              isMobile={useRehearsal().audioManager?.isMobile}
+              needsUserGesture={useRehearsal().audioManager?.needsUserGesture}
+              waitingForUserTrigger={useRehearsal().audioManager?.waitingForUserTrigger}
+              onEnableAudio={useRehearsal().audioManager?.enableAudio}
+              onManualTriggerListen={useRehearsal().audioManager?.manualTriggerListen}
             />
           </div>
 
