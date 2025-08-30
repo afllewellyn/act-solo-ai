@@ -1,13 +1,22 @@
 
 
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Content-Security-Policy': "default-src 'self'",
-  'X-Content-Type-Options': 'nosniff',
-  'X-Frame-Options': 'DENY',
-  'X-XSS-Protection': '1; mode=block'
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim());
+  
+  if (origin && allowedOrigins.includes(origin)) {
+    return {
+      'Access-Control-Allow-Origin': origin,
+      'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Content-Security-Policy': "default-src 'self'",
+      'X-Content-Type-Options': 'nosniff',
+      'X-Frame-Options': 'DENY',
+      'X-XSS-Protection': '1; mode=block'
+    };
+  }
+  
+  return {};
 }
 
 // Rate limiting map
@@ -52,8 +61,16 @@ const sanitizeVoiceData = (voice: any) => {
 
 // @ts-ignore - Deno-specific API
 Deno.serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+  
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
+  }
+  
+  // Return 403 for disallowed origins
+  if (origin && Object.keys(corsHeaders).length === 0) {
+    return new Response('Forbidden', { status: 403 });
   }
 
   const timestamp = new Date().toISOString()
