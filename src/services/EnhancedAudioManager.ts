@@ -183,11 +183,11 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
   // S2S implementation using WebSocket to realtime-s2s edge function
   const speakWithS2S = useCallback(async (text: string, options: TTSSpeakOptions = {}) => {
     return new Promise<void>((resolve, reject) => {
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.hostname}/functions/v1/realtime-s2s`;
+      const wsUrl = `wss://uomdyqdvorusucuudwnz.functions.supabase.co/functions/v1/realtime-s2s`;
       
       logAudioManager('s2s_connection_start', {
         url: wsUrl,
+        text: text.substring(0, 50) + '...',
         sessionId: logger.getSessionId()
       });
       
