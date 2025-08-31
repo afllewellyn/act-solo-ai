@@ -7,6 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Volume2, ChevronDown, Filter, Mic, MicOff, Smartphone, Monitor } from 'lucide-react';
 import { useRehearsal } from '@/contexts/RehearsalContext';
+import { EngineSelector } from './EngineSelector';
+import { AudioEngine } from '@/services/EnhancedAudioManager';
 
 export const VoiceControls = () => {
   const { 
@@ -30,6 +32,13 @@ export const VoiceControls = () => {
   // Mobile-specific state
   const isMobile = audioManager?.isMobile ?? false;
   const waitingForUserTrigger = audioManager?.waitingForUserTrigger ?? false;
+  const currentEngine = audioManager?.currentEngine ?? 'webspeech';
+  
+  // Engine switching handler
+  const handleEngineChange = (engine: AudioEngine) => {
+    // Note: Engine switching implementation would require updating the audioManager
+    console.log('Engine change requested:', engine);
+  };
   // Available text filter options for reading different parts of the script
   const filterOptions = [
     { value: 'all' as const, label: 'All Text' },
@@ -223,6 +232,12 @@ export const VoiceControls = () => {
           </p>
         )}
       </div>
+      
+      {/* Engine Selection */}
+      <EngineSelector 
+        currentEngine={currentEngine}
+        onEngineChange={handleEngineChange}
+      />
     </div>
   );
 };

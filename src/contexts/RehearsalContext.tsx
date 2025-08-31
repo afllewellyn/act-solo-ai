@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { ScriptRehearsalStateMachine, Character, TextFilter, RehearsalState, ScriptLine } from '@/services/ScriptRehearsalStateMachine';
-import { useAudioManager } from '@/services/AudioManager';
+import { useAudioManager } from '@/services/EnhancedAudioManager';
 import { ScriptParserService } from '@/services/ScriptParserService';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -99,8 +99,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   
   // Audio Manager with all callbacks
   const audioManager = useAudioManager({
-    defaultVoiceId: selectedVoice,
-    defaultPlaybackSpeed: playbackSpeed,
+    defaultVoice: selectedVoice,
     onTTSComplete: () => {
       console.log('🔊 TTS Complete callback triggered');
       setIsManualTTSPlaying(false);

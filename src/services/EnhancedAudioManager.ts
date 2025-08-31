@@ -17,6 +17,7 @@ export interface AudioManagerConfig {
   engine?: AudioEngine;
   onTTSComplete?: () => void;
   onTTSError?: (error: string) => void;
+  onSpeechError?: (error: string) => void;
   onCueDetected?: (cue: string) => void;
   onMobileListenRequest?: () => void;
 }
@@ -49,6 +50,7 @@ export interface AudioManagerReturn {
   isMobile: boolean;
   waitingForUserTrigger: boolean;
   currentEngine: AudioEngine;
+  isSpeechSupported: boolean;
 }
 
 export interface TTSSpeakOptions {
@@ -88,7 +90,7 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     waitingForUserTrigger
   } = useSpeechRecognition({
     onCueDetected: config.onCueDetected,
-    onError: config.onTTSError,
+    onError: config.onSpeechError || config.onTTSError,
     language: config.language,
     onMobileListenRequest: config.onMobileListenRequest
   });
@@ -106,22 +108,29 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
 
     try {
       if (engine === 's2s' && isFeatureEnabled('realtime_api_enabled')) {
-        // Phase 4 - OpenAI Realtime API implementation
-        // TODO: Implement S2S speaking when OpenAI Realtime is ready
-        logAudioManager('s2s_not_implemented_fallback', {
-          sessionId: logger.getSessionId()
-        });
-        
-        // Auto-fallback to Web Speech if enabled
-        if (isFeatureEnabled('auto_fallback_enabled') && !fallbackAttemptedRef.current) {
-          fallbackAttemptedRef.current = true;
-          currentEngineRef.current = 'webspeech';
-          logAudioManager('auto_fallback_to_webspeech', {
-            reason: 's2s_not_implemented',
+        // Phase 3 - OpenAI Realtime API implementation via WebSocket
+        try {
+          await speakWithS2S(text, options);
+          fallbackAttemptedRef.current = false;
+          return;
+        } catch (error) {
+          logAudioManager('s2s_error', {
+            error: error instanceof Error ? error.message : 'Unknown error',
             sessionId: logger.getSessionId()
           });
-          await speakText(text, options);
-          return;
+          
+          // Auto-fallback to Web Speech if enabled
+          if (isFeatureEnabled('auto_fallback_enabled') && !fallbackAttemptedRef.current) {
+            fallbackAttemptedRef.current = true;
+            currentEngineRef.current = 'webspeech';
+            logAudioManager('auto_fallback_to_webspeech', {
+              reason: 's2s_error',
+              sessionId: logger.getSessionId()
+            });
+            await speakText(text, options);
+            return;
+          }
+          throw error;
         }
       }
       
@@ -170,6 +179,106 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
       throw error;
     }
   }, [speak, config, logger]);
+
+  // S2S implementation using WebSocket to realtime-s2s edge function
+  const speakWithS2S = useCallback(async (text: string, options: TTSSpeakOptions = {}) => {
+    return new Promise<void>((resolve, reject) => {
+      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+      const wsUrl = `${protocol}//${window.location.hostname}/functions/v1/realtime-s2s`;
+      
+      logAudioManager('s2s_connection_start', {
+        url: wsUrl,
+        sessionId: logger.getSessionId()
+      });
+      
+      const ws = new WebSocket(wsUrl);
+      let resolved = false;
+      
+      ws.onopen = () => {
+        logAudioManager('s2s_connected', { sessionId: logger.getSessionId() });
+        
+        // Send session configuration
+        ws.send(JSON.stringify({
+          type: 'session.update',
+          session: {
+            modalities: ['text', 'audio'],
+            instructions: 'You are a helpful assistant that reads text aloud.',
+            voice: 'alloy',
+            input_audio_format: 'pcm16',
+            output_audio_format: 'pcm16',
+            turn_detection: {
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 1000
+            }
+          }
+        }));
+        
+        // Send text to speak
+        ws.send(JSON.stringify({
+          type: 'conversation.item.create',
+          item: {
+            type: 'message',
+            role: 'user',
+            content: [{ type: 'input_text', text }]
+          }
+        }));
+        
+        ws.send(JSON.stringify({ type: 'response.create' }));
+      };
+      
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'response.audio.delta') {
+            // Handle audio streaming
+            logAudioManager('s2s_audio_delta', { sessionId: logger.getSessionId() });
+          } else if (data.type === 'response.done') {
+            logAudioManager('s2s_complete', { sessionId: logger.getSessionId() });
+            if (!resolved) {
+              resolved = true;
+              resolve();
+              options.onComplete?.();
+              config.onTTSComplete?.();
+            }
+            ws.close();
+          } else if (data.type === 'error') {
+            if (!resolved) {
+              resolved = true;
+              reject(new Error(data.error || 'S2S error'));
+            }
+            ws.close();
+          }
+        } catch (error) {
+          if (!resolved) {
+            resolved = true;
+            reject(error);
+          }
+          ws.close();
+        }
+      };
+      
+      ws.onerror = (error) => {
+        logAudioManager('s2s_ws_error', {
+          error: 'WebSocket error',
+          sessionId: logger.getSessionId()
+        });
+        if (!resolved) {
+          resolved = true;
+          reject(new Error('S2S WebSocket connection failed'));
+        }
+      };
+      
+      ws.onclose = () => {
+        if (!resolved) {
+          resolved = true;
+          reject(new Error('S2S connection closed unexpectedly'));
+        }
+      };
+    });
+  }, [config, logger]);
 
   // Unified stop function for all audio operations
   const stopAll = useCallback(() => {
@@ -239,6 +348,7 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     targetWords,
     isMobile,
     waitingForUserTrigger,
-    currentEngine: currentEngineRef.current
+    currentEngine: currentEngineRef.current,
+    isSpeechSupported: isListeningSupported
   };
 };
