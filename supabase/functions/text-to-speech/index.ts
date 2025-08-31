@@ -12,7 +12,8 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
       'Content-Security-Policy': "default-src 'self'",
       'X-Content-Type-Options': 'nosniff',
       'X-Frame-Options': 'DENY',
-      'X-XSS-Protection': '1; mode=block'
+      'X-XSS-Protection': '1; mode=block',
+      'Vary': 'Origin'
     };
   }
   
@@ -92,6 +93,8 @@ const serverLog = (event: string, context: Record<string, unknown> = {}) => {
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
+  const allowedOriginsDebug = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim());
+  console.log(`[CORS][text-to-speech] origin=${origin} allowed=${origin ? allowedOriginsDebug.includes(origin) : false} list=${allowedOriginsDebug.join(' | ')}`);
   
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })

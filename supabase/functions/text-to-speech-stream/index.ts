@@ -9,6 +9,7 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
       'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Vary': 'Origin',
     };
   }
   
@@ -18,6 +19,8 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
 serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
+  const allowedOriginsDebug = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim());
+  console.log(`[CORS][tts-stream] origin=${origin} allowed=${origin ? allowedOriginsDebug.includes(origin) : false} list=${allowedOriginsDebug.join(' | ')}`);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {

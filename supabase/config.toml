@@ -6,5 +6,8 @@ verify_jwt = false
 [functions.get-voices]
 verify_jwt = false
 
+[functions.text-to-speech-stream]
+verify_jwt = false
+
 [functions.health-realtime]
 verify_jwt = false
