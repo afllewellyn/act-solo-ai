@@ -19,7 +19,7 @@ interface FeatureFlags {
 
 // Default feature flags - can be overridden by window.__FEATURES__
 const DEFAULT_FLAGS: FeatureFlags = {
-  realtime_api_enabled: false, // OpenAI Realtime API (Phase 4)
+  realtime_api_enabled: true, // OpenAI Realtime API - ENABLED BY DEFAULT
   tts_streaming_enabled: true, // Streaming ElevenLabs TTS (Phase 2) - ENABLED
   enhanced_speech_recognition: true, // Phase 1 enhancements
   structured_logging: true, // Phase 1 logging

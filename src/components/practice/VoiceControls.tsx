@@ -7,7 +7,7 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Volume2, ChevronDown, Filter, Mic, MicOff, Smartphone, Monitor } from 'lucide-react';
 import { useRehearsal } from '@/contexts/RehearsalContext';
-import { EngineSelector } from './EngineSelector';
+
 import { AudioEngine } from '@/services/EnhancedAudioManager';
 
 export const VoiceControls = () => {
@@ -233,11 +233,6 @@ export const VoiceControls = () => {
         )}
       </div>
       
-      {/* Engine Selection */}
-      <EngineSelector 
-        currentEngine={currentEngine}
-        onEngineChange={handleEngineChange}
-      />
     </div>
   );
 };
