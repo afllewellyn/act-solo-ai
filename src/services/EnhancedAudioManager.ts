@@ -191,67 +191,252 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
         sessionId: logger.getSessionId()
       });
       
+      // Audio processing setup
+      let audioContext: AudioContext | null = null;
+      let audioQueue: AudioBuffer[] = [];
+      let isPlaying = false;
+      let sessionCreated = false;
+      
       const ws = new WebSocket(wsUrl);
       let resolved = false;
       
-      ws.onopen = () => {
-        logAudioManager('s2s_connected', { sessionId: logger.getSessionId() });
-        
-        // Send session configuration
-        ws.send(JSON.stringify({
-          type: 'session.update',
-          session: {
-            modalities: ['text', 'audio'],
-            instructions: 'You are a helpful assistant that reads text aloud.',
-            voice: 'alloy',
-            input_audio_format: 'pcm16',
-            output_audio_format: 'pcm16',
-            turn_detection: {
-              type: 'server_vad',
-              threshold: 0.5,
-              prefix_padding_ms: 300,
-              silence_duration_ms: 1000
-            }
+      // Add connection timeout
+      const connectionTimeout = setTimeout(() => {
+        if (!sessionCreated && !resolved) {
+          logAudioManager('s2s_connection_timeout', { sessionId: logger.getSessionId() });
+          resolved = true;
+          ws.close();
+          reject(new Error('S2S connection timeout'));
+        }
+      }, 10000); // 10 second timeout
+
+      // Initialize audio context
+      const initAudioContext = async () => {
+        try {
+          audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({
+            sampleRate: 24000
+          });
+          
+          // Unlock audio context for mobile browsers
+          if (audioContext.state === 'suspended') {
+            await audioContext.resume();
           }
-        }));
+          
+          logAudioManager('s2s_audio_context_ready', { 
+            state: audioContext.state,
+            sessionId: logger.getSessionId() 
+          });
+        } catch (error) {
+          logAudioManager('s2s_audio_context_error', { 
+            error: error instanceof Error ? error.message : 'Unknown error',
+            sessionId: logger.getSessionId() 
+          });
+          throw error;
+        }
+      };
+
+      // Convert base64 PCM16 to AudioBuffer
+      const decodeAudioDelta = async (base64Audio: string): Promise<AudioBuffer | null> => {
+        if (!audioContext) return null;
         
-        // Send text to speak
-        ws.send(JSON.stringify({
-          type: 'conversation.item.create',
-          item: {
-            type: 'message',
-            role: 'user',
-            content: [{ type: 'input_text', text }]
+        try {
+          // Decode base64 to binary
+          const binaryString = atob(base64Audio);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let i = 0; i < binaryString.length; i++) {
+            bytes[i] = binaryString.charCodeAt(i);
           }
-        }));
+          
+          // Convert PCM16 bytes to Float32Array
+          const samples = new Float32Array(bytes.length / 2);
+          const dataView = new DataView(bytes.buffer);
+          
+          for (let i = 0; i < samples.length; i++) {
+            // Read 16-bit signed integer (little endian) and convert to float
+            const sample = dataView.getInt16(i * 2, true);
+            samples[i] = sample / 32768.0; // Convert to [-1, 1] range
+          }
+          
+          // Create AudioBuffer
+          const audioBuffer = audioContext.createBuffer(1, samples.length, 24000);
+          audioBuffer.getChannelData(0).set(samples);
+          
+          return audioBuffer;
+        } catch (error) {
+          logAudioManager('s2s_audio_decode_error', { 
+            error: error instanceof Error ? error.message : 'Unknown error',
+            sessionId: logger.getSessionId() 
+          });
+          return null;
+        }
+      };
+
+      // Play audio buffer with queue management
+      const playAudioBuffer = async (audioBuffer: AudioBuffer) => {
+        if (!audioContext) return;
         
-        ws.send(JSON.stringify({ type: 'response.create' }));
+        try {
+          const source = audioContext.createBufferSource();
+          source.buffer = audioBuffer;
+          source.connect(audioContext.destination);
+          
+          return new Promise<void>((resolvePlay) => {
+            source.onended = () => {
+              resolvePlay();
+              playNextInQueue();
+            };
+            source.start(0);
+          });
+        } catch (error) {
+          logAudioManager('s2s_audio_play_error', { 
+            error: error instanceof Error ? error.message : 'Unknown error',
+            sessionId: logger.getSessionId() 
+          });
+        }
+      };
+
+      // Queue management for sequential audio playback
+      const playNextInQueue = async () => {
+        if (audioQueue.length === 0) {
+          isPlaying = false;
+          return;
+        }
+        
+        const nextBuffer = audioQueue.shift();
+        if (nextBuffer) {
+          await playAudioBuffer(nextBuffer);
+        }
+      };
+
+      const addToQueue = async (audioBuffer: AudioBuffer) => {
+        audioQueue.push(audioBuffer);
+        
+        if (!isPlaying) {
+          isPlaying = true;
+          await playNextInQueue();
+        }
       };
       
-      ws.onmessage = (event) => {
+      ws.onopen = async () => {
+        logAudioManager('s2s_connected', { sessionId: logger.getSessionId() });
+        
+        // Initialize audio context
+        try {
+          await initAudioContext();
+        } catch (error) {
+          reject(new Error('Failed to initialize audio context'));
+          return;
+        }
+      };
+      
+      ws.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
           
-          if (data.type === 'response.audio.delta') {
-            // Handle audio streaming
-            logAudioManager('s2s_audio_delta', { sessionId: logger.getSessionId() });
+          // Handle session creation (wait for this before sending configuration)
+          if (data.type === 'session.created') {
+            sessionCreated = true;
+            logAudioManager('s2s_session_created', { sessionId: logger.getSessionId() });
+            
+            // Send session configuration after session is created
+            ws.send(JSON.stringify({
+              type: 'session.update',
+              session: {
+                modalities: ['text', 'audio'],
+                instructions: `You are a helpful assistant that reads text aloud. The user will provide text and you should read it clearly and naturally. Text to read: "${text}"`,
+                voice: options.voiceId?.includes('alloy') ? 'alloy' : 'shimmer', // Map to OpenAI voices
+                input_audio_format: 'pcm16',
+                output_audio_format: 'pcm16',
+                turn_detection: {
+                  type: 'server_vad',
+                  threshold: 0.5,
+                  prefix_padding_ms: 300,
+                  silence_duration_ms: 1000
+                }
+              }
+            }));
+            
+            // Send text to speak
+            ws.send(JSON.stringify({
+              type: 'conversation.item.create',
+              item: {
+                type: 'message',
+                role: 'user',
+                content: [{ type: 'input_text', text }]
+              }
+            }));
+            
+            ws.send(JSON.stringify({ type: 'response.create' }));
+            
+          } else if (data.type === 'session.updated') {
+            logAudioManager('s2s_session_updated', { sessionId: logger.getSessionId() });
+            
+          } else if (data.type === 'response.audio.delta') {
+            // Handle audio streaming with actual playback
+            logAudioManager('s2s_audio_delta', { 
+              deltaSize: data.delta?.length || 0,
+              sessionId: logger.getSessionId() 
+            });
+            
+            if (data.delta) {
+              const audioBuffer = await decodeAudioDelta(data.delta);
+              if (audioBuffer) {
+                await addToQueue(audioBuffer);
+              }
+            }
+            
+          } else if (data.type === 'response.audio_transcript.delta') {
+            logAudioManager('s2s_transcript_delta', { 
+              transcript: data.delta,
+              sessionId: logger.getSessionId() 
+            });
+            
+          } else if (data.type === 'response.audio.done') {
+            logAudioManager('s2s_audio_done', { sessionId: logger.getSessionId() });
+            
           } else if (data.type === 'response.done') {
             logAudioManager('s2s_complete', { sessionId: logger.getSessionId() });
-            if (!resolved) {
-              resolved = true;
-              resolve();
-              options.onComplete?.();
-              config.onTTSComplete?.();
-            }
-            ws.close();
+            
+            // Wait for audio queue to finish before resolving
+            const waitForQueue = () => {
+              if (audioQueue.length === 0 && !isPlaying) {
+                if (!resolved) {
+                  resolved = true;
+                  resolve();
+                  options.onComplete?.();
+                  config.onTTSComplete?.();
+                }
+                ws.close();
+              } else {
+                setTimeout(waitForQueue, 100);
+              }
+            };
+            waitForQueue();
+            
           } else if (data.type === 'error') {
+            logAudioManager('s2s_response_error', { 
+              error: data.error,
+              sessionId: logger.getSessionId() 
+            });
             if (!resolved) {
               resolved = true;
               reject(new Error(data.error || 'S2S error'));
             }
             ws.close();
+            
+          } else {
+            // Log other message types for debugging
+            logAudioManager('s2s_message_received', { 
+              type: data.type,
+              sessionId: logger.getSessionId() 
+            });
           }
+          
         } catch (error) {
+          logAudioManager('s2s_message_parse_error', { 
+            error: error instanceof Error ? error.message : 'Unknown error',
+            sessionId: logger.getSessionId() 
+          });
           if (!resolved) {
             resolved = true;
             reject(error);
@@ -261,6 +446,7 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
       };
       
       ws.onerror = (error) => {
+        clearTimeout(connectionTimeout);
         logAudioManager('s2s_ws_error', {
           error: 'WebSocket error',
           sessionId: logger.getSessionId()
@@ -271,7 +457,21 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
         }
       };
       
-      ws.onclose = () => {
+      ws.onclose = (event) => {
+        clearTimeout(connectionTimeout);
+        logAudioManager('s2s_ws_closed', {
+          code: event.code,
+          reason: event.reason,
+          sessionId: logger.getSessionId()
+        });
+        
+        // Clean up audio context
+        if (audioContext && audioContext.state !== 'closed') {
+          audioContext.close().catch(() => {
+            // Ignore cleanup errors
+          });
+        }
+        
         if (!resolved) {
           resolved = true;
           reject(new Error('S2S connection closed unexpectedly'));

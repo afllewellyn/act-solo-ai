@@ -64,10 +64,60 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         console.error('Health Realtime Error:', error);
         return { error: error.message };
       }
+    },
+    
+    // S2S testing utilities
+    testS2SConnection: async () => {
+      try {
+        console.log('🔊 Testing S2S WebSocket connection...');
+        const ws = new WebSocket('wss://uomdyqdvorusucuudwnz.functions.supabase.co/functions/v1/realtime-s2s');
+        
+        return new Promise((resolve) => {
+          const timeout = setTimeout(() => {
+            ws.close();
+            resolve({ status: 'timeout', message: 'Connection timeout after 5s' });
+          }, 5000);
+          
+          ws.onopen = () => {
+            clearTimeout(timeout);
+            console.log('✅ S2S WebSocket connected successfully');
+            ws.close();
+            resolve({ status: 'success', message: 'S2S WebSocket connection successful' });
+          };
+          
+          ws.onerror = (error) => {
+            clearTimeout(timeout);
+            console.error('❌ S2S WebSocket connection failed:', error);
+            resolve({ status: 'error', message: 'S2S WebSocket connection failed' });
+          };
+        });
+      } catch (error) {
+        console.error('❌ S2S Connection Test Error:', error);
+        return { status: 'error', message: error.message };
+      }
+    },
+    
+    // Test S2S with actual text
+    testS2SSpeech: async (text = 'Hello, this is a test of the S2S speech system.') => {
+      try {
+        console.log('🎤 Testing S2S speech with text:', text);
+        
+        // This would require access to the audio manager context
+        console.log('💡 To test S2S speech, use the VoiceControls in the app with S2S enabled');
+        return { 
+          status: 'info', 
+          message: 'Use VoiceControls component to test S2S speech functionality',
+          instructions: 'Go to /practice page and try the "Read Script" button'
+        };
+      } catch (error) {
+        return { status: 'error', message: error.message };
+      }
     }
   };
   
   console.log('🔧 Debug utilities available at window.__DEBUG_AUDIO__');
   console.log('📋 Try: __DEBUG_AUDIO__.logFeatureFlags()');
   console.log('🧪 Try: __DEBUG_AUDIO__.testHealthRealtime()');
+  console.log('🔊 Try: __DEBUG_AUDIO__.testS2SConnection()');
+  console.log('🎤 Try: __DEBUG_AUDIO__.testS2SSpeech()');
 }
