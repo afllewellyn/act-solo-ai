@@ -62,7 +62,7 @@ export interface TTSSpeakOptions {
 }
 
 export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerReturn => {
-  const currentEngineRef = useRef<AudioEngine>(config.engine || 'webspeech');
+  const currentEngineRef = useRef<AudioEngine>(config.engine || 's2s');
   const fallbackAttemptedRef = useRef(false);
   
   // Initialize TTS and Speech Recognition hooks
