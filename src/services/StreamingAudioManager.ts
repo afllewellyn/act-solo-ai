@@ -176,7 +176,7 @@ export class StreamingAudioManager {
     return new Promise((resolve, reject) => {
       try {
         // Convert Uint8Array to Blob and create object URL
-        const blob = new Blob([chunk.data], { type: 'audio/mpeg' });
+        const blob = new Blob([new Uint8Array(chunk.data)], { type: 'audio/mpeg' });
         const audioUrl = URL.createObjectURL(blob);
 
         // Create audio element
