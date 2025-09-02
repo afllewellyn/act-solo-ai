@@ -15,6 +15,16 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
   return {};
 }
 
+// Boot diagnostics: check secret presence without exposing it
+try {
+  const hasKeyAtBoot = !!Deno.env.get('OPENAI_API_KEY');
+  const envKeys = Object.keys((Deno.env as any).toObject?.() || {});
+  console.log('[Health Realtime] Boot - OPENAI_API_KEY present:', hasKeyAtBoot, hasKeyAtBoot ? `(len=${Deno.env.get('OPENAI_API_KEY')!.length})` : '');
+  console.log('[Health Realtime] Boot - env keys count:', envKeys.length);
+} catch (_) {
+  console.log('[Health Realtime] Boot - env introspection not available');
+}
+
 // @ts-ignore - Deno-specific API
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');

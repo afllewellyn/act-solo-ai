@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 
+// Boot diagnostics: check secret presence without exposing it
+try {
+  const hasKeyAtBoot = !!Deno.env.get('OPENAI_API_KEY');
+  const envKeys = Object.keys((Deno.env as any).toObject?.() || {});
+  console.log('[S2S] Boot - OPENAI_API_KEY present:', hasKeyAtBoot, hasKeyAtBoot ? `(len=${Deno.env.get('OPENAI_API_KEY')!.length})` : '');
+  console.log('[S2S] Boot - env keys count:', envKeys.length);
+} catch (_) {
+  console.log('[S2S] Boot - env introspection not available');
+}
+
 serve(async (req) => {
   // Allow basic health probes and CORS preflight
   if (req.method === 'OPTIONS') {
