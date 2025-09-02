@@ -28,10 +28,11 @@ serve(async (req) => {
     console.log('[S2S] Client WebSocket connected');
 
     try {
-      // Read API key without exposing it in logs
+      // Read API key and verify presence (without exposing it in logs)
       const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
       const hasKey = !!OPENAI_API_KEY;
       console.log('[S2S] OPENAI_API_KEY present:', hasKey, hasKey ? `(len=${OPENAI_API_KEY!.length})` : '');
+      console.log('[S2S] Environment check - key exists:', hasKey);
 
       if (!OPENAI_API_KEY) {
         console.error('[S2S] Missing OpenAI API key');
