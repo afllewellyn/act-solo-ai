@@ -1,6 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-
+import { connectWebSocket } from "https://deno.land/std@0.168.0/ws/mod.ts";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -101,110 +101,101 @@ serve(async (req) => {
       // 2) Connect upstream WS to OpenAI Realtime API using ephemeral token
       console.log('[S2S] Connecting to OpenAI Realtime API via WebSocket...');
       try {
-        openAISocket = new WebSocket(
-          'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01',
-          {
-            headers: {
-              'Authorization': `Bearer ${EPHEMERAL_KEY}`,
-              'OpenAI-Beta': 'realtime=v1'
-            }
-          } as any // Edge runtime supports headers option
-        );
-      } catch (err) {
-        console.error('[S2S] Error creating OpenAI WebSocket:', err);
-        try { socket.send(JSON.stringify({ type: 'error', error: 'Failed to initialize upstream WebSocket' })); } catch { }
-        socket.close(1011, 'OpenAI WS init failed');
-        return;
-      }
+        const url = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
+        const headers = new Headers({
+          'Authorization': `Bearer ${EPHEMERAL_KEY}`,
+          'OpenAI-Beta': 'realtime=v1',
+          'Origin': 'https://functions.supabase.co',
+        });
 
-      openAISocket.onopen = () => {
+        // Use Deno std/ws client to pass headers (mirrors health-realtime approach)
+        // @ts-ignore - std/ws client returns a compatible WebSocket-like object
+        const ws: any = await connectWebSocket(url, headers);
+        openAISocket = ws as unknown as WebSocket;
         upstreamReady = true;
+        (openAISocket as any).readyState = WebSocket.OPEN;
         console.log('[S2S] Connected to OpenAI Realtime API');
 
         // Flush any buffered client messages
         if (pendingClientMessages.length) {
           console.log(`[S2S] Flushing ${pendingClientMessages.length} buffered client messages`);
           pendingClientMessages.splice(0).forEach((m) => {
-            try { openAISocket?.send(m); } catch (e) { console.error('[S2S] Flush send error:', e); }
+            try { (ws as any).send(m as any); } catch (e) { console.error('[S2S] Flush send error:', e); }
           });
         }
-      };
 
-      openAISocket.onmessage = (event) => {
-        // Forward upstream events to client; also inject session.update after session.created
-        try {
-          let forwarded = false;
-          if (typeof event.data === 'string') {
-            try {
-              const data = JSON.parse(event.data);
-              if (data?.type) {
-                console.log('[S2S] <- OpenAI:', data.type);
-                if (data.type === 'session.created') {
-                  // Send session.update with critical audio settings
-                  const updateEvent = {
-                    type: 'session.update',
-                    session: {
-                      modalities: ['text', 'audio'],
-                      instructions: 'You are a helpful speech rehearsal assistant.',
-                      voice: 'alloy',
-                      input_audio_format: 'pcm16',
-                      output_audio_format: 'pcm16',
-                      input_audio_transcription: { model: 'whisper-1' },
-                      turn_detection: {
-                        type: 'server_vad',
-                        threshold: 0.5,
-                        prefix_padding_ms: 300,
-                        silence_duration_ms: 900
-                      },
-                      tool_choice: 'auto',
-                      temperature: 0.8,
-                      max_response_output_tokens: 'inf'
-                    }
-                  } as const;
+        // Pump upstream -> client
+        (async () => {
+          try {
+            for await (const msg of ws) {
+              try {
+                if (typeof msg === 'string') {
                   try {
-                    openAISocket?.send(JSON.stringify(updateEvent));
-                    console.log('[S2S] -> OpenAI: session.update sent');
-                  } catch (e) {
-                    console.error('[S2S] Failed to send session.update:', e);
+                    const data = JSON.parse(msg);
+                    if (data?.type) {
+                      console.log('[S2S] <- OpenAI:', data.type);
+                      if (data.type === 'session.created') {
+                        const updateEvent = {
+                          type: 'session.update',
+                          session: {
+                            modalities: ['text', 'audio'],
+                            instructions: 'You are a helpful speech rehearsal assistant.',
+                            voice: 'alloy',
+                            input_audio_format: 'pcm16',
+                            output_audio_format: 'pcm16',
+                            input_audio_transcription: { model: 'whisper-1' },
+                            turn_detection: {
+                              type: 'server_vad',
+                              threshold: 0.5,
+                              prefix_padding_ms: 300,
+                              silence_duration_ms: 900,
+                            },
+                            tool_choice: 'auto',
+                            temperature: 0.8,
+                            max_response_output_tokens: 'inf',
+                          },
+                        } as const;
+                        try {
+                          ws.send(JSON.stringify(updateEvent));
+                          console.log('[S2S] -> OpenAI: session.update sent');
+                        } catch (e) {
+                          console.error('[S2S] Failed to send session.update:', e);
+                        }
+                      }
+                    }
+                  } catch { /* not JSON */ }
+                  if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(msg);
+                  }
+                } else if (msg instanceof Uint8Array) {
+                  if (socket.readyState === WebSocket.OPEN) {
+                    socket.send(msg);
                   }
                 }
+              } catch (err) {
+                console.error('[S2S] Error processing OpenAI message:', err);
               }
-            } catch {
-              // not JSON, just forward
+            }
+            // Loop ended (upstream closed)
+            console.log('[S2S] OpenAI WebSocket closed (loop end)');
+            (openAISocket as any).readyState = WebSocket.CLOSED;
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.close(1000, 'Upstream closed');
+            }
+          } catch (loopErr) {
+            console.error('[S2S] Upstream read loop error:', loopErr);
+            (openAISocket as any).readyState = WebSocket.CLOSED;
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.close(1011, 'Upstream error');
             }
           }
-
-          if (socket.readyState === WebSocket.OPEN) {
-            socket.send(event.data);
-            forwarded = true;
-          }
-          if (!forwarded) {
-            console.warn('[S2S] Upstream message not forwarded (socket not open)');
-          }
-        } catch (error) {
-          console.error('[S2S] Error processing OpenAI message:', error);
-        }
-      };
-
-      openAISocket.onerror = (error) => {
-        console.error('[S2S] OpenAI WebSocket error:', error);
-        try { socket.send(JSON.stringify({ type: 'error', error: 'OpenAI connection error' })); } catch { }
-      };
-
-      openAISocket.onclose = (event) => {
-        console.log('[S2S] OpenAI WebSocket closed:', event.code, event.reason);
-        if (socket.readyState === WebSocket.OPEN) {
-          socket.close(event.code, event.reason);
-        }
-      };
-
-    } catch (error) {
-      console.error('[S2S] Fatal error during setup:', error);
-      try { socket.send(JSON.stringify({ type: 'error', error: 'Server setup error' })); } catch { }
-      socket.close(1011, 'Server setup error');
-    }
-  };
-
+        })();
+      } catch (err) {
+        console.error('[S2S] Error creating OpenAI WebSocket:', err);
+        try { socket.send(JSON.stringify({ type: 'error', error: 'Failed to initialize upstream WebSocket' })); } catch { }
+        socket.close(1011, 'OpenAI WS init failed');
+        return;
+      }
   // Buffer client messages until upstream is ready
   socket.onmessage = (event) => {
     try {
