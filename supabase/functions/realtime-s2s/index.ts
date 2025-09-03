@@ -206,6 +206,11 @@ serve(async (req) => {
         socket.close(1011, 'OpenAI WS init failed');
         return;
       }
+    } catch (fatalErr) {
+      console.error('[S2S] onopen fatal error:', fatalErr);
+      try { socket.send(JSON.stringify({ type: 'error', error: 'Initialization error' })); } catch { }
+      socket.close(1011, 'Initialization error');
+    }
     };
 
   // Buffer client messages until upstream is ready
