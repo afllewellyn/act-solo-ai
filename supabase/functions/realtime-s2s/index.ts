@@ -39,9 +39,9 @@ serve(async (req) => {
 
     try {
       // Read API key and verify presence (without exposing it in logs)
-      const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+      const { name: keyName, value: OPENAI_API_KEY } = readOpenAIKey();
       const hasKey = !!OPENAI_API_KEY;
-      console.log('[S2S] OPENAI_API_KEY present:', hasKey, hasKey ? `(len=${OPENAI_API_KEY!.length})` : '');
+      console.log('[S2S] OpenAI key present:', hasKey, hasKey ? `(name=${keyName}, len=${OPENAI_API_KEY!.length})` : '');
       console.log('[S2S] Environment check - key exists:', hasKey);
 
       if (!OPENAI_API_KEY) {

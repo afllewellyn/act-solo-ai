@@ -114,8 +114,8 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
     }
   };
-  
-  console.log('🔧 Debug utilities available at window.__DEBUG_AUDIO__');
+  (window as any).DEBUG_AUDIO = (window as any).__DEBUG_AUDIO__;
+  console.log('🔧 Debug utilities available at window.__DEBUG_AUDIO__ and window.DEBUG_AUDIO');
   console.log('📋 Try: __DEBUG_AUDIO__.logFeatureFlags()');
   console.log('🧪 Try: __DEBUG_AUDIO__.testHealthRealtime()');
   console.log('🔊 Try: __DEBUG_AUDIO__.testS2SConnection()');

@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
 
   try {
 // @ts-ignore - Deno-specific API
-    const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+    const { value: OPENAI_API_KEY, name: keyName } = readOpenAIKey();
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not configured');
     }
