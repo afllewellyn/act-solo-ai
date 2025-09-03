@@ -101,14 +101,14 @@ serve(async (req) => {
       // 2) Connect upstream WS to OpenAI Realtime API using ephemeral token
       console.log('[S2S] Connecting to OpenAI Realtime API via WebSocket...');
       try {
-        const url = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2024-10-01';
-        const protocols = [
+        const upstreamUrl = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2025-06-03';
+        const protocols: string[] = [
           `openai-insecure-api-key.${EPHEMERAL_KEY}`,
-          'openai-beta.realtime-v1'
+          'openai-beta.realtime-v1',
         ];
-        console.log(`[S2S] OpenAI WS protocols configured: count=${protocols.length}, token_present=${EPHEMERAL_KEY.length > 0}`);
+        console.log('[S2S] Protocols check:', protocols.map(p => `"${p}"`).join(', '));
 
-        openAISocket = new WebSocket(url, protocols);
+        openAISocket = new WebSocket(upstreamUrl, protocols);
 
         openAISocket.onopen = () => {
           upstreamReady = true;
