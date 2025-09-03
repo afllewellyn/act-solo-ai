@@ -25,6 +25,15 @@ try {
   console.log('[Health Realtime] Boot - env introspection not available');
 }
 
+function getOpenAIKey() {
+  const names = ["OPENAI_API_KEY", "OPENAI_API_KEY_RELAY"] as const;
+  for (const name of names) {
+    const value = Deno.env.get(name);
+    if (value) return { name, value } as const;
+  }
+  return { name: null as string | null, value: undefined as string | undefined } as const;
+}
+
 // @ts-ignore - Deno-specific API
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');
@@ -42,7 +51,7 @@ Deno.serve(async (req) => {
 
   try {
 // @ts-ignore - Deno-specific API
-    const { value: OPENAI_API_KEY, name: keyName } = readOpenAIKey();
+    const { value: OPENAI_API_KEY, name: keyName } = getOpenAIKey();
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not configured');
     }
