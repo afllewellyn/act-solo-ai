@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 
+// Helper to read OpenAI API key with fallback and trimming
+const getOpenAIKey = () => {
+  const candidates = ['OPENAI_API_KEY', 'OPENAI_API_KEY_RELAY'] as const;
+  for (const name of candidates) {
+    const value = Deno.env.get(name)?.trim();
+    if (value) return { name, value } as const;
+  }
+  return { name: null as string | null, value: undefined as string | undefined } as const;
+};
+
 // Boot diagnostics: check secret presence without exposing it
 try {
   const envKeys = Object.keys((Deno.env as any).toObject?.() || {});
@@ -46,17 +56,14 @@ serve(async (req) => {
 
     try {
       // Read API key and verify presence (without exposing it in logs)
-      const { name: keyName, value: OPENAI_API_KEY } = readOpenAIKey();
-      const hasKey = !!OPENAI_API_KEY;
-      console.log('[S2S] OpenAI key present:', hasKey, hasKey ? `(name=${keyName}, len=${OPENAI_API_KEY!.length})` : '');
-      console.log('[S2S] Environment check - key exists:', hasKey);
-
+      const { name: keyName, value: OPENAI_API_KEY } = getOpenAIKey();
       if (!OPENAI_API_KEY) {
-        console.error('[S2S] Missing OpenAI API key');
+        console.error('[S2S] No OpenAI API key configured');
         try { socket.send(JSON.stringify({ type: 'error', error: 'Missing OpenAI API key on server' })); } catch { }
-        socket.close(1008, 'Missing API key');
+        socket.close(1011, 'Missing OpenAI API key');
         return;
       }
+      console.log(`[S2S] Using key: ${keyName}, present: true, length: ${OPENAI_API_KEY.length}`);
 
       // 1) Create ephemeral session token – validates the key before attempting WS
       console.log('[S2S] Requesting ephemeral session token...');
