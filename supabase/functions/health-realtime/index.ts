@@ -17,9 +17,13 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
 
 // Boot diagnostics: check secret presence without exposing it
 try {
-  const hasKeyAtBoot = !!Deno.env.get('OPENAI_API_KEY');
   const envKeys = Object.keys((Deno.env as any).toObject?.() || {});
-  console.log('[Health Realtime] Boot - OPENAI_API_KEY present:', hasKeyAtBoot, hasKeyAtBoot ? `(len=${Deno.env.get('OPENAI_API_KEY')!.length})` : '');
+  const { name: keyName, value: OPENAI_API_KEY } = getOpenAIKey();
+  if (OPENAI_API_KEY) {
+    console.log(`[Health Realtime] Boot - Using key: ${keyName}, present: ${!!OPENAI_API_KEY}, length: ${OPENAI_API_KEY.length}`);
+  } else {
+    console.error('[Health Realtime] Boot - No valid OpenAI API key found. Fallback failed.');
+  }
   console.log('[Health Realtime] Boot - env keys count:', envKeys.length);
 } catch (_) {
   console.log('[Health Realtime] Boot - env introspection not available');

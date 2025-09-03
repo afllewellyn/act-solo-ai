@@ -9,9 +9,16 @@ const corsHeaders = {
 
 // Boot diagnostics: check secret presence without exposing it
 try {
-  const hasKeyAtBoot = !!Deno.env.get('OPENAI_API_KEY');
   const envKeys = Object.keys((Deno.env as any).toObject?.() || {});
-  console.log('[S2S] Boot - OPENAI_API_KEY present:', hasKeyAtBoot, hasKeyAtBoot ? `(len=${Deno.env.get('OPENAI_API_KEY')!.length})` : '');
+  const primary = Deno.env.get('OPENAI_API_KEY') || '';
+  const relay = Deno.env.get('OPENAI_API_KEY_RELAY') || '';
+  const keyName = primary ? 'OPENAI_API_KEY' : (relay ? 'OPENAI_API_KEY_RELAY' : null);
+  const selected = primary || relay;
+  if (selected && keyName) {
+    console.log(`[S2S] Boot - Using key: ${keyName}, present: true, length: ${selected.length}`);
+  } else {
+    console.error('[S2S] Boot - No valid OpenAI API key found. Fallback failed.');
+  }
   console.log('[S2S] Boot - env keys count:', envKeys.length);
 } catch (_) {
   console.log('[S2S] Boot - env introspection not available');
