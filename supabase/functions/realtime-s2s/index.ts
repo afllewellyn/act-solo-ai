@@ -54,6 +54,45 @@ Deno.serve(async (req) => {
   const pendingClientMessages: Array<string | ArrayBufferLike | Blob | ArrayBufferView> = [];
   let upstreamReady = false;
 
+  // Allowlist for client-originated events. Block server-only events like session.created.
+  const isAllowedClientEvent = (evt: any): boolean => {
+    try {
+      if (!evt || typeof evt !== 'object') return false;
+      const t = (evt as any).type;
+      if (typeof t !== 'string') return false;
+
+      // Explicitly disallowed (server-emitted) events
+      const disallowed = new Set([
+        'session.created',
+        'response.created',
+        'response.delta',
+        'response.done',
+        'response.audio.delta',
+        'response.audio.done',
+        'response.audio_transcript.delta',
+        'response.audio_transcript.done',
+        'response.function_call_arguments.delta',
+        'response.function_call_arguments.done',
+        'rate_limits.updated',
+        'conversation.updated',
+      ]);
+      if (disallowed.has(t)) return false;
+
+      // Allowed client -> server events
+      const allowed = new Set([
+        'input_audio_buffer.append',
+        'input_audio_buffer.commit',
+        'response.create',
+        'response.cancel',
+        'conversation.item.create',
+        'session.update',
+      ]);
+      return allowed.has(t);
+    } catch (_) {
+      return false;
+    }
+  };
+
   socket.onopen = async () => {
     console.log('[S2S] Client WebSocket connected');
 
@@ -116,6 +155,22 @@ Deno.serve(async (req) => {
         openAISocket.onopen = () => {
           upstreamReady = true;
           console.log('[S2S] Connected to OpenAI Realtime API');
+
+          // Send minimal session.update (text-only, no server VAD) before flushing
+          const updateEvent = {
+            type: 'session.update',
+            session: {
+              modalities: ['text'],
+              turn_detection: { type: 'none' },
+            },
+          } as const;
+          try {
+            openAISocket!.send(JSON.stringify(updateEvent));
+            console.log('[S2S] -> OpenAI: session.update sent');
+          } catch (e) {
+            console.error('[S2S] Failed to send session.update:', e);
+          }
+
           // Flush any buffered client messages
           if (pendingClientMessages.length) {
             console.log(`[S2S] Flushing ${pendingClientMessages.length} buffered client messages`);
@@ -134,33 +189,8 @@ Deno.serve(async (req) => {
                 const data = JSON.parse(msg);
                 if (data?.type) {
                   console.log('[S2S] <- OpenAI:', data.type);
-                  if (data.type === 'session.created') {
-                    const updateEvent = {
-                      type: 'session.update',
-                      session: {
-                        modalities: ['text', 'audio'],
-                        instructions: 'You are a helpful speech rehearsal assistant.',
-                        voice: 'alloy',
-                        input_audio_format: 'pcm16',
-                        output_audio_format: 'pcm16',
-                        input_audio_transcription: { model: 'whisper-1' },
-                        turn_detection: {
-                          type: 'server_vad',
-                          threshold: 0.5,
-                          prefix_padding_ms: 300,
-                          silence_duration_ms: 900,
-                        },
-                        tool_choice: 'auto',
-                        temperature: 0.8,
-                        max_response_output_tokens: 'inf',
-                      },
-                    } as const;
-                    try {
-                      openAISocket!.send(JSON.stringify(updateEvent));
-                      console.log('[S2S] -> OpenAI: session.update sent');
-                    } catch (e) {
-                      console.error('[S2S] Failed to send session.update:', e);
-                    }
+                  if (data.type === 'error') {
+                    console.error('[S2S] <- OpenAI error payload:', data);
                   }
                 }
               } catch { /* not JSON */ }
@@ -219,10 +249,23 @@ Deno.serve(async (req) => {
   // Buffer client messages until upstream is ready
   socket.onmessage = (event) => {
     try {
+      const payload = event.data;
+
+      // If the message is JSON, enforce allowlist for client-originated events
+      if (typeof payload === 'string') {
+        try {
+          const parsed = JSON.parse(payload);
+          if (!isAllowedClientEvent(parsed)) {
+            console.warn('[S2S] Blocked disallowed client event:', parsed?.type);
+            return;
+          }
+        } catch (_) { /* not JSON - pass through */ }
+      }
+
       if (upstreamReady && openAISocket?.readyState === WebSocket.OPEN) {
-        openAISocket.send(event.data);
+        openAISocket.send(payload);
       } else {
-        pendingClientMessages.push(event.data);
+        pendingClientMessages.push(payload);
         console.log('[S2S] Buffered client message (upstream not ready yet)');
       }
     } catch (error) {
