@@ -223,6 +223,18 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
     await conn.write(frame);
   };
 
+  // Send a masked WebSocket PING frame (RFC6455, opcode 0x9)
+  const sendPing = async () => {
+    const maskKey = new Uint8Array(4);
+    crypto.getRandomValues(maskKey);
+    // FIN + PING (0x80 | 0x09), MASK set with zero-length payload
+    const out = new Uint8Array(2 + 4);
+    out[0] = 0x80 | 0x09;
+    out[1] = 0x80 | 0x00;
+    out.set(maskKey, 2);
+    await conn.write(out);
+  };
+
   const sendPong = async () => {
     const out = new Uint8Array([0x8A, 0x00]); // FIN + pong, no payload
     await conn.write(out);
@@ -289,7 +301,7 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
     }
   }
 
-  return { sendText, readLoop, close } as const;
+  return { sendText, sendPing, readLoop, close } as const;
 }
 
 Deno.serve(async (req) => {
@@ -308,14 +320,23 @@ Deno.serve(async (req) => {
   const connectionMode = reqUrl.searchParams.get('mode') || 'headers'; // default to header-based handshake
   const flipProto = reqUrl.searchParams.get('flip_proto') === '1';
   const useHeaderHandshake = connectionMode !== 'ws';
+  // Keep-alive config: disable with ka=0, interval via ka_ms (default 20000ms)
+  const kaDisable = reqUrl.searchParams.get('ka') === '0';
+  const kaMsParam = reqUrl.searchParams.get('ka_ms');
+  let keepAliveMs = 20000;
+  if (kaMsParam) {
+    const v = parseInt(kaMsParam, 10);
+    if (!Number.isNaN(v) && v >= 0) keepAliveMs = v;
+  }
 
   const { socket, response } = Deno.upgradeWebSocket(req);
 
   let openAISocket: WebSocket | null = null;
-  let headerConn: { sendText: (s: string) => Promise<void>; readLoop: (onText: (s: string) => void, onClose: (code: number, reason: string) => void) => Promise<void>; close: (code?: number, reason?: string) => Promise<void> } | null = null;
+  let headerConn: { sendText: (s: string) => Promise<void>; sendPing: () => Promise<void>; readLoop: (onText: (s: string) => void, onClose: (code: number, reason: string) => void) => Promise<void>; close: (code?: number, reason?: string) => Promise<void> } | null = null;
   const pendingClientMessages: Array<string> = [];
   let upstreamReady = false;
   let sentSessionUpdate = false;
+  let keepAliveTimer: number | undefined;
 
   // Allowlist for client-originated events. Block server-only events like session.created.
   const isAllowedClientEvent = (evt: any): boolean => {
@@ -463,11 +484,29 @@ Deno.serve(async (req) => {
             },
             (code: number, reason: string) => {
               console.log('[S2S] OpenAI (headers mode) closed:', code, reason);
+              if (keepAliveTimer) { try { clearInterval(keepAliveTimer as any); } catch {} keepAliveTimer = undefined; }
               if (socket.readyState === WebSocket.OPEN) {
                 try { socket.close(1000, 'Upstream closed'); } catch {}
               }
             }
           );
+
+          // Enable upstream keep-alive pings if configured
+          if (!kaDisable && keepAliveMs > 0) {
+            try {
+              keepAliveTimer = setInterval(async () => {
+                try {
+                  await headerConn!.sendPing();
+                  console.log('[S2S] -> OpenAI: ping');
+                } catch (e) {
+                  console.error('[S2S] Upstream ping failed:', e);
+                }
+              }, keepAliveMs) as unknown as number;
+              console.log(`[S2S] Keep-alive enabled: every ${keepAliveMs}ms`);
+            } catch (e) {
+              console.error('[S2S] Failed to start keep-alive:', e);
+            }
+          }
 
           upstreamReady = true;
         } catch (err) {
@@ -634,12 +673,14 @@ Deno.serve(async (req) => {
 
   socket.onclose = (event) => {
     console.log('[S2S] Client WebSocket closed:', event.code, event.reason);
+    if (keepAliveTimer) { try { clearInterval(keepAliveTimer as any); } catch {} keepAliveTimer = undefined; }
     try { openAISocket?.close(); } catch { }
     try { headerConn?.close(); } catch { }
   };
 
   socket.onerror = (error) => {
     console.error('[S2S] Client WebSocket error:', error);
+    if (keepAliveTimer) { try { clearInterval(keepAliveTimer as any); } catch {} keepAliveTimer = undefined; }
     try { openAISocket?.close(); } catch { }
     try { headerConn?.close(); } catch { }
   };
