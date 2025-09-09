@@ -8,7 +8,7 @@ const corsHeaders = {
 };
 
 // Model configuration
-const OPENAI_REALTIME_MODEL = 'gpt-4o-realtime-preview-2025-06-03';
+const OPENAI_REALTIME_MODEL = 'gpt-4o-realtime-preview-2024-12-17';
 
 // Helper to read OpenAI API key with fallback and trimming
 const getOpenAIKey = () => {
@@ -246,34 +246,45 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
 
   async function readLoop(onText: (s: string) => void, onClose: (code: number, reason: string) => void) {
     let buffer = new Uint8Array(0);
-    while (true) {
-      const chunk = new Uint8Array(4096);
-      const n = await conn.read(chunk);
-      if (n === null) {
-        onClose(1000, 'Upstream EOF');
-        break;
-      }
-      const incoming = chunk.subarray(0, n);
-      const merged = new Uint8Array(buffer.length + incoming.length);
-      merged.set(buffer, 0);
-      merged.set(incoming, buffer.length);
-      buffer = merged;
+    try {
+      while (true) {
+        const chunk = new Uint8Array(4096);
+        const n = await conn.read(chunk);
+        if (n === null) {
+          onClose(1000, 'Upstream EOF');
+          break;
+        }
+        const incoming = chunk.subarray(0, n);
+        const merged = new Uint8Array(buffer.length + incoming.length);
+        merged.set(buffer, 0);
+        merged.set(incoming, buffer.length);
+        buffer = merged;
 
-      const frames = parseServerFrames(buffer);
-      let consumedTotal = 0;
-      for (const f of frames) {
-        consumedTotal += f.consumed;
-        if (f.type === 'text' && f.data) {
-          onText(f.data);
-        } else if (f.type === 'ping') {
-          try { await sendPong(); } catch (e) { console.error('[S2S] Upstream pong failed:', e); }
-        } else if (f.type === 'close') {
-          onClose(f.code ?? 1000, f.reason ?? '');
-          return;
+        const frames = parseServerFrames(buffer);
+        let consumedTotal = 0;
+        for (const f of frames) {
+          consumedTotal += f.consumed;
+          if (f.type === 'text' && f.data) {
+            onText(f.data);
+          } else if (f.type === 'ping') {
+            try { await sendPong(); } catch (e) { console.error('[S2S] Upstream pong failed:', e); }
+          } else if (f.type === 'close') {
+            onClose(f.code ?? 1000, f.reason ?? '');
+            return;
+          }
+        }
+        if (consumedTotal > 0) {
+          buffer = buffer.subarray(consumedTotal);
         }
       }
-      if (consumedTotal > 0) {
-        buffer = buffer.subarray(consumedTotal);
+    } catch (err: any) {
+      const msg = String(err?.message || err);
+      if (msg.includes('Interrupted: operation canceled')) {
+        console.log('[S2S] Upstream read interrupted (graceful shutdown).');
+        onClose(1000, 'Interrupted');
+      } else {
+        console.error('[S2S] Upstream read error:', err);
+        onClose(1011, 'Read error');
       }
     }
   }
@@ -422,8 +433,11 @@ Deno.serve(async (req) => {
                     const updateEvent = {
                       type: 'session.update',
                       session: {
-                        modalities: ['text'],
-                        turn_detection: { type: 'none' },
+                        modalities: ['text', 'audio'],
+                        input_audio_format: 'pcm16',
+                        output_audio_format: 'pcm16',
+                        turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 1000 },
+                        input_audio_transcription: { model: 'whisper-1' },
                       },
                     } as const;
 
@@ -498,8 +512,11 @@ Deno.serve(async (req) => {
                       const updateEvent = {
                         type: 'session.update',
                         session: {
-                          modalities: ['text'],
-                          turn_detection: { type: 'none' },
+                          modalities: ['text', 'audio'],
+                          input_audio_format: 'pcm16',
+                          output_audio_format: 'pcm16',
+                          turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 1000 },
+                          input_audio_transcription: { model: 'whisper-1' },
                         },
                       } as const;
                       try {
