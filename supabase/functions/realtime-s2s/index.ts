@@ -1,4 +1,4 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const corsHeaders = {
@@ -37,7 +37,7 @@ try {
   console.log('[S2S] Boot - env introspection not available');
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   // Allow basic health probes and CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
