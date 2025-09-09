@@ -37,6 +37,250 @@ try {
   console.log('[S2S] Boot - env introspection not available');
 }
 
+// Helper utilities for header-based WebSocket handshake and frame relay
+// Generates a base64 Sec-WebSocket-Key
+function generateWSKey(): string {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  // @ts-ignore - btoa exists in edge runtime
+  return btoa(String.fromCharCode(...bytes));
+}
+
+// Minimal WebSocket frame encoder for client->server text frames (masked as required by RFC6455)
+function encodeTextFrameMasked(text: string): Uint8Array {
+  const encoder = new TextEncoder();
+  const payload = encoder.encode(text);
+  const maskKey = new Uint8Array(4);
+  crypto.getRandomValues(maskKey);
+
+  const payloadLen = payload.length;
+  let headerLen = 2 + 4; // base header + mask
+  let extendedLenBytes = 0;
+  if (payloadLen >= 126 && payloadLen <= 0xffff) extendedLenBytes = 2;
+  else if (payloadLen > 0xffff) extendedLenBytes = 8;
+  headerLen += extendedLenBytes;
+
+  const out = new Uint8Array(headerLen + payloadLen);
+  let i = 0;
+  // FIN=1, opcode=1 (text)
+  out[i++] = 0x80 | 0x1;
+
+  // MASK bit set + length/extended
+  if (payloadLen < 126) {
+    out[i++] = 0x80 | payloadLen;
+  } else if (payloadLen <= 0xffff) {
+    out[i++] = 0x80 | 126;
+    out[i++] = (payloadLen >> 8) & 0xff;
+    out[i++] = payloadLen & 0xff;
+  } else {
+    out[i++] = 0x80 | 127;
+    // 64-bit length
+    const high = Math.floor(payloadLen / 2 ** 32);
+    const low = payloadLen >>> 0;
+    out[i++] = (high >>> 24) & 0xff;
+    out[i++] = (high >>> 16) & 0xff;
+    out[i++] = (high >>> 8) & 0xff;
+    out[i++] = high & 0xff;
+    out[i++] = (low >>> 24) & 0xff;
+    out[i++] = (low >>> 16) & 0xff;
+    out[i++] = (low >>> 8) & 0xff;
+    out[i++] = low & 0xff;
+  }
+
+  // Mask key
+  out.set(maskKey, i);
+  i += 4;
+
+  // Masked payload
+  for (let j = 0; j < payloadLen; j++) {
+    out[i + j] = payload[j] ^ maskKey[j % 4];
+  }
+
+  return out;
+}
+
+// Minimal parser for server->client frames (no mask expected). Handles text, ping, close.
+function parseServerFrames(buffer: Uint8Array): Array<{ type: 'text' | 'ping' | 'pong' | 'close'; data?: string; code?: number; reason?: string; consumed: number }> {
+  const results: Array<{ type: 'text' | 'ping' | 'pong' | 'close'; data?: string; code?: number; reason?: string; consumed: number }> = [];
+  let offset = 0;
+  const decoder = new TextDecoder();
+
+  while (buffer.length - offset >= 2) {
+    const b0 = buffer[offset];
+    const b1 = buffer[offset + 1];
+    const fin = (b0 & 0x80) !== 0;
+    const opcode = b0 & 0x0f;
+    const masked = (b1 & 0x80) !== 0; // server frames should be unmasked
+    let len = b1 & 0x7f;
+    let pos = offset + 2;
+
+    if (len === 126) {
+      if (buffer.length - pos < 2) break; // need more
+      len = (buffer[pos] << 8) | buffer[pos + 1];
+      pos += 2;
+    } else if (len === 127) {
+      if (buffer.length - pos < 8) break; // need more
+      const high = (buffer[pos] * 2 ** 24) + (buffer[pos + 1] << 16) + (buffer[pos + 2] << 8) + buffer[pos + 3];
+      const low = (buffer[pos + 4] * 2 ** 24) + (buffer[pos + 5] << 16) + (buffer[pos + 6] << 8) + buffer[pos + 7];
+      pos += 8;
+      // JS can't handle >2^53 precisely; assume not needed here
+      len = high * 2 ** 32 + low;
+    }
+
+    if (masked) {
+      // server frames should not be masked; if they are, we can't handle safely
+      break;
+    }
+
+    if (buffer.length - pos < len) break; // incomplete frame
+
+    const payload = buffer.subarray(pos, pos + len);
+    const consumed = pos + len - offset;
+
+    if (!fin) {
+      // fragmentation not supported in this minimal parser
+      // wait for FIN frames by breaking (keep buffer)
+      break;
+    }
+
+    if (opcode === 0x1) { // text
+      results.push({ type: 'text', data: decoder.decode(payload), consumed });
+    } else if (opcode === 0x9) { // ping
+      results.push({ type: 'ping', consumed });
+    } else if (opcode === 0xA) { // pong
+      results.push({ type: 'pong', consumed });
+    } else if (opcode === 0x8) { // close
+      let code: number | undefined;
+      let reason = '';
+      if (len >= 2) {
+        code = (payload[0] << 8) | payload[1];
+        if (len > 2) {
+          reason = new TextDecoder().decode(payload.subarray(2));
+        }
+      }
+      results.push({ type: 'close', code, reason, consumed });
+    } else {
+      // ignore other opcodes
+      results.push({ type: 'pong', consumed });
+    }
+
+    offset += consumed;
+  }
+
+  return results;
+}
+
+async function connectOpenAIWithHeaders(ephemeralKey: string) {
+  const hostname = 'api.openai.com';
+  const port = 443;
+  const conn = await Deno.connectTls({ hostname, port });
+  const key = generateWSKey();
+  const path = `/v1/realtime?model=${OPENAI_REALTIME_MODEL}`;
+  const headers = [
+    `GET ${path} HTTP/1.1`,
+    `Host: ${hostname}`,
+    'Upgrade: websocket',
+    'Connection: Upgrade',
+    `Sec-WebSocket-Key: ${key}`,
+    'Sec-WebSocket-Version: 13',
+    `Authorization: Bearer ${ephemeralKey}`,
+    'OpenAI-Beta: realtime=v1',
+    // Provide an Origin; some gateways check it
+    'Origin: https://uomdyqdvorusucuudwnz.functions.supabase.co',
+    '',
+    ''
+  ].join('\r\n');
+
+  const enc = new TextEncoder();
+  await conn.write(enc.encode(headers));
+
+  // Read HTTP response header
+  const buf = new Uint8Array(8192);
+  let total = 0;
+  while (true) {
+    const n = await conn.read(buf.subarray(total));
+    if (n === null) throw new Error('Upstream closed during handshake');
+    total += n;
+    const str = new TextDecoder().decode(buf.subarray(0, total));
+    const idx = str.indexOf('\r\n\r\n');
+    if (idx !== -1) {
+      const statusLine = str.split('\r\n', 1)[0] || '';
+      console.log('[S2S] Upstream handshake status:', statusLine);
+      if (!statusLine.includes('101')) {
+        throw new Error('Handshake failed: ' + statusLine);
+      }
+      break;
+    }
+    if (total >= buf.length) throw new Error('Handshake header too large');
+  }
+
+  // Return minimal interface for sending text and reading frames
+  const readerBuffer = new Uint8Array(0);
+  let readBuf = readerBuffer;
+
+  const sendText = async (text: string) => {
+    const frame = encodeTextFrameMasked(text);
+    await conn.write(frame);
+  };
+
+  const sendPong = async () => {
+    const out = new Uint8Array([0x8A, 0x00]); // FIN + pong, no payload
+    await conn.write(out);
+  };
+
+  const close = async (code = 1000, reason = 'Closing') => {
+    const reasonBytes = new TextEncoder().encode(reason);
+    const payloadLen = 2 + reasonBytes.length;
+    let header: number[] = [0x88]; // FIN + opcode close
+    if (payloadLen < 126) header.push(payloadLen);
+    else if (payloadLen <= 0xffff) header.push(126, (payloadLen >> 8) & 0xff, payloadLen & 0xff);
+    else throw new Error('Close reason too long');
+    const frame = new Uint8Array(header.length + payloadLen);
+    frame.set(header, 0);
+    frame[header.length] = (code >> 8) & 0xff;
+    frame[header.length + 1] = code & 0xff;
+    frame.set(reasonBytes, header.length + 2);
+    try { await conn.write(frame); } catch {}
+    try { conn.close(); } catch {}
+  };
+
+  async function readLoop(onText: (s: string) => void, onClose: (code: number, reason: string) => void) {
+    let buffer = new Uint8Array(0);
+    while (true) {
+      const chunk = new Uint8Array(4096);
+      const n = await conn.read(chunk);
+      if (n === null) {
+        onClose(1000, 'Upstream EOF');
+        break;
+      }
+      const incoming = chunk.subarray(0, n);
+      const merged = new Uint8Array(buffer.length + incoming.length);
+      merged.set(buffer, 0);
+      merged.set(incoming, buffer.length);
+      buffer = merged;
+
+      const frames = parseServerFrames(buffer);
+      let consumedTotal = 0;
+      for (const f of frames) {
+        consumedTotal += f.consumed;
+        if (f.type === 'text' && f.data) {
+          onText(f.data);
+        } else if (f.type === 'ping') {
+          try { await sendPong(); } catch (e) { console.error('[S2S] Upstream pong failed:', e); }
+        } else if (f.type === 'close') {
+          onClose(f.code ?? 1000, f.reason ?? '');
+          return;
+        }
+      }
+      if (consumedTotal > 0) {
+        buffer = buffer.subarray(consumedTotal);
+      }
+    }
+  }
+
+  return { sendText, readLoop, close } as const;
+}
+
 Deno.serve(async (req) => {
   // Allow basic health probes and CORS preflight
   if (req.method === 'OPTIONS') {
@@ -47,6 +291,12 @@ Deno.serve(async (req) => {
   if (upgradeHeader.toLowerCase() !== "websocket") {
     return new Response("Expected WebSocket connection", { status: 400, headers: corsHeaders });
   }
+
+  // Query flags for quick experiments and mode selection
+  const reqUrl = new URL(req.url);
+  const connectionMode = reqUrl.searchParams.get('mode') || 'headers'; // default to header-based handshake
+  const flipProto = reqUrl.searchParams.get('flip_proto') === '1';
+  const useHeaderHandshake = connectionMode !== 'ws';
 
   const { socket, response } = Deno.upgradeWebSocket(req);
 
