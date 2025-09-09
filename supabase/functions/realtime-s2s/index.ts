@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Methods': 'GET, POST, OPTIONS'
 };
 
+// Model configuration
+const OPENAI_REALTIME_MODEL = 'gpt-4o-realtime-preview-2025-06-03';
+
 // Helper to read OpenAI API key with fallback and trimming
 const getOpenAIKey = () => {
   const candidates = ['OPENAI_API_KEY', 'OPENAI_API_KEY_RELAY'] as const;
@@ -74,7 +77,7 @@ serve(async (req) => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'gpt-4o-realtime-preview-2024-12-17',
+          model: OPENAI_REALTIME_MODEL,
           voice: 'alloy',
           instructions: 'You are a helpful speech-to-speech practice assistant.',
         }),
@@ -101,7 +104,7 @@ serve(async (req) => {
       // 2) Connect upstream WS to OpenAI Realtime API using ephemeral token
       console.log('[S2S] Connecting to OpenAI Realtime API via WebSocket...');
       try {
-        const upstreamUrl = 'wss://api.openai.com/v1/realtime?model=gpt-4o-realtime-preview-2025-06-03';
+        const upstreamUrl = `wss://api.openai.com/v1/realtime?model=${OPENAI_REALTIME_MODEL}`;
         const protocols: string[] = [
           `openai-insecure-api-key.${EPHEMERAL_KEY}`,
           'openai-beta.realtime-v1',

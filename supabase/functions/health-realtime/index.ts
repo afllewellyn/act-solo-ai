@@ -1,6 +1,9 @@
 
 
 
+// Model configuration
+const OPENAI_REALTIME_MODEL = 'gpt-4o-realtime-preview-2025-06-03';
+
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim());
   
@@ -70,7 +73,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-realtime-preview-2024-12-17",
+        model: OPENAI_REALTIME_MODEL,
         voice: "alloy",
         instructions: "Health check test session - you are a helpful assistant."
       }),
@@ -92,7 +95,7 @@ Deno.serve(async (req) => {
       try {
         const hostname = 'api.openai.com';
         const port = 443;
-        const path = '/v1/realtime?model=gpt-4o-realtime-preview-2024-12-17';
+        const path = `/v1/realtime?model=${OPENAI_REALTIME_MODEL}`;
 
 // @ts-ignore - Deno-specific API
         const conn = await Deno.connectTls({ hostname, port });
