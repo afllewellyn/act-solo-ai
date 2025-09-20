@@ -146,8 +146,10 @@ function parseServerFrames(buffer: Uint8Array): Array<{ type: 'text' | 'ping' | 
     if (opcode === 0x1) { // text
       results.push({ type: 'text', data: decoder.decode(payload), consumed });
     } else if (opcode === 0x9) { // ping
+      console.log('[S2S] <- OpenAI: ping');
       results.push({ type: 'ping', consumed });
     } else if (opcode === 0xA) { // pong
+      console.log('[S2S] <- OpenAI: pong');
       results.push({ type: 'pong', consumed });
     } else if (opcode === 0x8) { // close
       let code: number | undefined;
@@ -158,6 +160,7 @@ function parseServerFrames(buffer: Uint8Array): Array<{ type: 'text' | 'ping' | 
           reason = new TextDecoder().decode(payload.subarray(2));
         }
       }
+      console.log(`[S2S] <- OpenAI: close (code: ${code}, reason: "${reason}")`);
       results.push({ type: 'close', code, reason, consumed });
     } else {
       // ignore other opcodes
@@ -279,7 +282,12 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
           if (f.type === 'text' && f.data) {
             onText(f.data);
           } else if (f.type === 'ping') {
-            try { await sendPong(); } catch (e) { console.error('[S2S] Upstream pong failed:', e); }
+            try { 
+              await sendPong(); 
+              console.log('[S2S] -> OpenAI: pong');
+            } catch (e) { 
+              console.error('[S2S] Upstream pong failed:', e); 
+            }
           } else if (f.type === 'close') {
             onClose(f.code ?? 1000, f.reason ?? '');
             return;
@@ -292,7 +300,7 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
     } catch (err: any) {
       const msg = String(err?.message || err);
       if (msg.includes('Interrupted: operation canceled')) {
-        console.log('[S2S] Upstream read interrupted (graceful shutdown).');
+        console.log('[S2S] Upstream read canceled (EINTR) - connection closed by peer');
         onClose(1000, 'Interrupted');
       } else {
         console.error('[S2S] Upstream read error:', err);
@@ -497,7 +505,7 @@ Deno.serve(async (req) => {
               keepAliveTimer = setInterval(async () => {
                 try {
                   await headerConn!.sendPing();
-                  console.log('[S2S] -> OpenAI: ping');
+                  console.log('[S2S] -> OpenAI: ping (keep-alive)');
                 } catch (e) {
                   console.error('[S2S] Upstream ping failed:', e);
                 }
