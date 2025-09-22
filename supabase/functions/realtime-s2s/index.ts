@@ -46,15 +46,18 @@ function generateWSKey(): string {
   return btoa(String.fromCharCode(...bytes));
 }
 
-// Minimal WebSocket frame encoder for client->server text frames (masked as required by RFC6455)
-function encodeTextFrameMasked(text: string): Uint8Array {
-  const encoder = new TextEncoder();
-  const payload = encoder.encode(text);
-  const maskKey = new Uint8Array(4);
-  crypto.getRandomValues(maskKey);
-
+// Universal WebSocket frame encoder (RFC6455 compliant)
+function encodeFrame(payload: Uint8Array, opcode: number, mask: boolean, fin = true): Uint8Array {
   const payloadLen = payload.length;
-  let headerLen = 2 + 4; // base header + mask
+  
+  // Control frames must be ≤125 bytes and not fragmented
+  if ((opcode === 0x8 || opcode === 0x9 || opcode === 0xA) && (payloadLen > 125 || !fin)) {
+    throw new Error(`Control frame opcode ${opcode} must be ≤125 bytes and FIN=1`);
+  }
+  
+  // Calculate header length
+  let headerLen = 2; // base header
+  if (mask) headerLen += 4; // mask key
   let extendedLenBytes = 0;
   if (payloadLen >= 126 && payloadLen <= 0xffff) extendedLenBytes = 2;
   else if (payloadLen > 0xffff) extendedLenBytes = 8;
@@ -62,19 +65,21 @@ function encodeTextFrameMasked(text: string): Uint8Array {
 
   const out = new Uint8Array(headerLen + payloadLen);
   let i = 0;
-  // FIN=1, opcode=1 (text)
-  out[i++] = 0x80 | 0x1;
 
-  // MASK bit set + length/extended
+  // Byte 0: FIN + RSV + opcode
+  out[i++] = (fin ? 0x80 : 0) | (opcode & 0x0f);
+
+  // Byte 1: MASK + length
+  let maskBit = mask ? 0x80 : 0;
   if (payloadLen < 126) {
-    out[i++] = 0x80 | payloadLen;
+    out[i++] = maskBit | payloadLen;
   } else if (payloadLen <= 0xffff) {
-    out[i++] = 0x80 | 126;
+    out[i++] = maskBit | 126;
     out[i++] = (payloadLen >> 8) & 0xff;
     out[i++] = payloadLen & 0xff;
   } else {
-    out[i++] = 0x80 | 127;
-    // 64-bit length
+    out[i++] = maskBit | 127;
+    // 64-bit length (big-endian)
     const high = Math.floor(payloadLen / 2 ** 32);
     const low = payloadLen >>> 0;
     out[i++] = (high >>> 24) & 0xff;
@@ -87,21 +92,65 @@ function encodeTextFrameMasked(text: string): Uint8Array {
     out[i++] = low & 0xff;
   }
 
-  // Mask key
-  out.set(maskKey, i);
-  i += 4;
+  // Mask key (if masked)
+  let maskKey: Uint8Array | null = null;
+  if (mask) {
+    maskKey = new Uint8Array(4);
+    crypto.getRandomValues(maskKey);
+    out.set(maskKey, i);
+    i += 4;
+  }
 
-  // Masked payload
-  for (let j = 0; j < payloadLen; j++) {
-    out[i + j] = payload[j] ^ maskKey[j % 4];
+  // Payload (masked if required)
+  if (mask && maskKey) {
+    for (let j = 0; j < payloadLen; j++) {
+      out[i + j] = payload[j] ^ maskKey[j % 4];
+    }
+  } else {
+    out.set(payload, i);
+  }
+
+  console.log(`[S2S] -> opcode=${opcode} fin=${fin} masked=${mask} len=${payloadLen}`);
+  if (opcode === 0x1 && payload.length > 0) {
+    // Log preview of text frames (first 120 chars, sanitized)
+    const preview = new TextDecoder().decode(payload.subarray(0, Math.min(120, payload.length)))
+      .replace(/[\x00-\x1f\x7f-\x9f]/g, '�');
+    console.log(`[S2S] -> text preview: "${preview}${payload.length > 120 ? '...' : ''}"`);
   }
 
   return out;
 }
 
-// Minimal parser for server->client frames (no mask expected). Handles text, ping, close.
-function parseServerFrames(buffer: Uint8Array): Array<{ type: 'text' | 'ping' | 'pong' | 'close'; data?: string; code?: number; reason?: string; consumed: number }> {
-  const results: Array<{ type: 'text' | 'ping' | 'pong' | 'close'; data?: string; code?: number; reason?: string; consumed: number }> = [];
+// Enhanced text frame encoder using the universal encoder
+function encodeTextFrameMasked(text: string): Uint8Array {
+  const encoder = new TextEncoder();
+  const payload = encoder.encode(text);
+  return encodeFrame(payload, 0x1, true, true);
+}
+
+// Enhanced frame decoder with fragmentation support and comprehensive opcode handling
+interface FrameResult {
+  opcode: number;
+  fin: boolean;
+  payload: Uint8Array;
+  consumed: number;
+}
+
+interface ParsedFrame {
+  type: 'text' | 'binary' | 'ping' | 'pong' | 'close' | 'continuation';
+  data?: string;
+  binaryData?: Uint8Array;
+  code?: number;
+  reason?: string;
+  consumed: number;
+}
+
+// Global fragmentation state
+let fragmentBuffer = new Uint8Array(0);
+let fragmentOpcode: number | null = null;
+
+function decodeFrames(buffer: Uint8Array): ParsedFrame[] {
+  const results: ParsedFrame[] = [];
   let offset = 0;
   const decoder = new TextDecoder();
 
@@ -109,26 +158,29 @@ function parseServerFrames(buffer: Uint8Array): Array<{ type: 'text' | 'ping' | 
     const b0 = buffer[offset];
     const b1 = buffer[offset + 1];
     const fin = (b0 & 0x80) !== 0;
+    const rsv = (b0 >>> 4) & 0x07;
     const opcode = b0 & 0x0f;
-    const masked = (b1 & 0x80) !== 0; // server frames should be unmasked
+    const masked = (b1 & 0x80) !== 0;
     let len = b1 & 0x7f;
     let pos = offset + 2;
 
+    // Parse extended length
     if (len === 126) {
-      if (buffer.length - pos < 2) break; // need more
+      if (buffer.length - pos < 2) break;
       len = (buffer[pos] << 8) | buffer[pos + 1];
       pos += 2;
     } else if (len === 127) {
-      if (buffer.length - pos < 8) break; // need more
+      if (buffer.length - pos < 8) break;
+      // Big-endian 64-bit length
       const high = (buffer[pos] * 2 ** 24) + (buffer[pos + 1] << 16) + (buffer[pos + 2] << 8) + buffer[pos + 3];
       const low = (buffer[pos + 4] * 2 ** 24) + (buffer[pos + 5] << 16) + (buffer[pos + 6] << 8) + buffer[pos + 7];
       pos += 8;
-      // JS can't handle >2^53 precisely; assume not needed here
-      len = high * 2 ** 32 + low;
+      len = high * 2 ** 32 + low; // Note: may lose precision for very large frames
     }
 
+    // Server frames should not be masked
     if (masked) {
-      // server frames should not be masked; if they are, we can't handle safely
+      console.warn('[S2S] <- Server sent masked frame (unexpected)');
       break;
     }
 
@@ -137,34 +189,78 @@ function parseServerFrames(buffer: Uint8Array): Array<{ type: 'text' | 'ping' | 
     const payload = buffer.subarray(pos, pos + len);
     const consumed = pos + len - offset;
 
-    if (!fin) {
-      // fragmentation not supported in this minimal parser
-      // wait for FIN frames by breaking (keep buffer)
-      break;
-    }
+    console.log(`[S2S] <- opcode=${opcode} fin=${fin} len=${len}`);
 
-    if (opcode === 0x1) { // text
-      results.push({ type: 'text', data: decoder.decode(payload), consumed });
-    } else if (opcode === 0x9) { // ping
-      console.log('[S2S] <- OpenAI: ping');
-      results.push({ type: 'ping', consumed });
-    } else if (opcode === 0xA) { // pong
-      console.log('[S2S] <- OpenAI: pong');
-      results.push({ type: 'pong', consumed });
-    } else if (opcode === 0x8) { // close
-      let code: number | undefined;
-      let reason = '';
-      if (len >= 2) {
-        code = (payload[0] << 8) | payload[1];
-        if (len > 2) {
-          reason = new TextDecoder().decode(payload.subarray(2));
+    // Handle fragmentation
+    if (opcode === 0x0) { // continuation frame
+      if (fragmentOpcode === null) {
+        console.warn('[S2S] <- Received continuation frame without initial frame');
+        offset += consumed;
+        continue;
+      }
+      
+      // Append to fragment buffer
+      const newBuffer = new Uint8Array(fragmentBuffer.length + payload.length);
+      newBuffer.set(fragmentBuffer, 0);
+      newBuffer.set(payload, fragmentBuffer.length);
+      fragmentBuffer = newBuffer;
+      
+      console.log('[S2S] <- fragment continue');
+      
+      if (fin) {
+        // Fragmentation complete
+        console.log('[S2S] <- fragment end');
+        const finalPayload = fragmentBuffer;
+        const finalOpcode = fragmentOpcode;
+        
+        // Reset fragment state
+        fragmentBuffer = new Uint8Array(0);
+        fragmentOpcode = null;
+        
+        // Process the assembled frame
+        if (finalOpcode === 0x1) { // text
+          results.push({ type: 'text', data: decoder.decode(finalPayload), consumed });
+        } else if (finalOpcode === 0x2) { // binary
+          results.push({ type: 'binary', binaryData: finalPayload, consumed });
         }
       }
-      console.log(`[S2S] <- OpenAI: close (code: ${code}, reason: "${reason}")`);
-      results.push({ type: 'close', code, reason, consumed });
+      
+      results.push({ type: 'continuation', consumed });
+    } else if (!fin && (opcode === 0x1 || opcode === 0x2)) {
+      // Start of fragmented message
+      console.log('[S2S] <- fragment start');
+      fragmentOpcode = opcode;
+      fragmentBuffer = new Uint8Array(payload);
+      results.push({ type: 'continuation', consumed });
     } else {
-      // ignore other opcodes
-      results.push({ type: 'pong', consumed });
+      // Complete frame
+      if (opcode === 0x1) { // text
+        const text = decoder.decode(payload);
+        results.push({ type: 'text', data: text, consumed });
+      } else if (opcode === 0x2) { // binary
+        results.push({ type: 'binary', binaryData: payload, consumed });
+      } else if (opcode === 0x9) { // ping
+        console.log(`[S2S] <- OpenAI: ping len=${len}`);
+        results.push({ type: 'ping', binaryData: payload, consumed });
+      } else if (opcode === 0xA) { // pong
+        console.log(`[S2S] <- OpenAI: pong len=${len}`);
+        results.push({ type: 'pong', binaryData: payload, consumed });
+      } else if (opcode === 0x8) { // close
+        let code: number | undefined;
+        let reason = '';
+        if (len >= 2) {
+          code = (payload[0] << 8) | payload[1];
+          if (len > 2) {
+            reason = decoder.decode(payload.subarray(2));
+          }
+        }
+        console.log(`[S2S] <- OpenAI: close (code: ${code}, reason: "${reason}")`);
+        results.push({ type: 'close', code, reason, consumed });
+      } else {
+        // Unknown opcode - log and skip
+        console.warn(`[S2S] <- Unknown opcode ${opcode}, skipping frame`);
+        results.push({ type: 'continuation', consumed });
+      }
     }
 
     offset += consumed;
@@ -226,21 +322,18 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
     await conn.write(frame);
   };
 
-  // Send a masked WebSocket PING frame (RFC6455, opcode 0x9)
+  // Send a masked WebSocket PING frame (RFC6455, opcode 0x9) with small payload
   const sendPing = async () => {
-    const maskKey = new Uint8Array(4);
-    crypto.getRandomValues(maskKey);
-    // FIN + PING (0x80 | 0x09), MASK set with zero-length payload
-    const out = new Uint8Array(2 + 4);
-    out[0] = 0x80 | 0x09;
-    out[1] = 0x80 | 0x00;
-    out.set(maskKey, 2);
-    await conn.write(out);
+    const pingPayload = new TextEncoder().encode("PING"); // 4 bytes
+    const frame = encodeFrame(pingPayload, 0x9, true, true);
+    await conn.write(frame);
   };
 
-  const sendPong = async () => {
-    const out = new Uint8Array([0x8A, 0x00]); // FIN + pong, no payload
-    await conn.write(out);
+  const sendPong = async (pingPayload?: Uint8Array) => {
+    // Send PONG with same payload as received PING (RFC6455 requirement)
+    const payload = pingPayload || new Uint8Array(0);
+    const frame = encodeFrame(payload, 0xA, true, true);
+    await conn.write(frame);
   };
 
   const close = async (code = 1000, reason = 'Closing') => {
@@ -275,22 +368,31 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
         merged.set(incoming, buffer.length);
         buffer = merged;
 
-        const frames = parseServerFrames(buffer);
+        const frames = decodeFrames(buffer);
         let consumedTotal = 0;
         for (const f of frames) {
           consumedTotal += f.consumed;
           if (f.type === 'text' && f.data) {
             onText(f.data);
+          } else if (f.type === 'binary' && f.binaryData) {
+            // Forward binary data to client (audio, etc.)
+            // Note: This would need client-side binary handling
+            console.log(`[S2S] <- OpenAI: binary frame len=${f.binaryData.length}`);
           } else if (f.type === 'ping') {
             try { 
-              await sendPong(); 
-              console.log('[S2S] -> OpenAI: pong');
+              await sendPong(f.binaryData); 
+              console.log(`[S2S] -> OpenAI: pong len=${f.binaryData?.length || 0}`);
             } catch (e) { 
               console.error('[S2S] Upstream pong failed:', e); 
             }
+          } else if (f.type === 'pong') {
+            // Received pong response to our ping
+            console.log(`[S2S] <- OpenAI: pong acknowledged len=${f.binaryData?.length || 0}`);
           } else if (f.type === 'close') {
             onClose(f.code ?? 1000, f.reason ?? '');
             return;
+          } else if (f.type === 'continuation') {
+            // Fragmentation in progress, no action needed
           }
         }
         if (consumedTotal > 0) {
@@ -300,7 +402,7 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
     } catch (err: any) {
       const msg = String(err?.message || err);
       if (msg.includes('Interrupted: operation canceled')) {
-        console.log('[S2S] Upstream read canceled (EINTR) - connection closed by peer');
+        console.log('[S2S] TLS read interrupted (EINTR) -> closing cleanly');
         onClose(1000, 'Interrupted');
       } else {
         console.error('[S2S] Upstream read error:', err);
@@ -499,13 +601,13 @@ Deno.serve(async (req) => {
             }
           );
 
-          // Enable upstream keep-alive pings if configured
+          // Enable true WebSocket keep-alive pings if configured
           if (!kaDisable && keepAliveMs > 0) {
             try {
               keepAliveTimer = setInterval(async () => {
                 try {
                   await headerConn!.sendPing();
-                  console.log('[S2S] -> OpenAI: ping (keep-alive)');
+                  console.log(`[S2S] -> OpenAI: ping (KA) len=4`);
                 } catch (e) {
                   console.error('[S2S] Upstream ping failed:', e);
                 }
