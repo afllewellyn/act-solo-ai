@@ -353,6 +353,16 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
     try { conn.close(); } catch {}
   };
 
+  // Centralized shutdown helper for RFC6455-compliant close handling
+  const shutdownConnection = async (code = 1000, reason = 'Closing') => {
+    try {
+      // Send proper close frame upstream first
+      await close(code, reason);
+    } catch (e) {
+      console.warn('[S2S] Failed to send upstream close frame:', e);
+    }
+  };
+
   async function readLoop(onText: (s: string) => void, onClose: (code: number, reason: string) => void) {
     let buffer = new Uint8Array(0);
     const fragmentState: FragmentState = { buffer: new Uint8Array(0), opcode: null };
@@ -361,6 +371,7 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
         const chunk = new Uint8Array(4096);
         const n = await conn.read(chunk);
         if (n === null) {
+          console.log('[S2S] Upstream EOF - closing cleanly');
           onClose(1000, 'Upstream EOF');
           break;
         }
@@ -391,6 +402,7 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
             // Received pong response to our ping
             console.log(`[S2S] <- OpenAI: pong acknowledged len=${f.binaryData?.length || 0}`);
           } else if (f.type === 'close') {
+            console.log(`[S2S] <- OpenAI: close frame received (code: ${f.code}, reason: "${f.reason}")`);
             onClose(f.code ?? 1000, f.reason ?? '');
             return;
           } else if (f.type === 'continuation') {
@@ -402,10 +414,15 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
         }
       }
     } catch (err: any) {
-      const msg = String(err?.message || err);
-      if (msg.includes('Interrupted: operation canceled')) {
-        console.log('[S2S] TLS read interrupted (EINTR) -> closing cleanly');
-        onClose(1000, 'Interrupted');
+      // Harden EINTR detection - check for multiple error indicators
+      const isEINTR = err?.code === 'EINTR' || 
+                      err?.name === 'Interrupted' ||
+                      String(err?.message || err).includes('Interrupted: operation canceled') ||
+                      String(err?.message || err).includes('EINTR');
+      
+      if (isEINTR) {
+        console.log('[S2S] TLS read interrupted (EINTR) -> treating as clean close');
+        onClose(1000, 'Connection interrupted');
       } else {
         console.error('[S2S] Upstream read error:', err);
         onClose(1011, 'Read error');
@@ -413,7 +430,9 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
     }
   }
 
-  return { sendText, sendPing, readLoop, close } as const;
+  return { sendText, sendPing, readLoop, close, shutdownConnection } as const;
+
+  
 }
 
 Deno.serve(async (req) => {
@@ -444,7 +463,7 @@ Deno.serve(async (req) => {
   const { socket, response } = Deno.upgradeWebSocket(req);
 
   let openAISocket: WebSocket | null = null;
-  let headerConn: { sendText: (s: string) => Promise<void>; sendPing: () => Promise<void>; readLoop: (onText: (s: string) => void, onClose: (code: number, reason: string) => void) => Promise<void>; close: (code?: number, reason?: string) => Promise<void> } | null = null;
+  let headerConn: { sendText: (s: string) => Promise<void>; sendPing: () => Promise<void>; readLoop: (onText: (s: string) => void, onClose: (code: number, reason: string) => void) => Promise<void>; close: (code?: number, reason?: string) => Promise<void>; shutdownConnection: (code?: number, reason?: string) => Promise<void> } | null = null;
   const pendingClientMessages: Array<string> = [];
   let upstreamReady = false;
   let sentSessionUpdate = false;
@@ -594,11 +613,18 @@ Deno.serve(async (req) => {
                 }
               } catch { /* not JSON */ }
             },
-            (code: number, reason: string) => {
+            async (code: number, reason: string) => {
               console.log('[S2S] OpenAI (headers mode) closed:', code, reason);
               if (keepAliveTimer) { try { clearInterval(keepAliveTimer as any); } catch {} keepAliveTimer = undefined; }
+              
+              // Centralized shutdown: send proper close frame to client
               if (socket.readyState === WebSocket.OPEN) {
-                try { socket.close(1000, 'Upstream closed'); } catch {}
+                try {
+                  // Send RFC6455-compliant close with same code
+                  socket.close(code === 1011 ? 1000 : code, reason || 'Upstream closed');
+                } catch (e) {
+                  console.warn('[S2S] Failed to close client socket properly:', e);
+                }
               }
             }
           );
@@ -624,7 +650,8 @@ Deno.serve(async (req) => {
         } catch (err) {
           console.error('[S2S] Error creating header-based upstream connection:', err);
           try { socket.send(JSON.stringify({ type: 'error', error: 'Failed to initialize upstream (headers mode)' })); } catch { }
-          socket.close(1011, 'OpenAI upstream init failed');
+          // Use 1000 for initialization failures to avoid RFC6455 violations
+          socket.close(1000, 'OpenAI upstream init failed');
           return;
         }
       } else {
@@ -717,27 +744,32 @@ Deno.serve(async (req) => {
           openAISocket.onclose = (event: CloseEvent) => {
             console.log('[S2S] OpenAI WebSocket closed:', event.code, event.reason);
             if (socket.readyState === WebSocket.OPEN) {
-              socket.close(1000, 'Upstream closed');
+              // Use the same close code from upstream, or default to 1000
+              const closeCode = event.code === 1011 ? 1000 : (event.code || 1000);
+              socket.close(closeCode, event.reason || 'Upstream closed');
             }
           };
 
           openAISocket.onerror = (error: Event | any) => {
             console.error('[S2S] OpenAI WebSocket error:', error);
             if (socket.readyState === WebSocket.OPEN) {
-              socket.close(1011, 'Upstream error');
+              // Use 1000 for errors to avoid RFC6455 violations
+              socket.close(1000, 'Upstream error');
             }
           };
         } catch (err) {
           console.error('[S2S] Error creating OpenAI WebSocket:', err);
           try { socket.send(JSON.stringify({ type: 'error', error: 'Failed to initialize upstream WebSocket' })); } catch { }
-          socket.close(1011, 'OpenAI WS init failed');
+          // Use 1000 for initialization failures
+          socket.close(1000, 'OpenAI WS init failed');
           return;
         }
       }
     } catch (fatalErr) {
       console.error('[S2S] onopen fatal error:', fatalErr);
       try { socket.send(JSON.stringify({ type: 'error', error: 'Initialization error' })); } catch { }
-      socket.close(1011, 'Initialization error');
+      // Use 1000 for initialization errors
+      socket.close(1000, 'Initialization error');
     }
     };
 
@@ -783,18 +815,48 @@ Deno.serve(async (req) => {
     }
   };
 
-  socket.onclose = (event) => {
+  socket.onclose = async (event) => {
     console.log('[S2S] Client WebSocket closed:', event.code, event.reason);
     if (keepAliveTimer) { try { clearInterval(keepAliveTimer as any); } catch {} keepAliveTimer = undefined; }
-    try { openAISocket?.close(); } catch { }
-    try { headerConn?.close(); } catch { }
+    
+    // Centralized shutdown: send proper close frames upstream
+    try { 
+      if (headerConn) {
+        await headerConn.shutdownConnection(1000, 'Client disconnected');
+      }
+    } catch (e) { 
+      console.warn('[S2S] Failed to shutdown header connection:', e); 
+    }
+    
+    try { 
+      if (openAISocket?.readyState === WebSocket.OPEN) {
+        openAISocket.close(1000, 'Client disconnected'); 
+      }
+    } catch (e) { 
+      console.warn('[S2S] Failed to close OpenAI socket:', e); 
+    }
   };
 
-  socket.onerror = (error) => {
+  socket.onerror = async (error) => {
     console.error('[S2S] Client WebSocket error:', error);
     if (keepAliveTimer) { try { clearInterval(keepAliveTimer as any); } catch {} keepAliveTimer = undefined; }
-    try { openAISocket?.close(); } catch { }
-    try { headerConn?.close(); } catch { }
+    
+    // Centralized shutdown on client error
+    try { 
+      if (headerConn) {
+        await headerConn.shutdownConnection(1000, 'Client error');
+      }
+    } catch (e) { 
+      console.warn('[S2S] Failed to shutdown header connection on error:', e); 
+    }
+    
+    try { 
+      if (openAISocket?.readyState === WebSocket.OPEN) {
+        openAISocket.close(1000, 'Client error'); 
+      }
+    } catch (e) { 
+      console.warn('[S2S] Failed to close OpenAI socket on error:', e); 
+    }
   };
   return response;
 });

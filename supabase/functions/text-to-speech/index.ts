@@ -243,16 +243,17 @@ if (req.method === 'OPTIONS') {
       },
     )
   } catch (error) {
-    console.error(`[${timestamp}] TTS Error:`, error.message)
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error(`[${timestamp}] TTS Error:`, errorMessage)
     
     // Don't expose sensitive error details
-    const sanitizedError = error.message.includes('API key') 
+    const sanitizedError = errorMessage.includes('API key') 
       ? 'Authentication error'
-      : error.message.includes('network')
+      : errorMessage.includes('network')
       ? 'Network error'
-      : error.message.includes('ELEVENLABS_API_KEY')
+      : errorMessage.includes('ELEVENLABS_API_KEY')
       ? 'Configuration error'
-      : error.message
+      : errorMessage
     
     return new Response(
       JSON.stringify({ 
