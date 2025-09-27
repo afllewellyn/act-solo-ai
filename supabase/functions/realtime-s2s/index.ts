@@ -206,26 +206,26 @@ function decodeFrames(buffer: Uint8Array): ParsedFrame[] {
       fragmentBuffer = newBuffer;
       
       console.log('[S2S] <- fragment continue');
-      
+
       if (fin) {
         // Fragmentation complete
         console.log('[S2S] <- fragment end');
         const finalPayload = fragmentBuffer;
         const finalOpcode = fragmentOpcode;
-        
+
         // Reset fragment state
         fragmentBuffer = new Uint8Array(0);
         fragmentOpcode = null;
-        
+
         // Process the assembled frame
         if (finalOpcode === 0x1) { // text
           results.push({ type: 'text', data: decoder.decode(finalPayload), consumed });
         } else if (finalOpcode === 0x2) { // binary
           results.push({ type: 'binary', binaryData: finalPayload, consumed });
         }
+      } else {
+        results.push({ type: 'continuation', consumed });
       }
-      
-      results.push({ type: 'continuation', consumed });
     } else if (!fin && (opcode === 0x1 || opcode === 0x2)) {
       // Start of fragmented message
       console.log('[S2S] <- fragment start');
@@ -337,17 +337,17 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
   };
 
   const close = async (code = 1000, reason = 'Closing') => {
-    const reasonBytes = new TextEncoder().encode(reason);
-    const payloadLen = 2 + reasonBytes.length;
-    let header: number[] = [0x88]; // FIN + opcode close
-    if (payloadLen < 126) header.push(payloadLen);
-    else if (payloadLen <= 0xffff) header.push(126, (payloadLen >> 8) & 0xff, payloadLen & 0xff);
-    else throw new Error('Close reason too long');
-    const frame = new Uint8Array(header.length + payloadLen);
-    frame.set(header, 0);
-    frame[header.length] = (code >> 8) & 0xff;
-    frame[header.length + 1] = code & 0xff;
-    frame.set(reasonBytes, header.length + 2);
+    const encoder = new TextEncoder();
+    let reasonBytes = encoder.encode(reason);
+    if (reasonBytes.length > 123) {
+      console.warn('[S2S] Close reason truncated to 123 bytes');
+      reasonBytes = reasonBytes.slice(0, 123);
+    }
+    const payload = new Uint8Array(2 + reasonBytes.length);
+    payload[0] = (code >> 8) & 0xff;
+    payload[1] = code & 0xff;
+    payload.set(reasonBytes, 2);
+    const frame = encodeFrame(payload, 0x8, true, true);
     try { await conn.write(frame); } catch {}
     try { conn.close(); } catch {}
   };
