@@ -145,11 +145,12 @@ interface ParsedFrame {
   consumed: number;
 }
 
-// Global fragmentation state
-let fragmentBuffer = new Uint8Array(0);
-let fragmentOpcode: number | null = null;
+interface FragmentState {
+  buffer: Uint8Array;
+  opcode: number | null;
+}
 
-function decodeFrames(buffer: Uint8Array): ParsedFrame[] {
+function decodeFrames(buffer: Uint8Array, state: FragmentState): ParsedFrame[] {
   const results: ParsedFrame[] = [];
   let offset = 0;
   const decoder = new TextDecoder();
@@ -193,29 +194,29 @@ function decodeFrames(buffer: Uint8Array): ParsedFrame[] {
 
     // Handle fragmentation
     if (opcode === 0x0) { // continuation frame
-      if (fragmentOpcode === null) {
+      if (state.opcode === null) {
         console.warn('[S2S] <- Received continuation frame without initial frame');
         offset += consumed;
         continue;
       }
-      
+
       // Append to fragment buffer
-      const newBuffer = new Uint8Array(fragmentBuffer.length + payload.length);
-      newBuffer.set(fragmentBuffer, 0);
-      newBuffer.set(payload, fragmentBuffer.length);
-      fragmentBuffer = newBuffer;
-      
+      const newBuffer = new Uint8Array(state.buffer.length + payload.length);
+      newBuffer.set(state.buffer, 0);
+      newBuffer.set(payload, state.buffer.length);
+      state.buffer = newBuffer;
+
       console.log('[S2S] <- fragment continue');
 
       if (fin) {
         // Fragmentation complete
         console.log('[S2S] <- fragment end');
-        const finalPayload = fragmentBuffer;
-        const finalOpcode = fragmentOpcode;
+        const finalPayload = state.buffer;
+        const finalOpcode = state.opcode;
 
         // Reset fragment state
-        fragmentBuffer = new Uint8Array(0);
-        fragmentOpcode = null;
+        state.buffer = new Uint8Array(0);
+        state.opcode = null;
 
         // Process the assembled frame
         if (finalOpcode === 0x1) { // text
@@ -229,8 +230,8 @@ function decodeFrames(buffer: Uint8Array): ParsedFrame[] {
     } else if (!fin && (opcode === 0x1 || opcode === 0x2)) {
       // Start of fragmented message
       console.log('[S2S] <- fragment start');
-      fragmentOpcode = opcode;
-      fragmentBuffer = new Uint8Array(payload);
+      state.opcode = opcode;
+      state.buffer = new Uint8Array(payload);
       results.push({ type: 'continuation', consumed });
     } else {
       // Complete frame
@@ -354,6 +355,7 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
 
   async function readLoop(onText: (s: string) => void, onClose: (code: number, reason: string) => void) {
     let buffer = new Uint8Array(0);
+    const fragmentState: FragmentState = { buffer: new Uint8Array(0), opcode: null };
     try {
       while (true) {
         const chunk = new Uint8Array(4096);
@@ -368,7 +370,7 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
         merged.set(incoming, buffer.length);
         buffer = merged;
 
-        const frames = decodeFrames(buffer);
+        const frames = decodeFrames(buffer, fragmentState);
         let consumedTotal = 0;
         for (const f of frames) {
           consumedTotal += f.consumed;
