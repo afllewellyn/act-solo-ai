@@ -789,12 +789,16 @@ Deno.serve(async (req) => {
                   }
 
                   if (data.type === 'session.created' && !sentSessionUpdate) {
+                    const sessionAudioFormat = {
+                      type: 'pcm16',
+                      sample_rate_hz: audioGatingState.currentSampleRate,
+                    } as const;
                     const updateEvent = {
                       type: 'session.update',
                       session: {
                         modalities: ['text', 'audio'],
-                        input_audio_format: 'pcm16',
-                        output_audio_format: 'pcm16',
+                        input_audio_format: sessionAudioFormat,
+                        output_audio_format: sessionAudioFormat,
                         turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 1000 },
                         input_audio_transcription: { model: 'whisper-1' },
                       },
@@ -901,12 +905,16 @@ Deno.serve(async (req) => {
                       console.error('[S2S] <- OpenAI error payload:', data);
                     }
                     if (data.type === 'session.created' && !sentSessionUpdate) {
+                      const sessionAudioFormat = {
+                        type: 'pcm16',
+                        sample_rate_hz: audioGatingState.currentSampleRate,
+                      } as const;
                       const updateEvent = {
                         type: 'session.update',
                         session: {
                           modalities: ['text', 'audio'],
-                          input_audio_format: 'pcm16',
-                          output_audio_format: 'pcm16',
+                          input_audio_format: sessionAudioFormat,
+                          output_audio_format: sessionAudioFormat,
                           turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 1000 },
                           input_audio_transcription: { model: 'whisper-1' },
                         },
