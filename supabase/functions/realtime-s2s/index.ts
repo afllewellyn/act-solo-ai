@@ -133,19 +133,15 @@ function drainDeferredCommits(audioState: AudioGatingState): string[] {
       continue;
     }
 
-    // Check if we now have sufficient audio
+    // Check if we now have sufficient audio for this specific commit
     if (audioState.accumulatedAudioBytes >= audioState.currentAudioThreshold) {
       readyCommits.push(deferredCommit.message);
-      console.log(`[S2S] Releasing deferred commit after ${age}ms wait`);
+      // Subtract threshold per commit to ensure each commit has its own audio chunk
+      audioState.accumulatedAudioBytes -= audioState.currentAudioThreshold;
+      console.log(`[S2S] Releasing deferred commit after ${age}ms wait, remaining audio: ${audioState.accumulatedAudioBytes} bytes`);
     } else {
       remainingCommits.push(deferredCommit);
     }
-  }
-
-  // Only reset accumulator after all ready commits are identified
-  if (readyCommits.length > 0) {
-    audioState.accumulatedAudioBytes = 0;
-    console.log(`[S2S] Reset audio accumulator after releasing ${readyCommits.length} commit(s)`);
   }
 
   audioState.deferredCommits = remainingCommits;
