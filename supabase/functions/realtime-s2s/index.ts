@@ -136,11 +136,16 @@ function drainDeferredCommits(audioState: AudioGatingState): string[] {
     // Check if we now have sufficient audio
     if (audioState.accumulatedAudioBytes >= audioState.currentAudioThreshold) {
       readyCommits.push(deferredCommit.message);
-      audioState.accumulatedAudioBytes = 0; // Reset after each commit
       console.log(`[S2S] Releasing deferred commit after ${age}ms wait`);
     } else {
       remainingCommits.push(deferredCommit);
     }
+  }
+
+  // Only reset accumulator after all ready commits are identified
+  if (readyCommits.length > 0) {
+    audioState.accumulatedAudioBytes = 0;
+    console.log(`[S2S] Reset audio accumulator after releasing ${readyCommits.length} commit(s)`);
   }
 
   audioState.deferredCommits = remainingCommits;
@@ -1013,13 +1018,28 @@ Deno.serve(async (req) => {
       if (parsedEvent.type === 'session.update') {
         try {
           const sessionEvent = JSON.parse(payload);
-          if (sessionEvent?.session?.input_audio_format && 
-              sessionEvent?.session?.input_audio_format !== 'pcm16') {
-            console.log('[S2S] Audio format change detected, resetting audio gating state');
-            audioGatingState.accumulatedAudioBytes = 0;
-            audioGatingState.deferredCommits = [];
+          
+          // Check for audio format changes
+          if (sessionEvent?.session?.input_audio_format) {
+            const audioFormat = sessionEvent.session.input_audio_format;
+            
+            // Handle different format structures
+            if (typeof audioFormat === 'object' && audioFormat.sample_rate_hz) {
+              // New format: { type: 'pcm16', sample_rate_hz: 24000 }
+              audioGatingState.currentSampleRate = audioFormat.sample_rate_hz;
+              console.log(`[S2S] Audio format detected: ${audioFormat.type} @ ${audioFormat.sample_rate_hz}Hz`);
+            } else if (typeof audioFormat === 'string' && audioFormat !== 'pcm16') {
+              // Legacy format change detection
+              console.log('[S2S] Audio format change detected, resetting audio gating state');
+              audioGatingState.accumulatedAudioBytes = 0;
+              audioGatingState.deferredCommits = [];
+            }
+            
+            audioGatingState.currentAudioThreshold = calculateAudioThreshold(audioGatingState.currentSampleRate);
+            console.log(`[S2S] Updated audio threshold to ${audioGatingState.currentAudioThreshold} bytes (${audioGatingState.currentSampleRate}Hz)`);
           }
-          // Extract sample rate if available
+          
+          // Legacy fallback for direct sample_rate
           if (sessionEvent?.session?.sample_rate) {
             audioGatingState.currentSampleRate = sessionEvent.session.sample_rate;
             audioGatingState.currentAudioThreshold = calculateAudioThreshold(audioGatingState.currentSampleRate);
@@ -1044,11 +1064,30 @@ Deno.serve(async (req) => {
         return;
       }
 
-      // Check for newly available deferred commits after audio accumulation
-      if (parsedEvent.type === 'input_audio_buffer.append') {
+      // Forward the current message first if approved
+      if (gatingDecision.shouldForward) {
+        if (useHeaderHandshake) {
+          if (headerConn) {
+            try { await headerConn.sendText(payload); } catch (e) { console.error('[S2S] Upstream send error (headers mode):', e); }
+          } else {
+            pendingClientMessages.push(payload);
+            console.log('[S2S] Buffered client message (upstream not ready yet)');
+          }
+        } else {
+          if (upstreamReady && openAISocket?.readyState === WebSocket.OPEN) {
+            openAISocket.send(payload);
+          } else {
+            pendingClientMessages.push(payload);
+            console.log('[S2S] Buffered client message (upstream not ready yet)');
+          }
+        }
+      }
+
+      // After forwarding audio append, check for newly available deferred commits
+      if (parsedEvent.type === 'input_audio_buffer.append' && gatingDecision.shouldForward) {
         const readyCommits = drainDeferredCommits(audioGatingState);
         for (const commitMessage of readyCommits) {
-          // Forward ready commits immediately
+          // Forward ready commits after the audio has been sent
           if (useHeaderHandshake) {
             if (headerConn) {
               try { 
@@ -1067,25 +1106,6 @@ Deno.serve(async (req) => {
               pendingClientMessages.push(commitMessage);
               console.log('[S2S] Buffered deferred commit (upstream not ready yet)');
             }
-          }
-        }
-      }
-
-      // Forward the current message if approved
-      if (gatingDecision.shouldForward) {
-        if (useHeaderHandshake) {
-          if (headerConn) {
-            try { await headerConn.sendText(payload); } catch (e) { console.error('[S2S] Upstream send error (headers mode):', e); }
-          } else {
-            pendingClientMessages.push(payload);
-            console.log('[S2S] Buffered client message (upstream not ready yet)');
-          }
-        } else {
-          if (upstreamReady && openAISocket?.readyState === WebSocket.OPEN) {
-            openAISocket.send(payload);
-          } else {
-            pendingClientMessages.push(payload);
-            console.log('[S2S] Buffered client message (upstream not ready yet)');
           }
         }
       }
