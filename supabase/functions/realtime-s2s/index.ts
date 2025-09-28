@@ -339,10 +339,18 @@ async function connectOpenAIWithHeaders(ephemeralKey: string) {
 
   const close = async (code = 1000, reason = 'Closing') => {
     const encoder = new TextEncoder();
-    let reasonBytes = encoder.encode(reason);
+    
+    // Character-level truncation to avoid splitting UTF-8 sequences
+    let truncatedReason = reason;
+    let reasonBytes = encoder.encode(truncatedReason);
     if (reasonBytes.length > 123) {
-      console.warn('[S2S] Close reason truncated to 123 bytes');
-      reasonBytes = reasonBytes.slice(0, 123);
+      console.warn('[S2S] Close reason truncated to fit 123 byte limit');
+      // Truncate at character boundaries to preserve UTF-8 validity
+      for (let i = reason.length - 1; i >= 0; i--) {
+        truncatedReason = reason.substring(0, i);
+        reasonBytes = encoder.encode(truncatedReason);
+        if (reasonBytes.length <= 123) break;
+      }
     }
     const payload = new Uint8Array(2 + reasonBytes.length);
     payload[0] = (code >> 8) & 0xff;
