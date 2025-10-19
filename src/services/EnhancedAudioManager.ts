@@ -327,46 +327,45 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
           reject(new Error('Failed to initialize audio context'));
           return;
         }
+        
+        // IMPORTANT: Send session configuration IMMEDIATELY so edge function can buffer it
+        ws.send(JSON.stringify({
+          type: 'session.update',
+          session: {
+            modalities: ['text', 'audio'],
+            instructions: `You are a helpful assistant that reads text aloud. The user will provide text and you should read it clearly and naturally. Text to read: "${text}"`,
+            voice: options.voiceId?.includes('alloy') ? 'alloy' : 'shimmer',
+            input_audio_format: 'pcm16',
+            output_audio_format: 'pcm16',
+            turn_detection: {
+              type: 'server_vad',
+              threshold: 0.5,
+              prefix_padding_ms: 300,
+              silence_duration_ms: 1000
+            }
+          }
+        }));
+        
+        // Send conversation messages immediately (will be buffered by edge function until session ready)
+        ws.send(JSON.stringify({
+          type: 'conversation.item.create',
+          item: {
+            type: 'message',
+            role: 'user',
+            content: [{ type: 'input_text', text }]
+          }
+        }));
+        
+        ws.send(JSON.stringify({ type: 'response.create' }));
       };
       
       ws.onmessage = async (event) => {
         try {
           const data = JSON.parse(event.data);
           
-          // Handle session creation (wait for this before sending configuration)
           if (data.type === 'session.created') {
             sessionCreated = true;
             logAudioManager('s2s_session_created', { sessionId: logger.getSessionId() });
-            
-            // Send session configuration after session is created
-            ws.send(JSON.stringify({
-              type: 'session.update',
-              session: {
-                modalities: ['text', 'audio'],
-                instructions: `You are a helpful assistant that reads text aloud. The user will provide text and you should read it clearly and naturally. Text to read: "${text}"`,
-                voice: options.voiceId?.includes('alloy') ? 'alloy' : 'shimmer', // Map to OpenAI voices
-                input_audio_format: 'pcm16',
-                output_audio_format: 'pcm16',
-                turn_detection: {
-                  type: 'server_vad',
-                  threshold: 0.5,
-                  prefix_padding_ms: 300,
-                  silence_duration_ms: 1000
-                }
-              }
-            }));
-            
-            // Send text to speak
-            ws.send(JSON.stringify({
-              type: 'conversation.item.create',
-              item: {
-                type: 'message',
-                role: 'user',
-                content: [{ type: 'input_text', text }]
-              }
-            }));
-            
-            ws.send(JSON.stringify({ type: 'response.create' }));
             
           } else if (data.type === 'session.updated') {
             logAudioManager('s2s_session_updated', { sessionId: logger.getSessionId() });
