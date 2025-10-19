@@ -789,26 +789,8 @@ Deno.serve(async (req) => {
                   }
 
                   if (data.type === 'session.created' && !sentSessionUpdate) {
-                    const updateEvent = {
-                      type: 'session.update',
-                      session: {
-                        modalities: ['text', 'audio'],
-                        input_audio_format: 'pcm16',
-                        output_audio_format: 'pcm16',
-                        turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 1000 },
-                        input_audio_transcription: { model: 'whisper-1' },
-                      },
-                    } as const;
-
-                    try {
-                      await headerConn!.sendText(JSON.stringify(updateEvent));
-                      sentSessionUpdate = true;
-                      console.log('[S2S] -> OpenAI: session.update sent');
-                    } catch (e) {
-                      console.error('[S2S] Failed to send session.update:', e);
-                    }
-
-                    console.log('[S2S] Waiting for session.updated before flushing buffered client messages');
+                    sentSessionUpdate = true;
+                    console.log('[S2S] Session created - will relay client session.update from buffer');
                   }
 
                   if (data.type === 'session.updated' && !sessionInitialized) {
@@ -901,24 +883,8 @@ Deno.serve(async (req) => {
                       console.error('[S2S] <- OpenAI error payload:', data);
                     }
                     if (data.type === 'session.created' && !sentSessionUpdate) {
-                      const updateEvent = {
-                        type: 'session.update',
-                        session: {
-                          modalities: ['text', 'audio'],
-                          input_audio_format: 'pcm16',
-                          output_audio_format: 'pcm16',
-                          turn_detection: { type: 'server_vad', threshold: 0.5, prefix_padding_ms: 300, silence_duration_ms: 1000 },
-                          input_audio_transcription: { model: 'whisper-1' },
-                        },
-                      } as const;
-                      try {
-                        openAISocket!.send(JSON.stringify(updateEvent));
-                        sentSessionUpdate = true;
-                        console.log('[S2S] -> OpenAI: session.update sent');
-                      } catch (e) {
-                        console.error('[S2S] Failed to send session.update:', e);
-                      }
-                      console.log('[S2S] Waiting for session.updated before flushing buffered client messages');
+                      sentSessionUpdate = true;
+                      console.log('[S2S] Session created - will relay client session.update from buffer');
                     }
                     if (data.type === 'session.updated' && !sessionInitialized) {
                       sessionInitialized = true;
