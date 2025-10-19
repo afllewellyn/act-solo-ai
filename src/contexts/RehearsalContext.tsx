@@ -148,7 +148,17 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   // Initialize state machine when rehearsal mode is enabled
   useEffect(() => {
     if (rehearsalMode && scriptContent && characters.length > 0 && !stateMachineRef.current) {
-      console.log('🎭 Initializing State Machine for rehearsal');
+      console.log('🎭 Initializing State Machine + VAD connection for rehearsal');
+      
+      // Initialize persistent VAD connection
+      audioManager.initializeVADConnection().catch((error) => {
+        console.error('Failed to initialize VAD:', error);
+        toast({
+          title: "Microphone Error",
+          description: "Could not access microphone. Please check permissions.",
+          variant: "destructive",
+        });
+      });
       
       const config = {
         scriptContent,
@@ -195,7 +205,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
           console.log('🎤 Cue words changed:', cueWords);
           setCurrentCueWords(cueWords);
           
-          // CRITICAL: Always start listening for cues during rehearsal, auto-enable voice activation
+          // Update VAD connection with new cue words
           if (cueWords.length > 0 && rehearsalMode) {
             // Auto-enable voice activation if not already enabled
             if (!voiceActivated) {
@@ -203,15 +213,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
               setVoiceActivated(true);
             }
             
-            console.log('🎤 Starting to listen for cue:', cueWords.join(' '));
-            audioManager.startListeningForCue(cueWords.join(' '));
+            console.log('🎤 Updating VAD cue words:', cueWords);
+            audioManager.updateVADCueWords(cueWords);
             toast({
               title: "Listening for your line",
               description: `Say: "${cueWords.join(' ')}"`,
             });
-          } else {
-            console.log('🎤 Stopping listening for cues');
-            audioManager.stopListening();
           }
         },
         onComplete: () => {
@@ -252,9 +259,10 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       stateMachineRef.current.setTextFilter(textFilter);
       stateMachineRef.current.start();
     } else if (!rehearsalMode && stateMachineRef.current) {
-      console.log('🛑 Stopping State Machine');
+      console.log('🛑 Stopping State Machine and VAD connection');
       stateMachineRef.current.stop();
       stateMachineRef.current = null;
+      audioManager.stopVADConnection();
       setRehearsalState('IDLE');
       setCurrentCueWords([]);
       setNoMatchesBanner(null);

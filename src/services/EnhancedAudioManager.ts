@@ -35,6 +35,11 @@ export interface AudioManagerReturn {
   stopListening: () => void;
   manualTriggerListen: () => void;
   
+  // VAD methods (OpenAI Realtime API)
+  initializeVADConnection: () => Promise<void>;
+  updateVADCueWords: (cueWords: string[]) => void;
+  stopVADConnection: () => void;
+  
   // Combined control
   stopAll: () => void;
   
@@ -107,34 +112,8 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     });
 
     try {
-      if (engine === 's2s' && isFeatureEnabled('realtime_api_enabled')) {
-        // Phase 3 - OpenAI Realtime API implementation via WebSocket
-        try {
-          await speakWithS2S(text, options);
-          fallbackAttemptedRef.current = false;
-          return;
-        } catch (error) {
-          logAudioManager('s2s_error', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            sessionId: logger.getSessionId()
-          });
-          
-          // Auto-fallback to Web Speech if enabled
-          if (isFeatureEnabled('auto_fallback_enabled') && !fallbackAttemptedRef.current) {
-            fallbackAttemptedRef.current = true;
-            currentEngineRef.current = 'webspeech';
-            logAudioManager('auto_fallback_to_webspeech', {
-              reason: 's2s_error',
-              sessionId: logger.getSessionId()
-            });
-            await speakText(text, options);
-            return;
-          }
-          throw error;
-        }
-      }
-      
-      // Use Web Speech engine (current implementation)
+      // Always use ElevenLabs via useTTS (webspeech engine)
+      // S2S is now used only for VAD, not for TTS
       const reqId = options.requestId || generateRequestId();
       await speak(text, {
         voiceId: options.voiceId || config.defaultVoice || '9BWtsMINqrJLrRacOk9x',
@@ -180,7 +159,219 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     }
   }, [speak, config, logger]);
 
-  // S2S implementation using WebSocket to realtime-s2s edge function
+  // Audio recorder for streaming microphone to OpenAI S2S (VAD only)
+  class AudioRecorder {
+    private stream: MediaStream | null = null;
+    private audioContext: AudioContext | null = null;
+    private processor: ScriptProcessorNode | null = null;
+    private source: MediaStreamAudioSourceNode | null = null;
+
+    constructor(private onAudioData: (audioData: Float32Array) => void) {}
+
+    async start() {
+      try {
+        this.stream = await navigator.mediaDevices.getUserMedia({
+          audio: {
+            sampleRate: 24000,
+            channelCount: 1,
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true
+          }
+        });
+        
+        this.audioContext = new AudioContext({ sampleRate: 24000 });
+        this.source = this.audioContext.createMediaStreamSource(this.stream);
+        this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+        
+        this.processor.onaudioprocess = (e) => {
+          const inputData = e.inputBuffer.getChannelData(0);
+          this.onAudioData(new Float32Array(inputData));
+        };
+        
+        this.source.connect(this.processor);
+        this.processor.connect(this.audioContext.destination);
+        
+        console.log('[AudioRecorder] Started streaming microphone to S2S');
+      } catch (error) {
+        console.error('[AudioRecorder] Error accessing microphone:', error);
+        throw error;
+      }
+    }
+
+    stop() {
+      if (this.source) this.source.disconnect();
+      if (this.processor) this.processor.disconnect();
+      if (this.stream) this.stream.getTracks().forEach(track => track.stop());
+      if (this.audioContext) this.audioContext.close();
+      
+      this.source = null;
+      this.processor = null;
+      this.stream = null;
+      this.audioContext = null;
+      
+      console.log('[AudioRecorder] Stopped microphone streaming');
+    }
+  }
+
+  // Helper: Encode Float32 PCM to base64 PCM16
+  function encodeAudioForAPI(float32Array: Float32Array): string {
+    const int16Array = new Int16Array(float32Array.length);
+    for (let i = 0; i < float32Array.length; i++) {
+      const s = Math.max(-1, Math.min(1, float32Array[i]));
+      int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+    }
+    
+    const uint8Array = new Uint8Array(int16Array.buffer);
+    let binary = '';
+    const chunkSize = 0x8000;
+    
+    for (let i = 0; i < uint8Array.length; i += chunkSize) {
+      const chunk = uint8Array.subarray(i, Math.min(i + chunkSize, uint8Array.length));
+      binary += String.fromCharCode.apply(null, Array.from(chunk));
+    }
+    
+    return btoa(binary);
+  }
+
+  // Helper: Phonetic matching for cue word detection
+  function soundsLike(spoken: string, target: string): boolean {
+    const normalize = (s: string) => s.toLowerCase().replace(/[^a-z]/g, '');
+    return normalize(spoken) === normalize(target);
+  }
+
+  // Persistent S2S connection for VAD-only (no audio output from OpenAI)
+  const vadConnectionRef = useRef<{
+    ws: WebSocket | null;
+    recorder: AudioRecorder | null;
+    isActive: boolean;
+    currentCueWords: string[];
+  }>({
+    ws: null,
+    recorder: null,
+    isActive: false,
+    currentCueWords: []
+  });
+
+  const initializeVADConnection = useCallback(async () => {
+    if (vadConnectionRef.current.isActive) {
+      console.log('[VAD] Connection already active');
+      return;
+    }
+
+    const wsUrl = `wss://uomdyqdvorusucuudwnz.functions.supabase.co/functions/v1/realtime-s2s`;
+    console.log('[VAD] Initializing connection to:', wsUrl);
+    
+    const ws = new WebSocket(wsUrl);
+    vadConnectionRef.current.ws = ws;
+    
+    ws.onopen = async () => {
+      console.log('[VAD] WebSocket connected');
+      
+      // Send VAD-only session configuration
+      ws.send(JSON.stringify({
+        type: 'session.update',
+        session: {
+          modalities: ['text'], // ✅ Text-only (no audio output)
+          instructions: 'You are a voice activity detection system. Transcribe user speech accurately without adding responses or commentary.',
+          input_audio_format: 'pcm16',
+          input_audio_transcription: {
+            model: 'whisper-1'
+          },
+          turn_detection: {
+            type: 'server_vad',
+            threshold: 0.5,
+            prefix_padding_ms: 300,
+            silence_duration_ms: 1000
+          }
+        }
+      }));
+      
+      // Initialize microphone streaming
+      const recorder = new AudioRecorder((audioData) => {
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'input_audio_buffer.append',
+            audio: encodeAudioForAPI(audioData)
+          }));
+        }
+      });
+      
+      try {
+        await recorder.start();
+        vadConnectionRef.current.recorder = recorder;
+        vadConnectionRef.current.isActive = true;
+        console.log('[VAD] Microphone streaming started');
+      } catch (error) {
+        console.error('[VAD] Failed to start microphone:', error);
+        ws.close();
+        throw error;
+      }
+    };
+    
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'session.created') {
+          console.log('[VAD] Session created');
+        } else if (data.type === 'session.updated') {
+          console.log('[VAD] Session configured for VAD-only mode');
+        } else if (data.type === 'input_audio_buffer.speech_started') {
+          console.log('[VAD] 🎤 User started speaking');
+        } else if (data.type === 'input_audio_buffer.speech_stopped') {
+          console.log('[VAD] 🎤 User stopped speaking - waiting for transcription');
+        } else if (data.type === 'conversation.item.input_audio_transcription.completed') {
+          const transcript = data.transcript?.toLowerCase() || '';
+          console.log('[VAD] 📝 Transcription:', transcript);
+          
+          // Check if transcript contains any cue words
+          const cueWords = vadConnectionRef.current.currentCueWords;
+          if (cueWords.length > 0) {
+            const matched = cueWords.some(cue => {
+              const target = cue.toLowerCase().trim();
+              return transcript.includes(target) || 
+                     transcript.endsWith(target) ||
+                     soundsLike(transcript.split(' ').pop() || '', target);
+            });
+            
+            if (matched) {
+              console.log('[VAD] ✅ Cue detected in transcript!');
+              config.onCueDetected?.(cueWords[0]);
+            }
+          }
+        } else if (data.type === 'error') {
+          console.error('[VAD] Error:', data.error);
+        }
+      } catch (error) {
+        console.error('[VAD] Message parse error:', error);
+      }
+    };
+    
+    ws.onerror = (error) => {
+      console.error('[VAD] WebSocket error:', error);
+    };
+    
+    ws.onclose = () => {
+      console.log('[VAD] Connection closed');
+      vadConnectionRef.current.recorder?.stop();
+      vadConnectionRef.current.isActive = false;
+    };
+  }, [config]);
+
+  const updateVADCueWords = useCallback((cueWords: string[]) => {
+    console.log('[VAD] Updating cue words:', cueWords);
+    vadConnectionRef.current.currentCueWords = cueWords;
+  }, []);
+
+  const stopVADConnection = useCallback(() => {
+    console.log('[VAD] Stopping connection');
+    vadConnectionRef.current.ws?.close();
+    vadConnectionRef.current.recorder?.stop();
+    vadConnectionRef.current.isActive = false;
+  }, []);
+
+  // S2S implementation using WebSocket to realtime-s2s edge function (TTS fallback)
   const speakWithS2S = useCallback(async (text: string, options: TTSSpeakOptions = {}) => {
     return new Promise<void>((resolve, reject) => {
       const wsUrl = `wss://uomdyqdvorusucuudwnz.functions.supabase.co/functions/v1/realtime-s2s`;
@@ -532,6 +723,11 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     startListeningForCue,
     stopListening,
     manualTriggerListen,
+    
+    // VAD methods (OpenAI Realtime API)
+    initializeVADConnection,
+    updateVADCueWords,
+    stopVADConnection,
     
     // Combined control
     stopAll,
