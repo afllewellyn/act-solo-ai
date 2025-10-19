@@ -20,6 +20,87 @@ const getOpenAIKey = () => {
   return { name: null as string | null, value: undefined as string | undefined } as const;
 };
 
+// Session configuration types and helpers
+interface SessionConfig {
+  modalities?: string[];
+  instructions?: string;
+  voice?: string;
+  input_audio_format?: string;
+  output_audio_format?: string;
+  turn_detection?: {
+    type: string;
+    threshold?: number;
+    prefix_padding_ms?: number;
+    silence_duration_ms?: number;
+  };
+  input_audio_transcription?: {
+    model: string;
+  };
+  temperature?: number;
+  max_response_output_tokens?: number | string;
+  [key: string]: any;
+}
+
+// Merge client session config with required technical defaults
+function mergeSessionConfig(clientConfig?: SessionConfig): SessionConfig {
+  // Required technical defaults
+  const defaults: SessionConfig = {
+    modalities: ['text', 'audio'],
+    input_audio_format: 'pcm16',
+    output_audio_format: 'pcm16',
+    turn_detection: {
+      type: 'server_vad',
+      threshold: 0.5,
+      prefix_padding_ms: 300,
+      silence_duration_ms: 1000
+    },
+    input_audio_transcription: {
+      model: 'whisper-1'
+    }
+  };
+
+  // If no client config, return defaults
+  if (!clientConfig) {
+    console.log('[S2S] No client session config - using defaults');
+    return defaults;
+  }
+
+  // Merge: client config takes precedence, but required technical params are enforced
+  const merged: SessionConfig = {
+    ...clientConfig,
+    // ALWAYS enforce these technical parameters
+    modalities: ['text', 'audio'], // Always keep audio enabled
+    input_audio_format: clientConfig.input_audio_format || 'pcm16',
+    output_audio_format: clientConfig.output_audio_format || 'pcm16',
+    // Merge turn_detection (keep client settings if provided)
+    turn_detection: clientConfig.turn_detection ? {
+      ...defaults.turn_detection,
+      ...clientConfig.turn_detection
+    } : defaults.turn_detection,
+    // Keep transcription
+    input_audio_transcription: clientConfig.input_audio_transcription || defaults.input_audio_transcription
+  };
+
+  console.log('[S2S] Merged client session config with technical defaults');
+  return merged;
+}
+
+// Extract client's session config from buffered messages
+function extractClientSessionConfig(pendingMessages: string[]): SessionConfig | null {
+  for (const msg of pendingMessages) {
+    try {
+      const parsed = JSON.parse(msg);
+      if (parsed.type === 'session.update' && parsed.session) {
+        console.log('[S2S] Found client session.update in buffer');
+        return parsed.session as SessionConfig;
+      }
+    } catch {
+      // Not JSON or parse error - skip
+    }
+  }
+  return null;
+}
+
 // Audio buffer commit gating helpers
 interface AudioGatingState {
   accumulatedAudioBytes: number;
@@ -790,7 +871,42 @@ Deno.serve(async (req) => {
 
                   if (data.type === 'session.created' && !sentSessionUpdate) {
                     sentSessionUpdate = true;
-                    console.log('[S2S] Session created - will relay client session.update from buffer');
+                    
+                    // Extract client's session config from buffered messages
+                    const clientConfig = extractClientSessionConfig(pendingClientMessages);
+                    
+                    // Merge with required technical defaults
+                    const finalConfig = mergeSessionConfig(clientConfig);
+                    
+                    // Send merged configuration
+                    const updateEvent = {
+                      type: 'session.update',
+                      session: finalConfig
+                    };
+                    
+                    try {
+                      await headerConn!.sendText(JSON.stringify(updateEvent));
+                      console.log('[S2S] -> OpenAI: session.update sent (merged config)');
+                      
+                      // Remove client's session.update from buffer (if it exists) to avoid duplicate
+                      const sessionUpdateIndex = pendingClientMessages.findIndex(msg => {
+                        try {
+                          const parsed = JSON.parse(msg);
+                          return parsed.type === 'session.update';
+                        } catch {
+                          return false;
+                        }
+                      });
+                      
+                      if (sessionUpdateIndex !== -1) {
+                        pendingClientMessages.splice(sessionUpdateIndex, 1);
+                        console.log('[S2S] Removed client session.update from buffer (already merged)');
+                      }
+                    } catch (e) {
+                      console.error('[S2S] Failed to send session.update:', e);
+                    }
+                    
+                    console.log('[S2S] Waiting for session.updated before flushing remaining messages');
                   }
 
                   if (data.type === 'session.updated' && !sessionInitialized) {
@@ -884,7 +1000,42 @@ Deno.serve(async (req) => {
                     }
                     if (data.type === 'session.created' && !sentSessionUpdate) {
                       sentSessionUpdate = true;
-                      console.log('[S2S] Session created - will relay client session.update from buffer');
+                      
+                      // Extract client's session config from buffered messages
+                      const clientConfig = extractClientSessionConfig(pendingClientMessages);
+                      
+                      // Merge with required technical defaults
+                      const finalConfig = mergeSessionConfig(clientConfig);
+                      
+                      // Send merged configuration
+                      const updateEvent = {
+                        type: 'session.update',
+                        session: finalConfig
+                      };
+                      
+                      try {
+                        openAISocket!.send(JSON.stringify(updateEvent));
+                        console.log('[S2S] -> OpenAI: session.update sent (merged config)');
+                        
+                        // Remove client's session.update from buffer (if it exists) to avoid duplicate
+                        const sessionUpdateIndex = pendingClientMessages.findIndex(msg => {
+                          try {
+                            const parsed = JSON.parse(msg);
+                            return parsed.type === 'session.update';
+                          } catch {
+                            return false;
+                          }
+                        });
+                        
+                        if (sessionUpdateIndex !== -1) {
+                          pendingClientMessages.splice(sessionUpdateIndex, 1);
+                          console.log('[S2S] Removed client session.update from buffer (already merged)');
+                        }
+                      } catch (e) {
+                        console.error('[S2S] Failed to send session.update:', e);
+                      }
+                      
+                      console.log('[S2S] Waiting for session.updated before flushing remaining messages');
                     }
                     if (data.type === 'session.updated' && !sessionInitialized) {
                       sessionInitialized = true;
