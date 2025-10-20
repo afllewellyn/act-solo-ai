@@ -218,25 +218,29 @@ export class ScriptRehearsalStateMachine {
    * Extract cue words from actor line
    */
   private extractCueWords(lineText: string): string[] {
+    // Remove character name prefix (e.g., "ACTOR: ")
     const cleanText = lineText
-      .replace(/^[A-Z][A-Z\s\-\'\.]+:\s*/, '')
-      .replace(/<[^>]*>/g, ' ')
-      .replace(/\s+/g, ' ')
+      .replace(/^[A-Z][A-Z\s\-\'\.]+:\s*/, '')  // Remove "NAME: " prefix
+      .replace(/<[^>]*>/g, ' ')                  // Remove HTML tags
+      .replace(/\s+/g, ' ')                       // Normalize whitespace
       .trim();
     
-    const words = cleanText.split(' ').filter(word => word.length > 1);
-    const fillerWords = ['the', 'a', 'an', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'as'];
-    const meaningfulWords = words.filter(word => 
-      !fillerWords.includes(word.toLowerCase()) && word.length > 2
-    );
+    // Split into words and filter empty strings
+    const words = cleanText.split(' ').filter(word => word.length > 0);
     
-    if (meaningfulWords.length >= 2) {
-      return [meaningfulWords.slice(-2).join(' ')];
-    } else if (meaningfulWords.length === 1) {
-      return [meaningfulWords[0]];
-    } else {
-      return words.slice(-2);
+    if (words.length === 0) {
+      console.warn('⚠️ No words found in actor line');
+      return [];
     }
+    
+    // Get the very last word and remove punctuation
+    const lastWord = words[words.length - 1]
+      .replace(/[.,!?;:'"()]/g, '')  // Strip punctuation
+      .trim();
+    
+    console.log(`🎯 Cue word extracted: "${lastWord}" from line: "${cleanText}"`);
+    
+    return lastWord.length > 0 ? [lastWord] : [];
   }
 
   /**
