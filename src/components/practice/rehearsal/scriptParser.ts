@@ -45,15 +45,27 @@ export const getScriptLines = (
     if (characterMatch) {
       const dialogue = characterMatch[2].trim();
       
-      // Check if line should be included based on text filter
-      const shouldInclude = checkLineMatchesFilter(line, textFilter);
-      return shouldInclude ? { type: 'ai' as const, content: line, dialogue } : null;
+      // Check if line matches the text filter (bold/italic)
+      const matchesFilter = checkLineMatchesFilter(line, textFilter);
+      
+      // Lines matching filter = AI reads them
+      // Lines NOT matching filter = Actor reads them (we wait for cue)
+      return { 
+        type: matchesFilter ? 'ai' as const : 'actor' as const, 
+        content: line, 
+        dialogue 
+      };
     } else {
       // Non-character line (stage direction, etc.)
-      const shouldInclude = checkLineMatchesFilter(line, textFilter);
-      return shouldInclude ? { type: 'ai' as const, content: line, dialogue: cleanLine } : null;
+      const matchesFilter = checkLineMatchesFilter(line, textFilter);
+      
+      return { 
+        type: matchesFilter ? 'ai' as const : 'actor' as const, 
+        content: line, 
+        dialogue: cleanLine 
+      };
     }
-  }).filter(Boolean) as ScriptLine[];
+  }) as ScriptLine[];
   
   // Check if bold/italic filter returned no content
   if ((textFilter === 'bold' || textFilter === 'italic') && filteredLines.length === 0) {
