@@ -114,7 +114,8 @@ export class ScriptRehearsalStateMachine {
     if (this.stopRequested) return;
 
     this.currentLineIndex++;
-    console.log(`⏭️ State Machine: Advanced to line ${this.currentLineIndex}`);
+    console.log(`⏭️ State Machine: Advanced to line ${this.currentLineIndex}/${this.scriptLines.length}`);
+    console.log(`⏭️ Previous state: ${this.state}`);
     
     this.setState('TRANSITIONING');
     
@@ -130,9 +131,15 @@ export class ScriptRehearsalStateMachine {
    * Handle actor cue detection
    */
   handleActorCueDetected(): void {
-    if (this.stopRequested || this.state !== 'WAITING_FOR_ACTOR_CUE') return;
+    console.log('✅ State Machine: Actor cue DETECTED - advancing');
+    console.log('✅ Previous state:', this.state);
+    
+    if (this.stopRequested || this.state !== 'WAITING_FOR_ACTOR_CUE') {
+      console.warn('⚠️ Cue detected but state is not WAITING_FOR_ACTOR_CUE:', this.state);
+      return;
+    }
 
-    console.log('🎭 State Machine: Actor cue detected');
+    console.log('✅ Advancing to next line...');
     this.advanceToNextLine();
   }
 
@@ -187,12 +194,19 @@ export class ScriptRehearsalStateMachine {
    */
   private handleActorLine(line: ScriptLine): void {
     console.log('👤 State Machine: Processing actor line');
+    console.log('👤 Line content:', line.content.substring(0, 100));
     
     const cueWords = this.extractCueWords(line.content);
+    console.log('👤 Extracted cue words:', cueWords);
+    
     this.currentCueWords = cueWords;
     this.config.onCueWordsChange?.(cueWords);
     
     this.setState('WAITING_FOR_ACTOR_CUE');
+    
+    console.log('⏸️ State Machine: PAUSED - waiting for actor cue detection');
+    console.log('⏸️ Current state:', this.state);
+    console.log('⏸️ Will only advance when handleActorCueDetected() is called');
     
     // CRITICAL: The state machine MUST wait here for actor cue detection
     // AudioManager should start listening via onCueWordsChange callback

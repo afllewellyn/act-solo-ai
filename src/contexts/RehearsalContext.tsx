@@ -152,12 +152,20 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       
       // Initialize persistent VAD connection
       audioManager.initializeVADConnection().catch((error) => {
-        console.error('Failed to initialize VAD:', error);
-        toast({
-          title: "Microphone Error",
-          description: "Could not access microphone. Please check permissions.",
-          variant: "destructive",
-        });
+        console.error('❌ [CRITICAL] Failed to initialize VAD connection');
+        console.error('❌ Error:', error);
+        console.error('❌ Error stack:', error instanceof Error ? error.stack : '(no stack trace)');
+        console.error('❌ Time:', new Date().toISOString());
+        
+        // Only show error toast if microphone permission is denied
+        if (error instanceof Error && (error.message?.includes('permission') || error.message?.includes('NotAllowedError') || error.name === 'NotAllowedError')) {
+          toast({
+            title: "Microphone Error",
+            description: "Could not access microphone. Please check permissions.",
+            variant: "destructive",
+          });
+        }
+        // Otherwise, errors are logged but don't interrupt user experience
       });
       
       const config = {

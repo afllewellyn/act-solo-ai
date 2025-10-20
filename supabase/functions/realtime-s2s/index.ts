@@ -45,7 +45,7 @@ interface SessionConfig {
 function mergeSessionConfig(clientConfig?: SessionConfig): SessionConfig {
   // Required technical defaults
   const defaults: SessionConfig = {
-    modalities: ['text', 'audio'],
+    modalities: ['text'], // Text-only: transcription without AI audio responses
     input_audio_format: 'pcm16',
     output_audio_format: 'pcm16',
     turn_detection: {
@@ -69,7 +69,7 @@ function mergeSessionConfig(clientConfig?: SessionConfig): SessionConfig {
   const merged: SessionConfig = {
     ...clientConfig,
     // ALWAYS enforce these technical parameters
-    modalities: ['text', 'audio'], // Always keep audio enabled
+    modalities: ['text'], // Text-only: transcription without AI audio responses
     input_audio_format: clientConfig.input_audio_format || 'pcm16',
     output_audio_format: clientConfig.output_audio_format || 'pcm16',
     // Merge turn_detection (keep client settings if provided)

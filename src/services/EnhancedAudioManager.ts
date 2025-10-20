@@ -260,13 +260,16 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     }
 
     const wsUrl = `wss://uomdyqdvorusucuudwnz.functions.supabase.co/functions/v1/realtime-s2s`;
-    console.log('[VAD] Initializing connection to:', wsUrl);
+    console.log('[VAD] 🔌 Attempting connection to:', wsUrl);
+    console.log('[VAD] 🕐 Timestamp:', new Date().toISOString());
     
     const ws = new WebSocket(wsUrl);
+    console.log('[VAD] WebSocket created, readyState:', ws.readyState); // 0 = CONNECTING
     vadConnectionRef.current.ws = ws;
     
     ws.onopen = async () => {
-      console.log('[VAD] WebSocket connected');
+      console.log('[VAD] ✅ WebSocket connected');
+      console.log('[VAD] 🕐 Connection established at:', new Date().toISOString());
       
       // Send VAD-only session configuration
       ws.send(JSON.stringify({
@@ -294,16 +297,22 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
             type: 'input_audio_buffer.append',
             audio: encodeAudioForAPI(audioData)
           }));
+          console.log('[VAD] 🎤 Sent audio buffer (readyState:', ws.readyState, ')');
+        } else {
+          console.warn('[VAD] ⚠️ Cannot send audio - WebSocket not open (readyState:', ws.readyState, ')');
         }
       });
       
       try {
+        console.log('[VAD] 🎤 Starting microphone recorder...');
         await recorder.start();
         vadConnectionRef.current.recorder = recorder;
         vadConnectionRef.current.isActive = true;
-        console.log('[VAD] Microphone streaming started');
+        console.log('[VAD] ✅ Microphone streaming started successfully');
       } catch (error) {
-        console.error('[VAD] Failed to start microphone:', error);
+        console.error('[VAD] ❌ Failed to start microphone:', error);
+        console.error('[VAD] Error type:', error instanceof Error ? error.name : typeof error);
+        console.error('[VAD] Error message:', error instanceof Error ? error.message : String(error));
         ws.close();
         throw error;
       }
@@ -349,11 +358,18 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     };
     
     ws.onerror = (error) => {
-      console.error('[VAD] WebSocket error:', error);
+      console.error('[VAD] ❌ WebSocket ERROR:', error);
+      console.error('[VAD] Error type:', error.type);
+      console.error('[VAD] Target readyState:', (error.target as WebSocket)?.readyState);
+      console.error('[VAD] 🕐 Error timestamp:', new Date().toISOString());
     };
     
-    ws.onclose = () => {
-      console.log('[VAD] Connection closed');
+    ws.onclose = (event) => {
+      console.log('[VAD] 🔌 WebSocket CLOSED');
+      console.log('[VAD] Close code:', event.code);
+      console.log('[VAD] Close reason:', event.reason || '(no reason provided)');
+      console.log('[VAD] Was clean:', event.wasClean);
+      console.log('[VAD] 🕐 Close timestamp:', new Date().toISOString());
       vadConnectionRef.current.recorder?.stop();
       vadConnectionRef.current.isActive = false;
     };
