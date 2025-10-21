@@ -45,7 +45,7 @@ interface SessionConfig {
 function mergeSessionConfig(clientConfig?: SessionConfig): SessionConfig {
   // Required technical defaults
   const defaults: SessionConfig = {
-    modalities: ['text'], // Text-only: transcription without AI audio responses
+    modalities: ['text', 'audio'], // Need audio modality for transcription to work
     input_audio_format: 'pcm16',
     output_audio_format: 'pcm16',
     turn_detection: {
@@ -69,7 +69,7 @@ function mergeSessionConfig(clientConfig?: SessionConfig): SessionConfig {
   const merged: SessionConfig = {
     ...clientConfig,
     // ALWAYS enforce these technical parameters
-    modalities: ['text'], // Text-only: transcription without AI audio responses
+    modalities: ['text', 'audio'], // Need audio modality for transcription to work
     input_audio_format: clientConfig.input_audio_format || 'pcm16',
     output_audio_format: clientConfig.output_audio_format || 'pcm16',
     // Merge turn_detection (keep client settings if provided)
@@ -855,19 +855,57 @@ Deno.serve(async (req) => {
           // Start reading frames and forward to client
           headerConn.readLoop(
             async (text: string) => {
-              // Forward to client first
-              if (socket.readyState === WebSocket.OPEN) {
-                try { socket.send(text); } catch {}
+              // Parse and filter before forwarding
+              try {
+                const data = JSON.parse(text);
+                const eventType = data?.type;
+                
+                if (eventType) {
+                  console.log('[S2S] <- OpenAI:', eventType);
+                  
+                  // Block OpenAI audio response events (we only want user transcription)
+                  const blockedEvents = [
+                    'response.audio.delta',           // Block AI audio chunks
+                    'response.audio.done',            // Block AI audio completion
+                    'response.audio_transcript.delta', // Block AI transcript
+                    'response.audio_transcript.done'   // Block AI transcript completion
+                  ];
+                  
+                  if (blockedEvents.includes(eventType)) {
+                    console.log('[S2S] <- Blocked OpenAI audio response:', eventType);
+                    return; // Don't forward to client
+                  }
+                  
+                  // Log user transcription events (these are allowed through)
+                  if (eventType === 'conversation.item.input_audio_transcription.completed') {
+                    console.log('[S2S] ✅ User transcription successful:', data.transcript);
+                  }
+                  
+                  if (eventType === 'conversation.item.input_audio_transcription.failed') {
+                    console.log('[S2S] ❌ User transcription failed:', data.error);
+                  }
+                  
+                  if (eventType === 'error') {
+                    console.error('[S2S] <- OpenAI error payload:', data);
+                  }
+                }
+                
+                // Forward to client (only if not blocked above)
+                if (socket.readyState === WebSocket.OPEN) {
+                  try { socket.send(text); } catch {}
+                }
+              } catch {
+                // Not JSON - forward as-is
+                if (socket.readyState === WebSocket.OPEN) {
+                  try { socket.send(text); } catch {}
+                }
+                return;
               }
 
-              // Log event type if JSON
+              // Log event type if JSON (for session init logic below)
               try {
                 const data = JSON.parse(text);
                 if (data?.type) {
-                  console.log('[S2S] <- OpenAI:', data.type);
-                  if (data.type === 'error') {
-                    console.error('[S2S] <- OpenAI error payload:', data);
-                  }
 
                   if (data.type === 'session.created' && !sentSessionUpdate) {
                     sentSessionUpdate = true;
