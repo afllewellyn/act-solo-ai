@@ -147,7 +147,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
 
   // Initialize state machine when rehearsal mode is enabled
   useEffect(() => {
-    if (rehearsalMode && scriptContent && characters.length > 0 && !stateMachineRef.current) {
+    if (rehearsalMode && scriptContent && !stateMachineRef.current) {
       console.log('🎭 Initializing State Machine + VAD connection for rehearsal');
       
       // Initialize persistent VAD connection
