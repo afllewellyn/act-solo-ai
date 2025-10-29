@@ -45,7 +45,7 @@ interface SessionConfig {
 function mergeSessionConfig(clientConfig?: SessionConfig): SessionConfig {
   // Required technical defaults
   const defaults: SessionConfig = {
-    modalities: ['text', 'audio'], // Need audio modality for transcription to work
+    modalities: ['text', 'audio'], // Audio modality needed for VAD (turn detection only)
     input_audio_format: 'pcm16',
     output_audio_format: 'pcm16',
     turn_detection: {
@@ -53,9 +53,6 @@ function mergeSessionConfig(clientConfig?: SessionConfig): SessionConfig {
       threshold: 0.5,
       prefix_padding_ms: 300,
       silence_duration_ms: 1000
-    },
-    input_audio_transcription: {
-      model: 'whisper-1'
     }
   };
 
@@ -69,16 +66,14 @@ function mergeSessionConfig(clientConfig?: SessionConfig): SessionConfig {
   const merged: SessionConfig = {
     ...clientConfig,
     // ALWAYS enforce these technical parameters
-    modalities: ['text', 'audio'], // Need audio modality for transcription to work
+    modalities: ['text', 'audio'], // Audio modality needed for VAD (turn detection only)
     input_audio_format: clientConfig.input_audio_format || 'pcm16',
     output_audio_format: clientConfig.output_audio_format || 'pcm16',
     // Merge turn_detection (keep client settings if provided)
     turn_detection: clientConfig.turn_detection ? {
       ...defaults.turn_detection,
       ...clientConfig.turn_detection
-    } : defaults.turn_detection,
-    // Keep transcription
-    input_audio_transcription: clientConfig.input_audio_transcription || defaults.input_audio_transcription
+    } : defaults.turn_detection
   };
 
   console.log('[S2S] Merged client session config with technical defaults');
