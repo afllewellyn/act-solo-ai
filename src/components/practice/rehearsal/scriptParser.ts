@@ -67,11 +67,5 @@ export const getScriptLines = (
     }
   }) as ScriptLine[];
   
-  // Check if bold/italic filter returned no content
-  if ((textFilter === 'bold' || textFilter === 'italic') && filteredLines.length === 0) {
-    console.warn(`No ${textFilter} text found in script. Falling back to all text.`);
-    return getScriptLines(scriptContent, 'all');
-  }
-  
   return filteredLines;
 };

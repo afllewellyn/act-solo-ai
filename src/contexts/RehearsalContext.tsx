@@ -171,6 +171,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       const config = {
         scriptContent,
         characters,
+        textFilter,
         onStateChange: (state: RehearsalState) => {
           console.log('🎭 State machine state changed:', state);
           setRehearsalState(state);
@@ -264,7 +265,6 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       };
 
       stateMachineRef.current = new ScriptRehearsalStateMachine(config);
-      stateMachineRef.current.setTextFilter(textFilter);
       stateMachineRef.current.start();
     } else if (!rehearsalMode && stateMachineRef.current) {
       console.log('🛑 Stopping State Machine and VAD connection');

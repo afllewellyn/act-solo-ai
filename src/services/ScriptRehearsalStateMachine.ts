@@ -21,6 +21,7 @@ export interface ScriptLine {
 export interface RehearsalStateMachineConfig {
   scriptContent: string;
   characters: Character[];
+  textFilter?: TextFilter;
   onStateChange?: (state: RehearsalState) => void;
   onLineChange?: (lineIndex: number, line: ScriptLine | null) => void;
   onCueWordsChange?: (cueWords: string[]) => void;
@@ -47,6 +48,7 @@ export class ScriptRehearsalStateMachine {
 
   constructor(config: RehearsalStateMachineConfig) {
     this.config = config;
+    this.textFilter = config.textFilter ?? 'all';
     this.initialize();
   }
 
@@ -269,16 +271,43 @@ export class ScriptRehearsalStateMachine {
   }
 
   /**
-   * Set text filter - NOTE: This only affects manual TTS, not rehearsal flow
+   * Set text filter and re-parse the script
    */
   setTextFilter(filter: TextFilter): void {
     if (this.textFilter === filter) return;
     
-    console.log(`🔄 State Machine: Text filter changed to ${filter} (rehearsal flow unaffected)`);
+    console.log(`🔄 State Machine: Text filter changed to ${filter} - reparsing script`);
     this.textFilter = filter;
     
-    // NOTE: We don't re-parse the script because rehearsal always uses complete script
-    // The filter is only used for manual TTS operations via the context
+    // Re-parse script with new filter
+    this.parseScript();
+    
+    // Keep currentLineIndex within bounds if script shrunk
+    if (this.currentLineIndex >= this.scriptLines.length) {
+      this.currentLineIndex = Math.max(0, this.scriptLines.length - 1);
+    }
+    
+    // Clear cue words since current line might have changed
+    this.currentCueWords = [];
+    this.config.onCueWordsChange?.([]);
+    
+    // Notify listeners about the current line
+    const currentLine = this.scriptLines[this.currentLineIndex] || null;
+    this.config.onLineChange?.(this.currentLineIndex, currentLine);
+    
+    // Check if new filter has no matches
+    if (this.scriptLines.length === 0) {
+      console.log(`⚠️ No lines match filter: ${filter}`);
+      this.config.onNoMatches?.(filter);
+      this.config.onScriptUpdated?.(false);
+    } else {
+      this.config.onScriptUpdated?.(true);
+    }
+    
+    // If rehearsal is running, update state for current line
+    if (this.state !== 'IDLE') {
+      this.processCurrentLine();
+    }
   }
 
   // Getters

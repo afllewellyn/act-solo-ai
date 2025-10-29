@@ -276,11 +276,8 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
         type: 'session.update',
         session: {
           modalities: ['text'], // ✅ Text-only (no audio output)
-          instructions: 'You are a voice activity detection system. Transcribe user speech accurately without adding responses or commentary.',
+          instructions: 'You are a voice activity detection system. Your only job is to detect when the user stops speaking.',
           input_audio_format: 'pcm16',
-          input_audio_transcription: {
-            model: 'whisper-1'
-          },
           turn_detection: {
             type: 'server_vad',
             threshold: 0.5,
@@ -329,26 +326,18 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
         } else if (data.type === 'input_audio_buffer.speech_started') {
           console.log('[VAD] 🎤 User started speaking');
         } else if (data.type === 'input_audio_buffer.speech_stopped') {
-          console.log('[VAD] 🎤 User stopped speaking - waiting for transcription');
-        } else if (data.type === 'conversation.item.input_audio_transcription.completed') {
-          const transcript = data.transcript?.toLowerCase() || '';
-          console.log('[VAD] 📝 Transcription:', transcript);
-          
-          // Check if transcript contains any cue words
+          console.log('[VAD] 🎤 User stopped speaking');
+          // When VAD detects speech stopped, notify cue detection system
           const cueWords = vadConnectionRef.current.currentCueWords;
           if (cueWords.length > 0) {
-            const matched = cueWords.some(cue => {
-              const target = cue.toLowerCase().trim();
-              return transcript.includes(target) || 
-                     transcript.endsWith(target) ||
-                     soundsLike(transcript.split(' ').pop() || '', target);
-            });
-            
-            if (matched) {
-              console.log('[VAD] ✅ Cue detected in transcript!');
-              config.onCueDetected?.(cueWords[0]);
-            }
+            console.log('[VAD] ✅ Speech stopped - triggering cue detection');
+            config.onCueDetected?.(cueWords[0]);
           }
+        } else if (data.type === 'conversation.item.input_audio_transcription.completed') {
+          // TODO: This handler is currently unused - transcription disabled to avoid 429 errors
+          // Kept for potential future use if needed
+          const transcript = data.transcript?.toLowerCase() || '';
+          console.log('[VAD] 📝 Transcription (unused):', transcript);
         } else if (data.type === 'error') {
           console.error('[VAD] Error:', data.error);
         }
