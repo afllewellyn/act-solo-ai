@@ -15,6 +15,7 @@ export interface AudioManagerConfig {
   defaultVoice?: string;
   language?: string;
   engine?: AudioEngine;
+  autoGainControl?: boolean;
   onTTSComplete?: () => void;
   onTTSError?: (error: string) => void;
   onSpeechError?: (error: string) => void;
@@ -166,17 +167,23 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     private processor: ScriptProcessorNode | null = null;
     private source: MediaStreamAudioSourceNode | null = null;
 
-    constructor(private onAudioData: (audioData: Float32Array) => void) {}
+    constructor(
+      private onAudioData: (audioData: Float32Array) => void,
+      private autoGainControl: boolean = true
+    ) {}
 
     async start() {
       try {
+        const agcEnabled = this.autoGainControl;
+        console.log('[AudioRecorder] Starting with AGC:', agcEnabled ? 'ENABLED' : 'DISABLED');
+        
         this.stream = await navigator.mediaDevices.getUserMedia({
           audio: {
             sampleRate: 24000,
             channelCount: 1,
             echoCancellation: true,
             noiseSuppression: true,
-            autoGainControl: true
+            autoGainControl: agcEnabled
           }
         });
         
@@ -190,7 +197,8 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
           // Diagnostic: Check for full-scale audio during silence
           const peak = Math.max(...Array.from(inputData).map(Math.abs));
           if (peak > 0.8) {
-            console.warn('[AudioRecorder] ⚠️ High amplitude detected:', peak.toFixed(3));
+            console.warn('[AudioRecorder] ⚠️ High amplitude detected:', peak.toFixed(3), 
+                         '(AGC:', agcEnabled ? 'ON' : 'OFF', ')');
           }
           
           this.onAudioData(new Float32Array(inputData));
@@ -266,12 +274,17 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
       return;
     }
 
+    // Determine AGC setting: config overrides feature flag
+    const agcEnabled = config.autoGainControl ?? isFeatureEnabled('vad_auto_gain_control');
+    console.log('[VAD] AGC setting:', agcEnabled ? 'ENABLED' : 'DISABLED',
+                '(source:', config.autoGainControl !== undefined ? 'config' : 'feature flag', ')');
+
     const wsUrl = `wss://uomdyqdvorusucuudwnz.functions.supabase.co/functions/v1/realtime-s2s`;
     console.log('[VAD] 🔌 Attempting connection to:', wsUrl);
     console.log('[VAD] 🕐 Timestamp:', new Date().toISOString());
     
     const ws = new WebSocket(wsUrl);
-    console.log('[VAD] WebSocket created, readyState:', ws.readyState); // 0 = CONNECTING
+    console.log('[VAD] WebSocket created, readyState:', ws.readyState);
     vadConnectionRef.current.ws = ws;
     
     ws.onopen = async () => {
@@ -282,7 +295,7 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
       ws.send(JSON.stringify({
         type: 'session.update',
         session: {
-          modalities: ['text'], // ✅ Text-only (no audio output)
+          modalities: ['text'],
           instructions: 'You are a voice activity detection system. Your only job is to detect when the user stops speaking.',
           input_audio_format: 'pcm16',
           turn_detection: {
@@ -294,18 +307,21 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
         }
       }));
       
-      // Initialize microphone streaming
-      const recorder = new AudioRecorder((audioData) => {
-        if (ws.readyState === WebSocket.OPEN) {
-          ws.send(JSON.stringify({
-            type: 'input_audio_buffer.append',
-            audio: encodeAudioForAPI(audioData)
-          }));
-          console.log('[VAD] 🎤 Sent audio buffer (readyState:', ws.readyState, ')');
-        } else {
-          console.warn('[VAD] ⚠️ Cannot send audio - WebSocket not open (readyState:', ws.readyState, ')');
-        }
-      });
+      // Initialize microphone streaming with AGC setting
+      const recorder = new AudioRecorder(
+        (audioData) => {
+          if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({
+              type: 'input_audio_buffer.append',
+              audio: encodeAudioForAPI(audioData)
+            }));
+            console.log('[VAD] 🎤 Sent audio buffer (readyState:', ws.readyState, ')');
+          } else {
+            console.warn('[VAD] ⚠️ Cannot send audio - WebSocket not open (readyState:', ws.readyState, ')');
+          }
+        },
+        agcEnabled
+      );
       
       try {
         console.log('[VAD] 🎤 Starting microphone recorder...');

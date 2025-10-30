@@ -11,7 +11,8 @@ export type FeatureFlag =
   | 'mobile_audio_optimization'
   | 'server_vad_enabled'
   | 'auto_fallback_enabled'
-  | 'diagnostics_overlay';
+  | 'diagnostics_overlay'
+  | 'vad_auto_gain_control';
 
 interface FeatureFlags {
   [key: string]: boolean;
@@ -27,6 +28,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   server_vad_enabled: false, // Server-side VAD (Phase 4)
   auto_fallback_enabled: true, // Engine auto-fallback (Phase 3)
   diagnostics_overlay: false, // UX diagnostics (Phase 5)
+  vad_auto_gain_control: true, // VAD Auto Gain Control - Default ON
 };
 
 // Extend window interface for feature flags
