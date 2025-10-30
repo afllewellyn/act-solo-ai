@@ -182,10 +182,17 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
         
         this.audioContext = new AudioContext({ sampleRate: 24000 });
         this.source = this.audioContext.createMediaStreamSource(this.stream);
-        this.processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+        this.processor = this.audioContext.createScriptProcessor(1600, 1, 1);
         
         this.processor.onaudioprocess = (e) => {
           const inputData = e.inputBuffer.getChannelData(0);
+          
+          // Diagnostic: Check for full-scale audio during silence
+          const peak = Math.max(...Array.from(inputData).map(Math.abs));
+          if (peak > 0.8) {
+            console.warn('[AudioRecorder] ⚠️ High amplitude detected:', peak.toFixed(3));
+          }
+          
           this.onAudioData(new Float32Array(inputData));
         };
         
@@ -326,13 +333,23 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
         } else if (data.type === 'input_audio_buffer.speech_started') {
           console.log('[VAD] 🎤 User started speaking');
         } else if (data.type === 'input_audio_buffer.speech_stopped') {
-          console.log('[VAD] 🎤 User stopped speaking');
-          // When VAD detects speech stopped, notify cue detection system
+          console.log('[VAD] 🎤 User stopped speaking - pausing audio stream');
+          
+          // CRITICAL: Stop sending audio immediately to prevent buffer overflow
+          const recorder = vadConnectionRef.current.recorder;
+          if (recorder) {
+            recorder.stop();
+            console.log('[VAD] 🛑 Audio streaming paused');
+          }
+          
+          // Trigger cue detection
           const cueWords = vadConnectionRef.current.currentCueWords;
           if (cueWords.length > 0) {
             console.log('[VAD] ✅ Speech stopped - triggering cue detection');
             config.onCueDetected?.(cueWords[0]);
           }
+          
+          // Note: Recorder will restart on next VAD session or user interaction
         } else if (data.type === 'conversation.item.input_audio_transcription.completed') {
           // TODO: This handler is currently unused - transcription disabled to avoid 429 errors
           // Kept for potential future use if needed
@@ -370,10 +387,33 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
   }, []);
 
   const stopVADConnection = useCallback(() => {
+    const conn = vadConnectionRef.current;
+    
+    if (!conn.isActive) {
+      console.log('[VAD] Connection not active');
+      return;
+    }
+    
     console.log('[VAD] Stopping connection');
-    vadConnectionRef.current.ws?.close();
-    vadConnectionRef.current.recorder?.stop();
-    vadConnectionRef.current.isActive = false;
+    
+    // Stop audio recorder first
+    if (conn.recorder) {
+      conn.recorder.stop();
+      conn.recorder = null;
+    }
+    
+    // Close WebSocket with proper status code
+    if (conn.ws) {
+      if (conn.ws.readyState === WebSocket.OPEN) {
+        conn.ws.close(1000, 'Client closing normally');
+        console.log('[VAD] Sent close frame (code 1000)');
+      }
+      conn.ws = null;
+    }
+    
+    conn.isActive = false;
+    conn.currentCueWords = [];
+    console.log('[VAD] ✅ Connection cleanup complete');
   }, []);
 
   // S2S implementation using WebSocket to realtime-s2s edge function (TTS fallback)

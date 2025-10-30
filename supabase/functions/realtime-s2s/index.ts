@@ -909,7 +909,7 @@ Deno.serve(async (req) => {
                     const clientConfig = extractClientSessionConfig(pendingClientMessages);
                     
                     // Merge with required technical defaults
-                    const finalConfig = mergeSessionConfig(clientConfig);
+                    const finalConfig = mergeSessionConfig(clientConfig ?? undefined);
                     
                     // Send merged configuration
                     const updateEvent = {
@@ -1038,7 +1038,7 @@ Deno.serve(async (req) => {
                       const clientConfig = extractClientSessionConfig(pendingClientMessages);
                       
                       // Merge with required technical defaults
-                      const finalConfig = mergeSessionConfig(clientConfig);
+                      const finalConfig = mergeSessionConfig(clientConfig ?? undefined);
                       
                       // Send merged configuration
                       const updateEvent = {
