@@ -187,9 +187,11 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
           }
         });
         
-        this.audioContext = new AudioContext({ sampleRate: 24000 });
-        this.source = this.audioContext.createMediaStreamSource(this.stream);
-        this.processor = this.audioContext.createScriptProcessor(1600, 1, 1);
+      this.audioContext = new AudioContext({ sampleRate: 24000 });
+      this.source = this.audioContext.createMediaStreamSource(this.stream);
+      // Use 2048 samples (4096 bytes) - closest power-of-two to VAD threshold (3200 bytes)
+      // At 24kHz: 2048 samples = ~85ms latency, ~12 callbacks/sec
+      this.processor = this.audioContext.createScriptProcessor(2048, 1, 1);
         
         this.processor.onaudioprocess = (e) => {
           const inputData = e.inputBuffer.getChannelData(0);
