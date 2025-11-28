@@ -15,6 +15,11 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private audioContext: AudioContext | null = null;
   private mediaRecorder: MediaRecorder | null = null;
   private config: ConversationEngineConfig;
+  
+  // Response buffering state
+  private currentResponseText: string = '';
+  private isResponseActive: boolean = false;
+  private isAudioActive: boolean = false;
 
   constructor(config: ConversationEngineConfig) {
     this.config = config;
@@ -131,6 +136,16 @@ export class ElevenAgentsEngine implements ConversationEngine {
         // ElevenLabs doesn't have explicit pause, but we can interrupt
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
         break;
+      case 'resume_agent':
+        // ElevenLabs Conversational AI doesn't support explicit resume
+        // The agent resumes automatically when the user speaks or interruption ends
+        console.warn('[ElevenAgentsEngine] resume_agent not supported by ElevenLabs - agent resumes automatically');
+        this.emitEvent({
+          type: 'error',
+          error: new Error('resume_agent command not supported by ElevenLabs Conversational AI'),
+          timestamp: Date.now(),
+        });
+        break;
       case 'interrupt':
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
         break;
@@ -213,14 +228,53 @@ export class ElevenAgentsEngine implements ConversationEngine {
           break;
 
         case 'agent_response':
+          // Start tracking response if not already active
+          if (!this.isResponseActive) {
+            this.isResponseActive = true;
+            this.currentResponseText = '';
+            this.emitEvent({
+              type: 'agent_response_started',
+              timestamp: Date.now(),
+            });
+          }
+
+          // Accumulate response text and emit delta
+          const delta = message.agent_response.text || '';
+          this.currentResponseText += delta;
           this.emitEvent({
             type: 'agent_response_delta',
-            delta: message.agent_response.text || '',
+            delta,
             timestamp: Date.now(),
           });
           break;
 
+        case 'agent_response_end':
+          // Response completed - emit final aggregated response
+          if (this.isResponseActive) {
+            this.emitEvent({
+              type: 'agent_response',
+              text: this.currentResponseText,
+              timestamp: Date.now(),
+            });
+            this.emitEvent({
+              type: 'agent_response_ended',
+              timestamp: Date.now(),
+            });
+            this.isResponseActive = false;
+            this.currentResponseText = '';
+          }
+          break;
+
         case 'audio':
+          // Track audio streaming state
+          if (!this.isAudioActive) {
+            this.isAudioActive = true;
+            this.emitEvent({
+              type: 'agent_audio_started',
+              timestamp: Date.now(),
+            });
+          }
+
           // Base64 decode audio and emit
           const audioData = this.base64ToArrayBuffer(message.audio.chunk);
           this.emitEvent({
@@ -230,9 +284,47 @@ export class ElevenAgentsEngine implements ConversationEngine {
           });
           break;
 
+        case 'audio_end':
+          // Audio streaming completed
+          if (this.isAudioActive) {
+            this.emitEvent({
+              type: 'agent_audio_ended',
+              timestamp: Date.now(),
+            });
+            this.isAudioActive = false;
+          }
+          break;
+
         case 'interruption':
+          // Handle interruption - end both response and audio if active
+          if (this.isResponseActive) {
+            this.emitEvent({
+              type: 'agent_response',
+              text: this.currentResponseText,
+              timestamp: Date.now(),
+            });
+            this.emitEvent({
+              type: 'agent_response_ended',
+              timestamp: Date.now(),
+            });
+            this.isResponseActive = false;
+            this.currentResponseText = '';
+          }
+          if (this.isAudioActive) {
+            this.emitEvent({
+              type: 'agent_audio_ended',
+              timestamp: Date.now(),
+            });
+            this.isAudioActive = false;
+          }
+          break;
+
+        case 'tool_call':
+          // Emit tool call event with name and parameters
           this.emitEvent({
-            type: 'agent_response_ended',
+            type: 'tool_call',
+            toolName: message.tool_name || 'unknown',
+            parameters: message.parameters || {},
             timestamp: Date.now(),
           });
           break;
@@ -264,6 +356,29 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   private handleClose(event: CloseEvent): void {
     console.log('[ElevenAgentsEngine] WebSocket closed:', event.code, event.reason);
+    
+    // Clean up any active response/audio state
+    if (this.isResponseActive) {
+      this.emitEvent({
+        type: 'agent_response',
+        text: this.currentResponseText,
+        timestamp: Date.now(),
+      });
+      this.emitEvent({
+        type: 'agent_response_ended',
+        timestamp: Date.now(),
+      });
+      this.isResponseActive = false;
+      this.currentResponseText = '';
+    }
+    if (this.isAudioActive) {
+      this.emitEvent({
+        type: 'agent_audio_ended',
+        timestamp: Date.now(),
+      });
+      this.isAudioActive = false;
+    }
+    
     this.setStatus('disconnected');
   }
 
