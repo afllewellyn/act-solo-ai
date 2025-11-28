@@ -9,20 +9,20 @@ import type { ScriptContext, ConversationEngineConfig } from './domain';
  * Conversation engine lifecycle states
  */
 export type ConversationStatus = 
-  | 'idle'       // Not started
-  | 'connecting' // Establishing connection
-  | 'ready'      // Connected and ready
-  | 'active'     // Conversation in progress
-  | 'error';     // Error state
+  | 'idle'         // Not started
+  | 'connecting'   // Establishing connection
+  | 'ready'        // Connected and ready
+  | 'error'        // Error state
+  | 'disconnected'; // Cleanly disconnected
 
 /**
  * Control commands sent to the engine
  */
 export type ConversationControlCommand = 
-  | { type: 'pause' }
-  | { type: 'resume' }
-  | { type: 'interrupt' }
-  | { type: 'reset' };
+  | { type: 'pause_agent' }
+  | { type: 'resume_agent' }
+  | { type: 'clear_buffer' }
+  | { type: 'interrupt' };
 
 /**
  * Normalized conversation events (provider-agnostic)
@@ -34,9 +34,12 @@ export type ConversationEvent =
   | AgentResponseDeltaEvent
   | AgentResponseEndedEvent
   | AgentResponseEvent
+  | AgentAudioStartedEvent
+  | AgentAudioDeltaEvent
+  | AgentAudioEndedEvent
   | ToolCallEvent
   | ErrorEvent
-  | StatusChangeEvent;
+  | StatusChangedEvent;
 
 export interface UserSpeechStartedEvent {
   type: 'user_speech_started';
@@ -84,9 +87,26 @@ export interface ErrorEvent {
   timestamp: number;
 }
 
-export interface StatusChangeEvent {
-  type: 'status_change';
+export interface AgentAudioStartedEvent {
+  type: 'agent_audio_started';
+  timestamp: number;
+}
+
+export interface AgentAudioDeltaEvent {
+  type: 'agent_audio_delta';
+  audioData: ArrayBuffer;
+  timestamp: number;
+}
+
+export interface AgentAudioEndedEvent {
+  type: 'agent_audio_ended';
+  timestamp: number;
+}
+
+export interface StatusChangedEvent {
+  type: 'status_changed';
   status: ConversationStatus;
+  previousStatus?: ConversationStatus;
   timestamp: number;
 }
 

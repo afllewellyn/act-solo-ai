@@ -57,8 +57,9 @@ function createStubEngine(config: ConversationEngineConfig): ConversationEngine 
     async start() {
       console.log('[StubEngine] start() called with config:', config);
       eventListeners.forEach(cb => cb({
-        type: 'status_change',
+        type: 'status_changed',
         status: 'ready',
+        previousStatus: 'idle',
         timestamp: Date.now()
       }));
     },
@@ -66,8 +67,9 @@ function createStubEngine(config: ConversationEngineConfig): ConversationEngine 
     async stop() {
       console.log('[StubEngine] stop() called');
       eventListeners.forEach(cb => cb({
-        type: 'status_change',
-        status: 'idle',
+        type: 'status_changed',
+        status: 'disconnected',
+        previousStatus: 'ready',
         timestamp: Date.now()
       }));
     },
