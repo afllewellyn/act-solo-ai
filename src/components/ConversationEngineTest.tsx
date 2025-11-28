@@ -14,6 +14,7 @@ export function ConversationEngineTest() {
   const [status, setStatus] = useState<string>('idle');
   const [events, setEvents] = useState<string[]>([]);
   const [isEnabled, setIsEnabled] = useState(false);
+  const [forceEnabled, setForceEnabled] = useState(false);
 
   useEffect(() => {
     setIsEnabled(isFeatureEnabled('conversation_engine_eleven'));
@@ -77,19 +78,23 @@ export function ConversationEngineTest() {
     addEvent('Sent interrupt command');
   };
 
-  if (!isEnabled) {
+  const handleEnableFeature = () => {
+    window.__FEATURES__ = { conversation_engine_eleven: true };
+    setForceEnabled(true);
+    addEvent('Feature flag enabled - ready to test!');
+  };
+
+  if (!isEnabled && !forceEnabled) {
     return (
       <Card className="p-6 m-4">
         <h2 className="text-xl font-bold mb-4">ConversationEngine Test</h2>
         <div className="space-y-4">
           <p className="text-muted-foreground">
-            Feature flag <code className="bg-muted px-2 py-1 rounded">conversation_engine_eleven</code> is disabled.
+            The <code className="bg-muted px-2 py-1 rounded">conversation_engine_eleven</code> feature is currently disabled.
           </p>
-          <p className="text-sm">Enable it in browser console:</p>
-          <pre className="bg-muted p-3 rounded text-xs overflow-x-auto">
-            {`window.__FEATURES__ = { conversation_engine_eleven: true };
-location.reload();`}
-          </pre>
+          <Button onClick={handleEnableFeature} size="lg">
+            Enable & Start Testing
+          </Button>
         </div>
       </Card>
     );
