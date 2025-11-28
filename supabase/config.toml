@@ -17,3 +17,6 @@ verify_jwt = false
 
 [functions.env-debug]
 verify_jwt = false
+
+[functions.eleven-agent-token]
+verify_jwt = false

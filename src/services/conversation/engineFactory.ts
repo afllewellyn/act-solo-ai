@@ -28,10 +28,8 @@ export async function createConversationEngine(
   // Phase 2: Check feature flag for ElevenLabs Conversational AI
   if (isFeatureEnabled('conversation_engine_eleven')) {
     // Dynamically import ElevenAgentsEngine to avoid loading unused code
-    // TODO Phase 2: Uncomment when ElevenAgentsEngine is implemented
-    // const { ElevenAgentsEngine } = await import('./ElevenAgentsEngine');
-    // return new ElevenAgentsEngine(config);
-    console.log('[ConversationEngine] ElevenAgentsEngine not yet implemented, using stub');
+    const { ElevenAgentsEngine } = await import('./ElevenAgentsEngine');
+    return new ElevenAgentsEngine(config);
   }
 
   // Phase 3+: Additional engines can be added here
