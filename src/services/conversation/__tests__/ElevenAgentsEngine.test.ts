@@ -89,13 +89,21 @@ Object.defineProperty(global.navigator, 'mediaDevices', {
 class MockAudioContext {
   public state = 'running';
   public sampleRate = 16000;
+  public destination = {};
   
   createMediaStreamSource() {
-    return { connect: vi.fn() };
+    return { 
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+    };
   }
   
-  createMediaStreamDestination() {
-    return { stream: {} };
+  createScriptProcessor(bufferSize: number, numberOfInputChannels: number, numberOfOutputChannels: number) {
+    return {
+      connect: vi.fn(),
+      disconnect: vi.fn(),
+      onaudioprocess: null,
+    };
   }
   
   async close() {
@@ -104,22 +112,6 @@ class MockAudioContext {
 }
 
 global.AudioContext = MockAudioContext as any;
-
-// Mock MediaRecorder
-class MockMediaRecorder {
-  public state = 'inactive';
-  public ondataavailable: ((event: any) => void) | null = null;
-  
-  start() {
-    this.state = 'recording';
-  }
-  
-  stop() {
-    this.state = 'inactive';
-  }
-}
-
-global.MediaRecorder = MockMediaRecorder as any;
 
 // Track mock WebSocket instance
 let mockWsInstance: MockWebSocket | null = null;
