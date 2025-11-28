@@ -4,27 +4,12 @@
  */
 
 /**
- * Agent role determines conversation behavior
- */
-export type AgentRole = 
-  | 'scene-partner'  // Reads other character's lines
-  | 'coach';         // Provides feedback and guidance
-
-/**
- * Performance note from coach
- */
-export interface PerformanceNote {
-  type: 'feedback' | 'encouragement' | 'correction';
-  text: string;
-  timestamp: number;
-  lineReference?: string; // Which script line triggered this note
-}
-
-/**
  * Script cue for conversation context
  */
 export interface Cue {
-  text: string;           // Cue text to listen for
+  text: string;           // Full cue text
+  characterName: string;  // Who speaks this cue
+  cueWords: string[];     // Keywords for detection
   nextLine: string;       // What agent should say next
   lineNumber: number;     // Position in script
   isUserLine: boolean;    // True if user speaks this line
@@ -36,11 +21,13 @@ export interface Cue {
  */
 export interface ScriptContext {
   scriptTitle: string;
+  scene?: string;           // Current scene identifier
+  currentLine: number;      // Current line position
+  totalLines: number;       // Total lines for progress
   currentCue?: Cue;
-  upcomingCues: Cue[];    // Next 2-3 cues for context
-  recentNotes: PerformanceNote[];
+  nextCue?: Cue;            // Immediate next cue
+  upcomingCues: Cue[];      // Lookahead (2-3 cues)
   sessionStartTime: number;
-  agentRole: AgentRole;
   customInstructions?: string; // Additional prompts
 }
 
@@ -48,10 +35,11 @@ export interface ScriptContext {
  * Configuration for conversation engine
  */
 export interface ConversationEngineConfig {
-  agentRole: AgentRole;
   agentId?: string;       // ElevenLabs agent ID
   voiceId?: string;       // Fallback voice ID
   language?: string;      // Default: 'en'
-  enableFeedback?: boolean; // Coach provides notes
+  enableTranscription?: boolean;   // Enable user speech transcription
+  enableInterruption?: boolean;    // Allow interruption handling
+  initialContext?: ScriptContext;  // Initial script context
   customInstructions?: string;
 }
