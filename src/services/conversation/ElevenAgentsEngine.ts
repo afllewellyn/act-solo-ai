@@ -1,0 +1,381 @@
+/**
+ * ElevenLabs Conversational AI Engine
+ * Phase 2: Real implementation using ElevenLabs Agents API
+ */
+
+import { ConversationEngine, ConversationStatus, ConversationEvent, ConversationControlCommand } from './types';
+import { ConversationEngineConfig, ScriptContext } from './domain';
+import { supabase } from '@/integrations/supabase/client';
+
+export class ElevenAgentsEngine implements ConversationEngine {
+  private ws: WebSocket | null = null;
+  private status: ConversationStatus = 'idle';
+  private eventListeners: Array<(event: ConversationEvent) => void> = [];
+  private mediaStream: MediaStream | null = null;
+  private audioContext: AudioContext | null = null;
+  private mediaRecorder: MediaRecorder | null = null;
+  private config: ConversationEngineConfig;
+
+  constructor(config: ConversationEngineConfig) {
+    this.config = config;
+    console.log('[ElevenAgentsEngine] Created with config:', { 
+      agentId: config.agentId,
+      voiceId: config.voiceId,
+      language: config.language 
+    });
+  }
+
+  async start(): Promise<void> {
+    console.log('[ElevenAgentsEngine] Starting...');
+    
+    try {
+      this.setStatus('connecting');
+
+      // Fetch signed URL from edge function
+      const { data, error } = await supabase.functions.invoke('eleven-agent-token');
+      
+      if (error || !data?.signed_url) {
+        throw new Error(`Failed to get signed URL: ${error?.message || 'No URL returned'}`);
+      }
+
+      console.log('[ElevenAgentsEngine] Got signed URL, connecting WebSocket...');
+
+      // Connect to ElevenLabs WebSocket
+      this.ws = new WebSocket(data.signed_url);
+      
+      this.ws.onopen = () => this.handleOpen();
+      this.ws.onmessage = (event) => this.handleMessage(event);
+      this.ws.onerror = (error) => this.handleError(error);
+      this.ws.onclose = (event) => this.handleClose(event);
+
+    } catch (error) {
+      console.error('[ElevenAgentsEngine] Start error:', error);
+      this.setStatus('error');
+      this.emitEvent({
+        type: 'error',
+        error: error instanceof Error ? error : new Error('Unknown error'),
+        timestamp: Date.now(),
+      });
+      throw error;
+    }
+  }
+
+  async stop(): Promise<void> {
+    console.log('[ElevenAgentsEngine] Stopping...');
+    
+    // Stop media recorder
+    if (this.mediaRecorder?.state === 'recording') {
+      this.mediaRecorder.stop();
+    }
+    
+    // Stop media stream
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+    }
+    
+    // Close audio context
+    if (this.audioContext?.state !== 'closed') {
+      await this.audioContext?.close();
+      this.audioContext = null;
+    }
+    
+    // Close WebSocket
+    if (this.ws?.readyState === WebSocket.OPEN) {
+      this.ws.close(1000, 'Client requested disconnect');
+    }
+    this.ws = null;
+
+    this.setStatus('disconnected');
+  }
+
+  async sendText(text: string): Promise<void> {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      console.warn('[ElevenAgentsEngine] Cannot send text, WebSocket not open');
+      return;
+    }
+
+    console.log('[ElevenAgentsEngine] Sending text:', text);
+    this.ws.send(JSON.stringify({
+      type: 'user_message',
+      text,
+    }));
+  }
+
+  async updateContext(context: ScriptContext): Promise<void> {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      console.warn('[ElevenAgentsEngine] Cannot update context, WebSocket not open');
+      return;
+    }
+
+    // Format script context for ElevenLabs
+    const contextMessage = this.formatScriptContext(context);
+    
+    console.log('[ElevenAgentsEngine] Updating context:', contextMessage);
+    this.ws.send(JSON.stringify({
+      type: 'contextual_update',
+      text: contextMessage,
+    }));
+  }
+
+  async sendControl(command: ConversationControlCommand): Promise<void> {
+    if (this.ws?.readyState !== WebSocket.OPEN) {
+      console.warn('[ElevenAgentsEngine] Cannot send control, WebSocket not open');
+      return;
+    }
+
+    console.log('[ElevenAgentsEngine] Sending control:', command);
+
+    switch (command.type) {
+      case 'pause_agent':
+        // ElevenLabs doesn't have explicit pause, but we can interrupt
+        this.ws.send(JSON.stringify({ type: 'interrupt' }));
+        break;
+      case 'interrupt':
+        this.ws.send(JSON.stringify({ type: 'interrupt' }));
+        break;
+      case 'clear_buffer':
+        this.ws.send(JSON.stringify({ type: 'clear_buffer' }));
+        break;
+    }
+  }
+
+  onEvent(callback: (event: ConversationEvent) => void): () => void {
+    this.eventListeners.push(callback);
+    return () => {
+      const index = this.eventListeners.indexOf(callback);
+      if (index > -1) this.eventListeners.splice(index, 1);
+    };
+  }
+
+  getStatus(): ConversationStatus {
+    return this.status;
+  }
+
+  // Private methods
+
+  private async handleOpen(): Promise<void> {
+    console.log('[ElevenAgentsEngine] WebSocket connected');
+    
+    try {
+      // Initialize microphone
+      await this.initializeMicrophone();
+      
+      // Send initial configuration if voice override is specified
+      if (this.config.voiceId) {
+        console.log('[ElevenAgentsEngine] Sending voice override:', this.config.voiceId);
+        this.ws?.send(JSON.stringify({
+          type: 'conversation_initiation_client_data',
+          conversation_config_override: {
+            tts: {
+              voice_id: this.config.voiceId,
+            },
+          },
+        }));
+      }
+
+      // Send initial context if provided
+      if (this.config.initialContext) {
+        await this.updateContext(this.config.initialContext);
+      }
+
+      this.setStatus('ready');
+    } catch (error) {
+      console.error('[ElevenAgentsEngine] Error in handleOpen:', error);
+      this.setStatus('error');
+      this.emitEvent({
+        type: 'error',
+        error: error instanceof Error ? error : new Error('Unknown error'),
+        timestamp: Date.now(),
+      });
+    }
+  }
+
+  private handleMessage(event: MessageEvent): void {
+    try {
+      const message = JSON.parse(event.data);
+      
+      // Normalize ElevenLabs events to ConversationEvent types
+      switch (message.type) {
+        case 'user_transcript':
+          if (message.user_transcript?.is_final) {
+            this.emitEvent({
+              type: 'user_speech_ended',
+              transcript: message.user_transcript.text,
+              timestamp: Date.now(),
+            });
+          } else {
+            this.emitEvent({
+              type: 'user_speech_started',
+              timestamp: Date.now(),
+            });
+          }
+          break;
+
+        case 'agent_response':
+          this.emitEvent({
+            type: 'agent_response_delta',
+            delta: message.agent_response.text || '',
+            timestamp: Date.now(),
+          });
+          break;
+
+        case 'audio':
+          // Base64 decode audio and emit
+          const audioData = this.base64ToArrayBuffer(message.audio.chunk);
+          this.emitEvent({
+            type: 'agent_audio_delta',
+            audioData: audioData,
+            timestamp: Date.now(),
+          });
+          break;
+
+        case 'interruption':
+          this.emitEvent({
+            type: 'agent_response_ended',
+            timestamp: Date.now(),
+          });
+          break;
+
+        case 'ping':
+          // Respond to keepalive
+          if (this.ws?.readyState === WebSocket.OPEN) {
+            this.ws.send(JSON.stringify({ type: 'pong' }));
+          }
+          break;
+
+        default:
+          console.log('[ElevenAgentsEngine] Unhandled message type:', message.type);
+      }
+    } catch (error) {
+      console.error('[ElevenAgentsEngine] Error handling message:', error);
+    }
+  }
+
+  private handleError(error: Event): void {
+    console.error('[ElevenAgentsEngine] WebSocket error:', error);
+    this.setStatus('error');
+    this.emitEvent({
+      type: 'error',
+      error: new Error('WebSocket error'),
+      timestamp: Date.now(),
+    });
+  }
+
+  private handleClose(event: CloseEvent): void {
+    console.log('[ElevenAgentsEngine] WebSocket closed:', event.code, event.reason);
+    this.setStatus('disconnected');
+  }
+
+  private async initializeMicrophone(): Promise<void> {
+    console.log('[ElevenAgentsEngine] Initializing microphone...');
+    
+    // Request microphone access
+    this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
+      audio: {
+        echoCancellation: true,
+        noiseSuppression: true,
+        autoGainControl: true,
+      } 
+    });
+
+    // Create audio context for resampling to 16kHz
+    this.audioContext = new AudioContext({ sampleRate: 16000 });
+    const source = this.audioContext.createMediaStreamSource(this.mediaStream);
+    
+    // Create MediaRecorder for capturing audio
+    const dest = this.audioContext.createMediaStreamDestination();
+    source.connect(dest);
+    
+    this.mediaRecorder = new MediaRecorder(dest.stream, {
+      mimeType: 'audio/webm;codecs=opus',
+    });
+
+    this.mediaRecorder.ondataavailable = async (event) => {
+      if (event.data.size > 0 && this.ws?.readyState === WebSocket.OPEN) {
+        // Convert to base64 and send
+        const arrayBuffer = await event.data.arrayBuffer();
+        const base64 = this.arrayBufferToBase64(arrayBuffer);
+        
+        this.ws.send(JSON.stringify({
+          type: 'audio',
+          data: base64,
+        }));
+      }
+    };
+
+    // Start recording in chunks
+    this.mediaRecorder.start(100); // Send chunks every 100ms
+    console.log('[ElevenAgentsEngine] Microphone initialized and streaming');
+  }
+
+  private formatScriptContext(context: ScriptContext): string {
+    const parts: string[] = [
+      `Script: ${context.scriptTitle}`,
+      `Progress: Line ${context.currentLine} of ${context.totalLines}`,
+    ];
+
+    if (context.scene) {
+      parts.push(`Scene: ${context.scene}`);
+    }
+
+    if (context.currentCue) {
+      parts.push(`Current cue: "${context.currentCue.text}" (${context.currentCue.characterName})`);
+    }
+
+    if (context.nextCue) {
+      parts.push(`Your next line: "${context.nextCue.text}" (${context.nextCue.characterName})`);
+    }
+
+    if (context.upcomingCues.length > 0) {
+      const upcoming = context.upcomingCues.map(c => `"${c.text}"`).join(', ');
+      parts.push(`Upcoming lines: ${upcoming}`);
+    }
+
+    if (context.customInstructions) {
+      parts.push(context.customInstructions);
+    }
+
+    return parts.join('. ');
+  }
+
+  private setStatus(newStatus: ConversationStatus): void {
+    const previousStatus = this.status;
+    this.status = newStatus;
+    
+    this.emitEvent({
+      type: 'status_changed',
+      status: newStatus,
+      previousStatus,
+      timestamp: Date.now(),
+    });
+  }
+
+  private emitEvent(event: ConversationEvent): void {
+    this.eventListeners.forEach(callback => {
+      try {
+        callback(event);
+      } catch (error) {
+        console.error('[ElevenAgentsEngine] Error in event callback:', error);
+      }
+    });
+  }
+
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    return btoa(binary);
+  }
+
+  private base64ToArrayBuffer(base64: string): ArrayBuffer {
+    const binary = atob(base64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return bytes.buffer;
+  }
+}
