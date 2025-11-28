@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Practice from "./pages/Practice";
 import NotFound from "./pages/NotFound";
+import { ConversationEngineTest } from "./components/ConversationEngineTest";
 
 const queryClient = new QueryClient();
 
@@ -22,6 +23,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/practice/:scriptId" element={<Practice />} />
+            <Route path="/test-engine" element={<ConversationEngineTest />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
