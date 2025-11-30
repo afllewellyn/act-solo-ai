@@ -354,9 +354,14 @@ export class ElevenAgentsEngine implements ConversationEngine {
           break;
 
         case 'ping':
-          // Respond to keepalive
+          // Respond to keepalive with event_id from ping
           if (this.ws?.readyState === WebSocket.OPEN) {
-            this.ws.send(JSON.stringify({ type: 'pong' }));
+            const eventId = message.ping_event?.event_id;
+            this.ws.send(JSON.stringify({ 
+              type: 'pong',
+              event_id: eventId,
+            }));
+            console.log('[ElevenAgentsEngine] Sent pong with event_id:', eventId);
           }
           break;
 
@@ -441,9 +446,13 @@ export class ElevenAgentsEngine implements ConversationEngine {
         int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
       }
       
-      // Send RAW BINARY to ElevenLabs (not JSON!)
-      // ElevenLabs expects raw PCM16 audio chunks as binary WebSocket frames
-      this.ws.send(int16Array.buffer);
+      // Convert Int16Array to base64
+      const base64 = this.arrayBufferToBase64(int16Array.buffer);
+      
+      // Send to ElevenLabs as JSON with base64-encoded audio
+      this.ws.send(JSON.stringify({
+        user_audio_chunk: base64,
+      }));
     };
     
     // Connect audio pipeline
