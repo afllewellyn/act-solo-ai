@@ -16,6 +16,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private audioProcessor: ScriptProcessorNode | null = null;
   private config: ConversationEngineConfig;
   
+  // Connection state
+  private isInitialized: boolean = false;
+  
   // Response buffering state
   private currentResponseText: string = '';
   private isResponseActive: boolean = false;
@@ -175,10 +178,8 @@ export class ElevenAgentsEngine implements ConversationEngine {
     console.log('[ElevenAgentsEngine] WebSocket connected');
     
     try {
-      // Initialize microphone
-      await this.initializeMicrophone();
-      
-      // Send initial configuration if voice override is specified
+      // FIRST: Send initial configuration if voice override is specified
+      // This must happen BEFORE starting microphone streaming
       if (this.config.voiceId) {
         console.log('[ElevenAgentsEngine] Sending voice override:', this.config.voiceId);
         this.ws?.send(JSON.stringify({
@@ -191,12 +192,10 @@ export class ElevenAgentsEngine implements ConversationEngine {
         }));
       }
 
-      // Send initial context if provided
-      if (this.config.initialContext) {
-        await this.updateContext(this.config.initialContext);
-      }
+      // THEN: Wait for conversation_initiation_metadata before starting microphone
+      // The microphone will be initialized in handleMessage() when we receive the metadata
+      console.log('[ElevenAgentsEngine] Waiting for server initialization metadata...');
 
-      this.setStatus('ready');
     } catch (error) {
       console.error('[ElevenAgentsEngine] Error in handleOpen:', error);
       this.setStatus('error');
@@ -331,6 +330,29 @@ export class ElevenAgentsEngine implements ConversationEngine {
           });
           break;
 
+        case 'conversation_initiation_metadata':
+          // Server acknowledged initialization - now we can start microphone
+          console.log('[ElevenAgentsEngine] Received initialization metadata, starting microphone...');
+          this.isInitialized = true;
+          
+          // Initialize microphone and send context asynchronously
+          (async () => {
+            try {
+              await this.initializeMicrophone();
+              
+              // Send initial context if provided
+              if (this.config.initialContext) {
+                await this.updateContext(this.config.initialContext);
+              }
+              
+              this.setStatus('ready');
+            } catch (error) {
+              console.error('[ElevenAgentsEngine] Error during initialization:', error);
+              this.setStatus('error');
+            }
+          })();
+          break;
+
         case 'ping':
           // Respond to keepalive
           if (this.ws?.readyState === WebSocket.OPEN) {
@@ -405,7 +427,8 @@ export class ElevenAgentsEngine implements ConversationEngine {
     const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
     
     processor.onaudioprocess = (e) => {
-      if (this.ws?.readyState !== WebSocket.OPEN) return;
+      // Only send audio if WebSocket is open AND we're fully initialized
+      if (this.ws?.readyState !== WebSocket.OPEN || !this.isInitialized) return;
       
       // Get Float32Array audio data from input
       const float32Array = e.inputBuffer.getChannelData(0);
@@ -418,14 +441,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
         int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
       }
       
-      // Convert Int16Array to base64
-      const base64 = this.arrayBufferToBase64(int16Array.buffer);
-      
-      // Send to ElevenLabs as user audio chunk
-      this.ws.send(JSON.stringify({
-        type: 'user_audio_chunk',
-        audio_data: base64,
-      }));
+      // Send RAW BINARY to ElevenLabs (not JSON!)
+      // ElevenLabs expects raw PCM16 audio chunks as binary WebSocket frames
+      this.ws.send(int16Array.buffer);
     };
     
     // Connect audio pipeline
