@@ -15,7 +15,7 @@ export class ConversationAudioPlayer {
 
   /**
    * Add an audio chunk to the queue and start playback if not already playing
-   * @param pcmData - Raw PCM16 audio data (24kHz, 16-bit, mono)
+   * @param pcmData - Raw PCM16 audio data (16kHz, 16-bit, mono)
    */
   async addChunk(pcmData: ArrayBuffer): Promise<void> {
     this.audioQueue.push(pcmData);
@@ -74,7 +74,7 @@ export class ConversationAudioPlayer {
     try {
       // Ensure audio context exists
       if (!this.audioContext || this.audioContext.state === 'closed') {
-        this.audioContext = new AudioContext({ sampleRate: 24000 });
+        this.audioContext = new AudioContext({ sampleRate: 16000 });
       }
       
       // Resume if suspended (browser autoplay policy)
@@ -111,10 +111,10 @@ export class ConversationAudioPlayer {
 
   /**
    * Convert raw PCM16 data to WAV format with proper headers
-   * ElevenLabs outputs: 24kHz, 16-bit, mono
+   * ElevenLabs Conversational AI outputs: 16kHz, 16-bit, mono
    */
   private createWavFromPCM(pcmData: ArrayBuffer): ArrayBuffer {
-    const sampleRate = 24000;
+    const sampleRate = 16000;
     const numChannels = 1;
     const bitsPerSample = 16;
     const bytesPerSample = bitsPerSample / 8;
