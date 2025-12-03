@@ -30,7 +30,7 @@ const DEFAULT_FLAGS: FeatureFlags = {
   auto_fallback_enabled: true, // Engine auto-fallback (Phase 3)
   diagnostics_overlay: false, // UX diagnostics (Phase 5)
   vad_auto_gain_control: true, // VAD Auto Gain Control - Default ON
-  conversation_engine_eleven: false, // ConversationEngine abstraction - Phase 1 (disabled until Phase 2 complete)
+  conversation_engine_eleven: true, // ConversationEngine abstraction - ENABLED for testing
 };
 
 // Extend window interface for feature flags
