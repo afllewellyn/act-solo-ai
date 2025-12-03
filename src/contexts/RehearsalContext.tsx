@@ -7,6 +7,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { useConversationEngine } from '@/hooks/useConversationEngine';
 import { isFeatureEnabled } from '@/lib/featureFlags';
 import type { ScriptContext } from '@/services/conversation/domain';
+import { getScriptLines } from '@/components/practice/rehearsal/scriptParser';
+import { buildScriptContext, buildCuesFromLines, getCueContext } from '@/utils/scriptCueBuilder';
 
 interface Voice {
   id: string;
@@ -156,6 +158,39 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const useElevenEngine = isFeatureEnabled('conversation_engine_eleven');
   const scriptTitleRef = useRef<string>('Untitled Script');
   const sessionStartRef = useRef<number>(Date.now());
+  const [currentLineIndex, setCurrentLineIndex] = useState(0);
+  const parsedLinesRef = useRef<ScriptLine[]>([]);
+
+  // Helper to advance to next line and update context
+  const advanceToNextLine = useCallback(() => {
+    const nextIndex = currentLineIndex + 1;
+    const lines = parsedLinesRef.current;
+    
+    if (nextIndex >= lines.length) {
+      console.log('🎯 [ConversationEngine] Script complete!');
+      setRehearsalModeState(false);
+      toast({
+        title: "Rehearsal Complete",
+        description: "You've reached the end of the script.",
+      });
+      return;
+    }
+    
+    setCurrentLineIndex(nextIndex);
+    
+    // Update conversation engine with new context
+    if (conversationEngine.isActive) {
+      const context = buildScriptContext(
+        scriptTitleRef.current,
+        lines,
+        nextIndex,
+        textFilter,
+        sessionStartRef.current
+      );
+      console.log('📝 [ConversationEngine] Updating context to line', nextIndex);
+      conversationEngine.updateContext(context);
+    }
+  }, [currentLineIndex, textFilter, toast]);
 
   const conversationEngine = useConversationEngine({
     onUserSpeechStarted: () => {
@@ -164,7 +199,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     },
     onUserSpeechEnded: (transcript) => {
       console.log('🎤 [ConversationEngine] User speech ended:', transcript);
-      // Agent will automatically respond via ElevenLabs
+      // When user finishes speaking, advance if current line is an actor line
+      const lines = parsedLinesRef.current;
+      if (lines[currentLineIndex]?.type === 'actor') {
+        console.log('🎤 [ConversationEngine] User finished actor line, advancing');
+        advanceToNextLine();
+      }
     },
     onAgentResponseStarted: () => {
       console.log('🤖 [ConversationEngine] Agent response started');
@@ -172,6 +212,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     },
     onAgentResponseEnded: (fullText) => {
       console.log('🤖 [ConversationEngine] Agent response ended:', fullText);
+      // When agent finishes speaking, advance if current line is an AI line
+      const lines = parsedLinesRef.current;
+      if (lines[currentLineIndex]?.type === 'ai') {
+        console.log('🤖 [ConversationEngine] Agent finished AI line, advancing');
+        advanceToNextLine();
+      }
       setRehearsalState('WAITING_FOR_ACTOR_CUE');
     },
     onAgentAudioStarted: () => {
@@ -179,7 +225,6 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     },
     onAgentAudioEnded: () => {
       console.log('🔊 [ConversationEngine] Agent audio ended');
-      // Transition back to listening for user
       setRehearsalState('WAITING_FOR_ACTOR_CUE');
     },
     onError: (error) => {
@@ -212,15 +257,30 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       console.log('🎭 [ConversationEngine] Starting ElevenLabs Conversational AI');
       sessionStartRef.current = Date.now();
       
-      // Build initial context from script
-      const initialContext: ScriptContext = {
-        scriptTitle: scriptTitleRef.current,
-        currentLine: 0,
-        totalLines: scriptContent.split('\n').filter(l => l.trim()).length,
-        upcomingCues: [],
-        sessionStartTime: sessionStartRef.current,
-        customInstructions: `You are a scene partner for rehearsal. The user will read their lines and you respond with the next line in the script. Text filter is set to "${textFilter}" - focus on ${textFilter === 'bold' ? 'bold text' : textFilter === 'italic' ? 'italic text' : 'all text'}.`,
-      };
+      // Parse script lines based on text filter
+      const lines = getScriptLines(scriptContent, textFilter);
+      parsedLinesRef.current = lines;
+      setCurrentLineIndex(0);
+      
+      console.log('📝 [ConversationEngine] Parsed', lines.length, 'lines with filter:', textFilter);
+      console.log('📝 [ConversationEngine] AI lines:', lines.filter(l => l.type === 'ai').length);
+      console.log('📝 [ConversationEngine] Actor lines:', lines.filter(l => l.type === 'actor').length);
+      
+      // Build initial context with actual script content
+      const initialContext = buildScriptContext(
+        scriptTitleRef.current,
+        lines,
+        0,
+        textFilter,
+        sessionStartRef.current
+      );
+      
+      console.log('📝 [ConversationEngine] Initial context:', {
+        totalLines: initialContext.totalLines,
+        currentCue: initialContext.currentCue?.text?.substring(0, 50),
+        nextCue: initialContext.nextCue?.text?.substring(0, 50),
+        upcomingCuesCount: initialContext.upcomingCues.length,
+      });
 
       conversationEngine.start({
         voiceId: selectedVoice,
@@ -233,23 +293,29 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       console.log('🛑 [ConversationEngine] Stopping');
       conversationEngine.stop();
       setRehearsalState('IDLE');
+      setCurrentLineIndex(0);
+      parsedLinesRef.current = [];
     }
-  }, [useElevenEngine, rehearsalMode, scriptContent]);
+  }, [useElevenEngine, rehearsalMode, scriptContent, textFilter]);
 
-  // Update conversation engine context when script changes
+  // Update conversation engine context when script changes mid-rehearsal
   useEffect(() => {
     if (!useElevenEngine || !conversationEngine.isActive || !scriptContent) return;
 
-    const context: ScriptContext = {
-      scriptTitle: scriptTitleRef.current,
-      currentLine: 0,
-      totalLines: scriptContent.split('\n').filter(l => l.trim()).length,
-      upcomingCues: [],
-      sessionStartTime: sessionStartRef.current,
-    };
+    // Re-parse lines if script changes during rehearsal
+    const lines = getScriptLines(scriptContent, textFilter);
+    parsedLinesRef.current = lines;
+    
+    const context = buildScriptContext(
+      scriptTitleRef.current,
+      lines,
+      currentLineIndex,
+      textFilter,
+      sessionStartRef.current
+    );
 
     conversationEngine.updateContext(context);
-  }, [useElevenEngine, scriptContent, conversationEngine.isActive]);
+  }, [useElevenEngine, scriptContent, conversationEngine.isActive, textFilter]);
 
   // Initialize state machine when rehearsal mode is enabled (legacy path when feature flag disabled)
   useEffect(() => {
