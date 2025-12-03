@@ -214,21 +214,29 @@ export class ElevenAgentsEngine implements ConversationEngine {
       // Normalize ElevenLabs events to ConversationEvent types
       switch (message.type) {
         case 'user_transcript':
-          if (message.user_transcript?.is_final) {
+          // ElevenLabs uses user_transcription_event nested object
+          const transcriptEvent = message.user_transcription_event;
+          if (transcriptEvent) {
+            // ElevenLabs doesn't have is_final flag - emit user_speech_ended with transcript
             this.emitEvent({
               type: 'user_speech_ended',
-              transcript: message.user_transcript.text,
+              transcript: transcriptEvent.user_transcript || '',
               timestamp: Date.now(),
             });
+            console.log('[ElevenAgentsEngine] User transcript:', transcriptEvent.user_transcript);
           } else {
-            this.emitEvent({
-              type: 'user_speech_started',
-              timestamp: Date.now(),
-            });
+            console.warn('[ElevenAgentsEngine] user_transcript missing user_transcription_event:', message);
           }
           break;
 
         case 'agent_response':
+          // ElevenLabs uses agent_response_event nested object
+          const responseEvent = message.agent_response_event;
+          if (!responseEvent) {
+            console.warn('[ElevenAgentsEngine] agent_response missing agent_response_event:', message);
+            break;
+          }
+          
           // Start tracking response if not already active
           if (!this.isResponseActive) {
             this.isResponseActive = true;
@@ -240,13 +248,14 @@ export class ElevenAgentsEngine implements ConversationEngine {
           }
 
           // Accumulate response text and emit delta
-          const delta = message.agent_response.text || '';
+          const delta = responseEvent.agent_response || '';
           this.currentResponseText += delta;
           this.emitEvent({
             type: 'agent_response_delta',
             delta,
             timestamp: Date.now(),
           });
+          console.log('[ElevenAgentsEngine] Agent response delta:', delta);
           break;
 
         case 'agent_response_end':
@@ -267,6 +276,13 @@ export class ElevenAgentsEngine implements ConversationEngine {
           break;
 
         case 'audio':
+          // ElevenLabs uses audio_event nested object with audio_base_64
+          const audioEvent = message.audio_event;
+          if (!audioEvent) {
+            console.warn('[ElevenAgentsEngine] audio missing audio_event:', message);
+            break;
+          }
+          
           // Track audio streaming state
           if (!this.isAudioActive) {
             this.isAudioActive = true;
@@ -277,7 +293,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           }
 
           // Base64 decode audio and emit
-          const audioData = this.base64ToArrayBuffer(message.audio.chunk);
+          const audioData = this.base64ToArrayBuffer(audioEvent.audio_base_64);
           this.emitEvent({
             type: 'agent_audio_delta',
             audioData: audioData,
