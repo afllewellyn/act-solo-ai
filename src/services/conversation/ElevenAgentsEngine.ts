@@ -6,6 +6,7 @@
 import { ConversationEngine, ConversationStatus, ConversationEvent, ConversationControlCommand } from './types';
 import { ConversationEngineConfig, ScriptContext } from './domain';
 import { supabase } from '@/integrations/supabase/client';
+import { ConversationAudioPlayer } from './AudioPlayer';
 
 export class ElevenAgentsEngine implements ConversationEngine {
   private ws: WebSocket | null = null;
@@ -23,9 +24,13 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private currentResponseText: string = '';
   private isResponseActive: boolean = false;
   private isAudioActive: boolean = false;
+  
+  // Audio playback
+  private audioPlayer: ConversationAudioPlayer;
 
   constructor(config: ConversationEngineConfig) {
     this.config = config;
+    this.audioPlayer = new ConversationAudioPlayer();
     console.log('[ElevenAgentsEngine] Created with config:', { 
       agentId: config.agentId,
       voiceId: config.voiceId,
@@ -70,6 +75,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   async stop(): Promise<void> {
     console.log('[ElevenAgentsEngine] Stopping...');
+    
+    // Stop audio playback
+    this.audioPlayer.stop();
     
     // Disconnect and clean up audio processor
     if (this.audioProcessor) {
@@ -299,6 +307,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
             audioData: audioData,
             timestamp: Date.now(),
           });
+          
+          // Play the audio chunk
+          this.audioPlayer.addChunk(audioData);
           break;
 
         case 'audio_end':
@@ -313,6 +324,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
           break;
 
         case 'interruption':
+          // Stop audio playback immediately on interruption
+          this.audioPlayer.stop();
+          
           // Handle interruption - end both response and audio if active
           if (this.isResponseActive) {
             this.emitEvent({
