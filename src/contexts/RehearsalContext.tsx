@@ -4,6 +4,9 @@ import { useAudioManager } from '@/services/EnhancedAudioManager';
 import { ScriptParserService } from '@/services/ScriptParserService';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { useConversationEngine } from '@/hooks/useConversationEngine';
+import { isFeatureEnabled } from '@/lib/featureFlags';
+import type { ScriptContext } from '@/services/conversation/domain';
 
 interface Voice {
   id: string;
@@ -52,6 +55,10 @@ interface RehearsalContextType {
   
   // Banner State
   noMatchesBanner: { show: boolean; filter: TextFilter } | null;
+  
+  // Conversation Engine (ElevenLabs AI)
+  isUsingConversationEngine: boolean;
+  conversationEngineStatus: string;
   
   // Actions
   setTextFilter: (filter: TextFilter) => void;
@@ -145,10 +152,112 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     }
   });
 
-  // Initialize state machine when rehearsal mode is enabled
+  // Conversation Engine integration (feature-flagged)
+  const useElevenEngine = isFeatureEnabled('conversation_engine_eleven');
+  const scriptTitleRef = useRef<string>('Untitled Script');
+  const sessionStartRef = useRef<number>(Date.now());
+
+  const conversationEngine = useConversationEngine({
+    onUserSpeechStarted: () => {
+      console.log('🎤 [ConversationEngine] User speech started');
+      setRehearsalState('WAITING_FOR_ACTOR_CUE');
+    },
+    onUserSpeechEnded: (transcript) => {
+      console.log('🎤 [ConversationEngine] User speech ended:', transcript);
+      // Agent will automatically respond via ElevenLabs
+    },
+    onAgentResponseStarted: () => {
+      console.log('🤖 [ConversationEngine] Agent response started');
+      setRehearsalState('AI_SPEAKING');
+    },
+    onAgentResponseEnded: (fullText) => {
+      console.log('🤖 [ConversationEngine] Agent response ended:', fullText);
+      setRehearsalState('WAITING_FOR_ACTOR_CUE');
+    },
+    onAgentAudioStarted: () => {
+      console.log('🔊 [ConversationEngine] Agent audio started');
+    },
+    onAgentAudioEnded: () => {
+      console.log('🔊 [ConversationEngine] Agent audio ended');
+      // Transition back to listening for user
+      setRehearsalState('WAITING_FOR_ACTOR_CUE');
+    },
+    onError: (error) => {
+      console.error('❌ [ConversationEngine] Error:', error);
+      toast({
+        title: "Conversation Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+    onStatusChange: (status) => {
+      console.log('📡 [ConversationEngine] Status:', status);
+      if (status === 'ready') {
+        toast({
+          title: "AI Partner Connected",
+          description: "Ready for conversation",
+          duration: 2000,
+        });
+      } else if (status === 'disconnected' || status === 'error') {
+        setRehearsalModeState(false);
+      }
+    },
+  });
+
+  // Effect: Start/stop conversation engine when rehearsal mode changes (feature flagged)
   useEffect(() => {
+    if (!useElevenEngine) return;
+
+    if (rehearsalMode && scriptContent) {
+      console.log('🎭 [ConversationEngine] Starting ElevenLabs Conversational AI');
+      sessionStartRef.current = Date.now();
+      
+      // Build initial context from script
+      const initialContext: ScriptContext = {
+        scriptTitle: scriptTitleRef.current,
+        currentLine: 0,
+        totalLines: scriptContent.split('\n').filter(l => l.trim()).length,
+        upcomingCues: [],
+        sessionStartTime: sessionStartRef.current,
+        customInstructions: `You are a scene partner for rehearsal. The user will read their lines and you respond with the next line in the script. Text filter is set to "${textFilter}" - focus on ${textFilter === 'bold' ? 'bold text' : textFilter === 'italic' ? 'italic text' : 'all text'}.`,
+      };
+
+      conversationEngine.start({
+        voiceId: selectedVoice,
+        language: 'en',
+        enableTranscription: true,
+        enableInterruption: true,
+        initialContext,
+      });
+    } else if (!rehearsalMode && conversationEngine.isActive) {
+      console.log('🛑 [ConversationEngine] Stopping');
+      conversationEngine.stop();
+      setRehearsalState('IDLE');
+    }
+  }, [useElevenEngine, rehearsalMode, scriptContent]);
+
+  // Update conversation engine context when script changes
+  useEffect(() => {
+    if (!useElevenEngine || !conversationEngine.isActive || !scriptContent) return;
+
+    const context: ScriptContext = {
+      scriptTitle: scriptTitleRef.current,
+      currentLine: 0,
+      totalLines: scriptContent.split('\n').filter(l => l.trim()).length,
+      upcomingCues: [],
+      sessionStartTime: sessionStartRef.current,
+    };
+
+    conversationEngine.updateContext(context);
+  }, [useElevenEngine, scriptContent, conversationEngine.isActive]);
+
+  // Initialize state machine when rehearsal mode is enabled (legacy path when feature flag disabled)
+  useEffect(() => {
+    // Skip if using ElevenLabs Conversation Engine
+    if (useElevenEngine) return;
+
     if (rehearsalMode && scriptContent && !stateMachineRef.current) {
-      console.log('🎭 Initializing State Machine + VAD connection for rehearsal');
+      console.log('🎭 Initializing State Machine + VAD connection for rehearsal (legacy)');
       
       // Initialize persistent VAD connection
       audioManager.initializeVADConnection().catch((error) => {
@@ -387,6 +496,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     console.log('🛑 Master stop - halting all operations');
     setRehearsalModeState(false);
     audioManager.stopAll();
+    
+    // Stop conversation engine if active
+    if (conversationEngine.isActive) {
+      conversationEngine.stop();
+    }
+    
     if (stateMachineRef.current) {
       stateMachineRef.current.stop();
       stateMachineRef.current = null;
@@ -481,6 +596,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     playbackSpeed,
     voices,
     noMatchesBanner,
+    isUsingConversationEngine: useElevenEngine && conversationEngine.isActive,
+    conversationEngineStatus: conversationEngine.status,
     setTextFilter,
     setRehearsalMode,
     setSelectedVoice,
@@ -510,6 +627,9 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     playbackSpeed,
     voices,
     noMatchesBanner,
+    useElevenEngine,
+    conversationEngine.isActive,
+    conversationEngine.status,
     setTextFilter,
     setRehearsalMode,
     setSelectedVoice,
