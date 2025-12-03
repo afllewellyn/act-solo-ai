@@ -186,19 +186,34 @@ export class ElevenAgentsEngine implements ConversationEngine {
     console.log('[ElevenAgentsEngine] WebSocket connected');
     
     try {
-      // FIRST: Send initial configuration if voice override is specified
-      // This must happen BEFORE starting microphone streaming
+      // Build conversation override with voice and custom prompt from initial context
+      const conversationOverride: Record<string, any> = {};
+      
+      // Add voice override if specified
       if (this.config.voiceId) {
-        console.log('[ElevenAgentsEngine] Sending voice override:', this.config.voiceId);
-        this.ws?.send(JSON.stringify({
-          type: 'conversation_initiation_client_data',
-          conversation_config_override: {
-            tts: {
-              voice_id: this.config.voiceId,
-            },
-          },
-        }));
+        conversationOverride.tts = {
+          voice_id: this.config.voiceId,
+        };
+        console.log('[ElevenAgentsEngine] Voice override:', this.config.voiceId);
       }
+      
+      // Add custom prompt from initial context (script lines for rehearsal)
+      if (this.config.initialContext?.customInstructions) {
+        conversationOverride.agent = {
+          prompt: {
+            prompt: this.config.initialContext.customInstructions,
+          },
+        };
+        console.log('[ElevenAgentsEngine] Custom prompt set with', 
+          this.config.initialContext.customInstructions.length, 'chars');
+      }
+      
+      // Send initial configuration with overrides
+      this.ws?.send(JSON.stringify({
+        type: 'conversation_initiation_client_data',
+        conversation_config_override: conversationOverride,
+      }));
+      console.log('[ElevenAgentsEngine] Sent conversation_initiation_client_data');
 
       // THEN: Wait for conversation_initiation_metadata before starting microphone
       // The microphone will be initialized in handleMessage() when we receive the metadata
