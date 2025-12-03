@@ -266,6 +266,11 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       console.log('📝 [ConversationEngine] AI lines:', lines.filter(l => l.type === 'ai').length);
       console.log('📝 [ConversationEngine] Actor lines:', lines.filter(l => l.type === 'actor').length);
       
+      // Log each parsed line for debugging
+      lines.forEach((line, i) => {
+        console.log(`📝 Line ${i}: [${line.type}] "${line.dialogue.substring(0, 60)}..."`);
+      });
+      
       // Build initial context with actual script content
       const initialContext = buildScriptContext(
         scriptTitleRef.current,
@@ -281,6 +286,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         nextCue: initialContext.nextCue?.text?.substring(0, 50),
         upcomingCuesCount: initialContext.upcomingCues.length,
       });
+      console.log('📝 [ConversationEngine] Custom instructions preview:', 
+        initialContext.customInstructions?.substring(0, 500));
 
       conversationEngine.start({
         voiceId: selectedVoice,
