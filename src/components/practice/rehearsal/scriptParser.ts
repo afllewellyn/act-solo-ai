@@ -32,27 +32,38 @@ export const getScriptLines = (
 ): ScriptLine[] => {
   if (!scriptContent) return [];
   
-  const allLines = scriptContent.split('\n').filter(line => {
-    const cleanLine = stripHtmlTags(line).trim();
-    return cleanLine.length > 0;
+  // Parse HTML properly - TipTap uses <p> tags, not newlines
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = scriptContent;
+  
+  // Get all paragraph elements
+  const paragraphs = tempDiv.querySelectorAll('p');
+  
+  const filteredLines: ScriptLine[] = [];
+  
+  paragraphs.forEach((p) => {
+    const lineHtml = p.innerHTML; // Preserve HTML for italic/bold detection
+    const cleanText = (p.textContent || '').trim();
+    
+    if (cleanText.length === 0) return; // Skip empty paragraphs
+    
+    // Check if THIS specific paragraph is an AI line (contains italic)
+    const isAI = isAILine(lineHtml, textFilter);
+    
+    // Check for character format: "NAME: dialogue"
+    const characterMatch = matchCharacterLine(cleanText);
+    const dialogue = characterMatch ? characterMatch[2].trim() : cleanText;
+    
+    console.log(`📝 Line: "${cleanText.substring(0, 30)}..." → ${isAI ? 'AI' : 'ACTOR'}`);
+    
+    filteredLines.push({
+      type: isAI ? 'ai' as const : 'actor' as const,
+      content: lineHtml,
+      dialogue,
+    });
   });
   
-  const filteredLines = allLines.map(line => {
-    const cleanLine = stripHtmlTags(line).trim();
-    
-    // Check if this is a character line format: "NAME: dialogue"
-    const characterMatch = matchCharacterLine(cleanLine);
-    const dialogue = characterMatch ? characterMatch[2].trim() : cleanLine;
-    
-    // Determine if this is an AI line based on filter
-    const isAI = isAILine(line, textFilter);
-    
-    return { 
-      type: isAI ? 'ai' as const : 'actor' as const, 
-      content: line, 
-      dialogue 
-    };
-  }) as ScriptLine[];
+  console.log(`📊 Total: ${filteredLines.length} lines | AI: ${filteredLines.filter(l => l.type === 'ai').length} | Actor: ${filteredLines.filter(l => l.type === 'actor').length}`);
   
   return filteredLines;
 };
