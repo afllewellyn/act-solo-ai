@@ -1,73 +1,72 @@
-# Welcome to your Lovable project
+# ActSolo.AI
 
-## Project info
+AI-powered rehearsal partner with ElevenLabs voices that lets actors run lines with a responsive scene partner in a teleprompter UI.
 
-**URL**: https://lovable.dev/projects/a9690c02-bc40-4847-a067-085ddbacc9d0
+## Overview
 
-## How can I edit this code?
+ActSolo.AI ingests your script, tracks your lines, and connects a conversation engine (ElevenLabs Conversational AI agent) so you can practice live with an AI partner and realistic voices. It streams microphone audio, mirrors agent speech via natural TTS, and keeps the rehearsal UI in sync with script context, letting you rehearse anywhere with a browser.
 
-There are several ways of editing your application.
+## Key Features
 
-**Use Lovable**
+- Script parsing with cue metadata, teleprompter view, and rehearsal progress tracking.
+- ConversationEngine abstraction that swaps between engine providers via feature flags.
+- ElevenAgentsEngine (Phase 2) with realtime VAD, agent text/audio responses, and normalized events.
+- Supabase backend for auth/functions, including signed ElevenLabs conversational tokens.
+- React/Tailwind UI built with Vite + Bun/Node for fast iteration.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/a9690c02-bc40-4847-a067-085ddbacc9d0) and start prompting.
+## Architecture
 
-Changes made via Lovable will be committed automatically to this repo.
+- `src/services/conversation/types.ts` – provider-agnostic engine contract and event types.
+- `src/services/conversation/domain.ts` – rehearsal domain objects (`Cue`, `ScriptContext`, etc.).
+- `src/services/conversation/ElevenAgentsEngine.ts` – ElevenLabs implementation (feature flagged).
+- `src/services/conversation/engineFactory.ts` – dynamic factory keyed off feature flags.
+- Upcoming Phase 3 brings `useConversationEngine`, `RehearsalModeContainer`, and full UI hookup.
 
-**Use your preferred IDE**
+Refer to `Project plans/ConversationEngine Refactor PRD_Dec.md` for the full PRD and phase roadmap.
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## Getting Started
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+```bash
+git clone <repo-url>
+cd act-solo-ai
+bun install   # or npm install
+bun dev       # or npm run dev
 ```
 
-**Edit a file directly in GitHub**
+### Prerequisites
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- Node 18+ (or Bun 1.0+ if preferred)
+- Supabase project with `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` configured for the `eleven-agent-token` edge function.
+- Optional: set browser feature flags via `window.__FEATURES__` to enable `conversation_engine_eleven`.
 
-**Use GitHub Codespaces**
+## Feature Flags
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+Edit `src/lib/featureFlags.ts` or set `window.__FEATURES__` to toggle capabilities. Key flag:
 
-## What technologies are used for this project?
+- `conversation_engine_eleven`: when `true`, `engineFactory` loads `ElevenAgentsEngine`; otherwise, the stub engine runs and legacy managers stay active.
 
-This project is built with:
+## Testing
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- Unit tests: `bun test` (Vitest). Suite includes `src/services/conversation/__tests__/ElevenAgentsEngine.test.ts` for WebSocket event mapping, control commands, and context formatting.
+- Manual: RehearsalMode.tsx with `conversation_engine_eleven` enabled.
 
-## How can I deploy this project?
+## Roadmap
 
-Simply open [Lovable](https://lovable.dev/projects/a9690c02-bc40-4847-a067-085ddbacc9d0) and click on Share -> Publish.
+- **Phase 2 (done):** Engine interface, ElevenLabs edge token, ElevenAgentsEngine + tests.
+- **Phase 3 (next):** React hook integration, RehearsalMode container refactor, feature-flagged rollout.
+- **Phase 4:** Clean up legacy audio managers/hooks.
+- **Phase 5:** Hybrid UI polish, production hardening.
 
-## Can I connect a custom domain to my Lovable project?
+Track progress in:
 
-Yes, you can!
+- `Project plans/ConversationEngine Refactor PRD_Dec.md`
+- `Project plans/November 2025 Sprint - Production Hardening.md`
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+## Contributing
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+1. Branch from `main`.
+2. Run lint/tests before pushing (`bun test`).
+3. Document new feature flags/config in README.
+4. For Supabase functions, update `supabase/functions/*` and redeploy via Supabase CLI.
+
+Issues/ideas? Open a GitHub issue or start a discussion—community feedback guides the roadmap.
