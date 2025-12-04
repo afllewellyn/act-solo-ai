@@ -14,7 +14,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private eventListeners: Array<(event: ConversationEvent) => void> = [];
   private mediaStream: MediaStream | null = null;
   private audioContext: AudioContext | null = null;
-  private audioProcessor: ScriptProcessorNode | null = null;
+  private audioWorkletNode: AudioWorkletNode | null = null;
   private config: ConversationEngineConfig;
   
   // Connection state
@@ -79,11 +79,11 @@ export class ElevenAgentsEngine implements ConversationEngine {
     // Stop audio playback
     this.audioPlayer.stop();
     
-    // Disconnect and clean up audio processor
-    if (this.audioProcessor) {
-      this.audioProcessor.disconnect();
-      this.audioProcessor.onaudioprocess = null;
-      this.audioProcessor = null;
+    // Disconnect and clean up audio worklet
+    if (this.audioWorkletNode) {
+      this.audioWorkletNode.disconnect();
+      this.audioWorkletNode.port.close();
+      this.audioWorkletNode = null;
     }
     
     // Stop media stream
@@ -472,39 +472,58 @@ export class ElevenAgentsEngine implements ConversationEngine {
     this.audioContext = new AudioContext({ sampleRate: 16000 });
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
     
-    // Use ScriptProcessorNode to extract raw PCM audio samples
-    // Note: ScriptProcessorNode is deprecated but AudioWorklet requires separate processor file
-    const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
-    
-    processor.onaudioprocess = (e) => {
-      // Only send audio if WebSocket is open AND we're fully initialized
-      if (this.ws?.readyState !== WebSocket.OPEN || !this.isInitialized) return;
+    // Use AudioWorklet for modern, efficient audio processing (replaces deprecated ScriptProcessorNode)
+    try {
+      await this.audioContext.audioWorklet.addModule('/audio-processor.js');
       
-      // Get Float32Array audio data from input
-      const float32Array = e.inputBuffer.getChannelData(0);
+      this.audioWorkletNode = new AudioWorkletNode(this.audioContext, 'pcm16-audio-processor');
       
-      // Convert Float32Array (-1.0 to 1.0) to Int16Array (PCM16 format)
-      const int16Array = new Int16Array(float32Array.length);
-      for (let i = 0; i < float32Array.length; i++) {
-        // Clamp to [-1, 1] and convert to 16-bit signed integer
-        const s = Math.max(-1, Math.min(1, float32Array[i]));
-        int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
-      }
+      // Handle audio data from worklet
+      this.audioWorkletNode.port.onmessage = (event) => {
+        // Only send audio if WebSocket is open AND we're fully initialized
+        if (this.ws?.readyState !== WebSocket.OPEN || !this.isInitialized) return;
+        
+        const { type, buffer } = event.data;
+        if (type === 'audio') {
+          // Convert ArrayBuffer to base64
+          const base64 = this.arrayBufferToBase64(buffer);
+          
+          // Send to ElevenLabs as JSON with base64-encoded audio
+          this.ws.send(JSON.stringify({
+            user_audio_chunk: base64,
+          }));
+        }
+      };
       
-      // Convert Int16Array to base64
-      const base64 = this.arrayBufferToBase64(int16Array.buffer);
+      // Connect audio pipeline
+      source.connect(this.audioWorkletNode);
+      this.audioWorkletNode.connect(this.audioContext.destination);
       
-      // Send to ElevenLabs as JSON with base64-encoded audio
-      this.ws.send(JSON.stringify({
-        user_audio_chunk: base64,
-      }));
-    };
-    
-    // Connect audio pipeline
-    source.connect(processor);
-    processor.connect(this.audioContext.destination);
-    
-    console.log('[ElevenAgentsEngine] Microphone initialized - streaming PCM16 @ 16kHz');
+      console.log('[ElevenAgentsEngine] Microphone initialized with AudioWorklet - streaming PCM16 @ 16kHz');
+    } catch (workletError) {
+      console.warn('[ElevenAgentsEngine] AudioWorklet not supported, falling back to ScriptProcessorNode:', workletError);
+      // Fallback to ScriptProcessorNode for older browsers
+      const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
+      
+      processor.onaudioprocess = (e) => {
+        if (this.ws?.readyState !== WebSocket.OPEN || !this.isInitialized) return;
+        
+        const float32Array = e.inputBuffer.getChannelData(0);
+        const int16Array = new Int16Array(float32Array.length);
+        for (let i = 0; i < float32Array.length; i++) {
+          const s = Math.max(-1, Math.min(1, float32Array[i]));
+          int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
+        }
+        
+        const base64 = this.arrayBufferToBase64(int16Array.buffer);
+        this.ws.send(JSON.stringify({ user_audio_chunk: base64 }));
+      };
+      
+      source.connect(processor);
+      processor.connect(this.audioContext.destination);
+      
+      console.log('[ElevenAgentsEngine] Microphone initialized with ScriptProcessorNode (fallback) - streaming PCM16 @ 16kHz');
+    }
   }
 
   private formatScriptContext(context: ScriptContext): string {

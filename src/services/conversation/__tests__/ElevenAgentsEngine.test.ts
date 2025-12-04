@@ -90,6 +90,9 @@ class MockAudioContext {
   public state = 'running';
   public sampleRate = 16000;
   public destination = {};
+  public audioWorklet = {
+    addModule: vi.fn().mockResolvedValue(undefined),
+  };
   
   createMediaStreamSource() {
     return { 
@@ -110,6 +113,20 @@ class MockAudioContext {
     this.state = 'closed';
   }
 }
+
+// Mock AudioWorkletNode
+class MockAudioWorkletNode {
+  public port = {
+    onmessage: null as ((event: any) => void) | null,
+    close: vi.fn(),
+    postMessage: vi.fn(),
+  };
+  
+  connect = vi.fn();
+  disconnect = vi.fn();
+}
+
+global.AudioWorkletNode = MockAudioWorkletNode as any;
 
 global.AudioContext = MockAudioContext as any;
 
