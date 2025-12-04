@@ -2,12 +2,12 @@ import { TextFilter } from './ScriptRehearsalStateMachine';
 import { stripHtmlTags, extractFormattedText, matchCharacterLine, stripCharacterNamePrefix } from '@/components/practice/rehearsal/textUtils';
 
 /**
- * Script Parser Service - Text-Based Filtering Only
+ * Script Parser Service - Text-Based Filtering
  * 
- * Simplified service that works purely on text formatting without character role assignments.
- * - Bold text = AI should read
- * - Italic text = AI should read  
- * - All text = AI reads everything
+ * Simplified service that works on text formatting:
+ * - Italic text = AI reads (scene partner lines)
+ * - Bold text = User reads (their lines to practice)
+ * - All text = AI reads everything (listen mode)
  * - Character names are automatically stripped from TTS output
  */
 export class ScriptParserService {
@@ -32,15 +32,6 @@ export class ScriptParserService {
       case 'all':
         // Extract all text, remove character names
         extractedText = this.extractAllTextWithoutNames(scriptContent);
-        break;
-        
-      case 'bold':
-        extractedText = extractFormattedText(scriptContent, 'bold');
-        if (!extractedText.trim() && !strictMode) {
-          console.warn('🔄 No bold text found, falling back to all text');
-          extractedText = this.extractAllTextWithoutNames(scriptContent);
-          fallbackApplied = true;
-        }
         break;
         
       case 'italic':
@@ -101,7 +92,6 @@ export class ScriptParserService {
     const analysis = {
       totalLines: 0,
       hasFormattedText: {
-        bold: false,
         italic: false
       }
     };
@@ -115,7 +105,6 @@ export class ScriptParserService {
     );
 
     analysis.totalLines = lines.length;
-    analysis.hasFormattedText.bold = extractFormattedText(scriptContent, 'bold').length > 0;
     analysis.hasFormattedText.italic = extractFormattedText(scriptContent, 'italic').length > 0;
 
     return analysis;
@@ -133,16 +122,6 @@ export class ScriptParserService {
     }
 
     switch (textFilter) {
-      case 'bold':
-        if (extractFormattedText(scriptContent, 'bold').length === 0) {
-          return { 
-            isValid: false, 
-            reason: 'No bold text found in script',
-            fallbackFilter: 'all'
-          };
-        }
-        break;
-        
       case 'italic':
         if (extractFormattedText(scriptContent, 'italic').length === 0) {
           return { 
