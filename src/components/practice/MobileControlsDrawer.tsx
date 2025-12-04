@@ -40,7 +40,7 @@ interface Character {
   isUserRole: boolean;
 }
 
-type TextFilter = 'all' | 'bold' | 'italic';
+type TextFilter = 'all' | 'italic';
 type RehearsalState = 'IDLE' | 'WAITING_FOR_ACTOR_CUE' | 'AI_SPEAKING' | 'TRANSITIONING' | 'COMPLETE';
 
 interface MobileControlsDrawerProps {
@@ -126,9 +126,8 @@ export function MobileControlsDrawer({
 
   // Available text filter options for reading different parts of the script
   const filterOptions = [
-    { value: 'all' as const, label: 'All Text' },
-    { value: 'bold' as const, label: 'Bold Text Only' },
-    { value: 'italic' as const, label: 'Italic Text Only' },
+    { value: 'italic' as const, label: 'Italic' },
+    { value: 'all' as const, label: 'Full Script' },
   ];
 
   // Available playback speeds for TTS (0.5x to 2x)

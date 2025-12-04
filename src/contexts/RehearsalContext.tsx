@@ -95,7 +95,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   // Rehearsal State
   const [rehearsalState, setRehearsalState] = useState<RehearsalState>('IDLE');
   const [currentCueWords, setCurrentCueWords] = useState<string[]>([]);
-  const [textFilter, setTextFilterState] = useState<TextFilter>('all');
+  const [textFilter, setTextFilterState] = useState<TextFilter>('italic');
   const [rehearsalMode, setRehearsalModeState] = useState(false);
   const [noMatchesBanner, setNoMatchesBanner] = useState<{ show: boolean; filter: TextFilter } | null>(null);
   
@@ -600,8 +600,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
 
       if (!hasContent) {
         // Show specific message for the filter type
-        const filterLabel = textFilter === 'all' ? 'text' : 
-                           textFilter === 'bold' ? 'bold text' : 'italic text';
+        const filterLabel = textFilter === 'all' ? 'text' : 'italic text';
         
         toast({
           title: "No Content Found",

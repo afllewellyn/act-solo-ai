@@ -40,10 +40,11 @@ export const VoiceControls = () => {
     console.log('Engine change requested:', engine);
   };
   // Available text filter options for reading different parts of the script
+  // - Italic: AI reads italic lines, user reads their bold lines (rehearsal mode)
+  // - Full Script: AI reads everything (listen mode)
   const filterOptions = [
-    { value: 'all' as const, label: 'All Text' },
-    { value: 'bold' as const, label: 'Bold Text Only' },
-    { value: 'italic' as const, label: 'Italic Text Only' },
+    { value: 'italic' as const, label: 'Italic' },
+    { value: 'all' as const, label: 'Full Script' },
   ];
 
   // Available playback speeds for TTS (0.5x to 2x)

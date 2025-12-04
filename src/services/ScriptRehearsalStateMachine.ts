@@ -9,7 +9,7 @@ export interface Character {
   isUserRole: boolean;
 }
 
-export type TextFilter = 'all' | 'bold' | 'italic';
+export type TextFilter = 'all' | 'italic';
 export type RehearsalState = 'IDLE' | 'WAITING_FOR_ACTOR_CUE' | 'AI_SPEAKING' | 'TRANSITIONING' | 'COMPLETE';
 
 export interface ScriptLine {

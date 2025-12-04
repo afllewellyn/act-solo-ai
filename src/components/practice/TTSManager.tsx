@@ -12,8 +12,11 @@ interface Character {
 
 /**
  * Text filter options for selective script reading
+ * - 'italic': AI reads italic lines (scene partner)
+ * - 'all': AI reads everything
+ * - 'characters': Character-based filtering (legacy)
  */
-type TextFilter = 'all' | 'bold' | 'italic' | 'characters';
+type TextFilter = 'all' | 'italic' | 'characters';
 
 /**
  * Props for TTSManager hook
@@ -139,9 +142,6 @@ export const useTTSManager = ({
       switch (textFilter) {
         case 'all':
           textToSpeak = stripHtmlTags(scriptContent);
-          break;
-        case 'bold':
-          textToSpeak = extractFormattedText(scriptContent, 'bold');
           break;
         case 'italic':
           textToSpeak = extractFormattedText(scriptContent, 'italic');

@@ -10,8 +10,10 @@ export interface Character {
 
 /**
  * Text filter options for selective script reading
+ * - 'italic': AI reads italic lines, user reads bold lines (rehearsal mode)
+ * - 'all': AI reads entire script (listen mode)
  */
-export type TextFilter = 'all' | 'bold' | 'italic';
+export type TextFilter = 'all' | 'italic';
 
 /**
  * Props for RehearsalMode hook - Simplified for text-based filtering

@@ -2,27 +2,28 @@ import { TextFilter, ScriptLine } from './types';
 import { stripHtmlTags, extractFormattedText, matchCharacterLine } from './textUtils';
 
 /**
- * Helper function to check if a line matches the current text filter
- * Simplified for text-based filtering only
+ * Helper function to check if a line is an AI line based on text filter
+ * - 'italic' filter: italic lines are AI lines
+ * - 'all' filter: all lines are AI lines
  */
-export const checkLineMatchesFilter = (line: string, textFilter: TextFilter): boolean => {
+export const isAILine = (line: string, textFilter: TextFilter): boolean => {
   switch (textFilter) {
-    case 'bold':
-      return extractFormattedText(line, 'bold').length > 0;
     case 'italic':
+      // In italic mode, only italic lines are AI lines
       return extractFormattedText(line, 'italic').length > 0;
     case 'all':
     default:
-      return true; // Include all lines
+      return true; // All lines are AI lines in full script mode
   }
 };
 
 /**
- * Parse script lines with text filtering - Simplified for text-based filtering
+ * Parse script lines with text filtering
  * 
- * In this simplified version:
- * - Bold/Italic text = AI should read
- * - All other text = Available for reading
+ * Convention:
+ * - Italic text = AI reads these lines (scene partner)
+ * - Bold text = User/Actor reads these (their lines to practice)
+ * - 'all' filter = AI reads everything (listen mode)
  * - Character names are automatically stripped from dialogue
  */
 export const getScriptLines = (
@@ -41,30 +42,16 @@ export const getScriptLines = (
     
     // Check if this is a character line format: "NAME: dialogue"
     const characterMatch = matchCharacterLine(cleanLine);
+    const dialogue = characterMatch ? characterMatch[2].trim() : cleanLine;
     
-    if (characterMatch) {
-      const dialogue = characterMatch[2].trim();
-      
-      // Check if line matches the text filter (bold/italic)
-      const matchesFilter = checkLineMatchesFilter(line, textFilter);
-      
-      // Lines matching filter = AI reads them
-      // Lines NOT matching filter = Actor reads them (we wait for cue)
-      return { 
-        type: matchesFilter ? 'ai' as const : 'actor' as const, 
-        content: line, 
-        dialogue 
-      };
-    } else {
-      // Non-character line (stage direction, etc.)
-      const matchesFilter = checkLineMatchesFilter(line, textFilter);
-      
-      return { 
-        type: matchesFilter ? 'ai' as const : 'actor' as const, 
-        content: line, 
-        dialogue: cleanLine 
-      };
-    }
+    // Determine if this is an AI line based on filter
+    const isAI = isAILine(line, textFilter);
+    
+    return { 
+      type: isAI ? 'ai' as const : 'actor' as const, 
+      content: line, 
+      dialogue 
+    };
   }) as ScriptLine[];
   
   return filteredLines;
