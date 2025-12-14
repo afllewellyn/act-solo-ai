@@ -59,23 +59,18 @@
    - Calls `engine.updateContext` whenever cue/line changes.
    - Removes direct usage of `useTTS`, `useSpeechRecognition`, `EnhancedAudioManager`.
 
-### Phase 4 – Cleanup & Migration
-1. Toggle `conversation_engine_eleven` to `true` by default once QA passes.
-2. Delete superseded files:
-   - `src/services/AudioManager.ts`
-   - `src/services/EnhancedAudioManager.ts`
-   - `src/services/StreamingAudioManager.ts`
-   - `src/hooks/useTTS.tsx`
-   - `src/hooks/useSpeechRecognition.tsx`
-   - `src/contexts/RehearsalContext.tsx`
-   - Other helpers (`ActorLineDetector`, TTS-only components) as applicable.
-3. Update docs (`SUPABASE_WORKFLOW.md`, README) to reflect new engine.
-4. Remove unused dependencies (e.g., old speech-recognition polyfills).
+### Phase 4 – Cleanup & Migration (Deferred)
+1. Toggle `conversation_engine_eleven` to `true` by default once QA passes and staging rehearsals prove stable; legacy flow remains as a fallback until then.
+2. Keep the legacy audio managers/hooks (`AudioManager`, `EnhancedAudioManager`, `useTTS`, `useSpeechRecognition`, etc.) in place during this rollout window; we will schedule their deletion in a dedicated cleanup cycle once the new engine is fully trusted.
+3. Update docs (`SUPABASE_WORKFLOW.md`, README) to reflect the new engine and eventual migration status.
+4. Remove unused dependencies (e.g., old speech-recognition polyfills) after the legacy path is fully retired.
 
 ### Phase 5 – Optional Enhancements
 - Add `HybridOpenAIEngine` using OpenAI Realtime for fallback/dual-provider mode.
 - Introduce coach mode: extend domain types with `AgentRole`, `PerformanceNote`.
 - Tool-call integration for performance analytics dashboards.
+
+Phase 5 items are nice-to-haves for later — coach mode and analytics dashboards stay on the back burner until the core rehearsal experience is rock-solid.
 
 ## Risks & Mitigations
 
@@ -94,7 +89,7 @@
 ## Deployment Checklist
 1. Deploy `eleven-agent-token` Supabase function with required env vars (`ELEVENLABS_API_KEY`, `ELEVENLABS_AGENT_ID`).
 2. Release `ElevenAgentsEngine` bundle guarded behind feature flag.
-3. Roll out hook + RehearsalMode refactor.
+3. Roll out hook + RehearsalMode refactor (COMPLETE - UI now depends on ConversationEngine hook/state).
 4. Enable feature flag in staging; run full rehearsal regression.
-5. Flip feature flag in production, monitor telemetry (latency, error rates).
-6. Remove legacy managers once stability confirmed.
+5. Flip feature flag in production when QA has validated the rehearsals; monitor telemetry (latency, error rates).
+6. Keep legacy managers as a fallback for now; schedule their removal in a later cleanup once the new flow is stable.
