@@ -9,6 +9,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { useRehearsal } from '@/contexts/RehearsalContext';
 import { 
   Settings,
   Play,
@@ -22,7 +23,8 @@ import {
   Mic,
   MicOff,
   Smartphone,
-  Monitor
+  Monitor,
+  Square
 } from 'lucide-react';
 
 
@@ -73,7 +75,6 @@ interface MobileControlsDrawerProps {
   isManualTTSPlaying?: boolean;
   rehearsalState?: RehearsalState;
   onTTSPlay?: () => void;
-  onMasterStop?: () => void;
   
   // Audio manager props
   isMobile?: boolean;
@@ -113,7 +114,6 @@ export function MobileControlsDrawer({
   isManualTTSPlaying = false,
   rehearsalState = 'IDLE',
   onTTSPlay,
-  onMasterStop,
   
   // Audio manager props
   isMobile = true,
@@ -123,8 +123,7 @@ export function MobileControlsDrawer({
   onManualTriggerListen
 }: MobileControlsDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
-
-  // Available text filter options for reading different parts of the script
+  const { isPaused, handlePause, handleResume } = useRehearsal();
   const filterOptions = [
     { value: 'italic' as const, label: 'Italic' },
     { value: 'all' as const, label: 'Full Script' },
@@ -162,7 +161,7 @@ export function MobileControlsDrawer({
                 >
                   {isRehearsalActive ? (
                     <>
-                      <Pause className="h-3 w-3 mr-1" />
+                      <Square className="h-3 w-3 mr-1" />
                       Stop
                     </>
                   ) : (
@@ -178,19 +177,41 @@ export function MobileControlsDrawer({
                   Reset
                 </Button>
                 
-                <Button onClick={onToggleFullscreen} variant="outline" size="sm" className="flex-1">
-                  {isFullscreen ? (
-                    <>
-                      <Minimize className="h-3 w-3 mr-1" />
-                      Exit
-                    </>
-                  ) : (
-                    <>
-                      <Maximize className="h-3 w-3 mr-1" />
-                      Full
-                    </>
-                  )}
-                </Button>
+                {/* Pause/Resume Button - Only show during active rehearsal */}
+                {isRehearsalActive ? (
+                  <Button
+                    variant={isPaused ? "default" : "outline"}
+                    size="sm"
+                    onClick={isPaused ? handleResume : handlePause}
+                    className="flex-1"
+                  >
+                    {isPaused ? (
+                      <>
+                        <Play className="h-3 w-3 mr-1" />
+                        Resume
+                      </>
+                    ) : (
+                      <>
+                        <Pause className="h-3 w-3 mr-1" />
+                        Pause
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button onClick={onToggleFullscreen} variant="outline" size="sm" className="flex-1">
+                    {isFullscreen ? (
+                      <>
+                        <Minimize className="h-3 w-3 mr-1" />
+                        Exit
+                      </>
+                    ) : (
+                      <>
+                        <Maximize className="h-3 w-3 mr-1" />
+                        Full
+                      </>
+                    )}
+                  </Button>
+                )}
               </div>
             </div>
 
