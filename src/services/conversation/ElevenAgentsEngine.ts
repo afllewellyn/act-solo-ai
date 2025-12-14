@@ -150,14 +150,8 @@ export class ElevenAgentsEngine implements ConversationEngine {
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
         break;
       case 'resume_agent':
-        // ElevenLabs Conversational AI doesn't support explicit resume
-        // The agent resumes automatically when the user speaks or interruption ends
-        console.warn('[ElevenAgentsEngine] resume_agent not supported by ElevenLabs - agent resumes automatically');
-        this.emitEvent({
-          type: 'error',
-          error: new Error('resume_agent command not supported by ElevenLabs Conversational AI'),
-          timestamp: Date.now(),
-        });
+        // ElevenLabs resumes automatically when user speaks - this is a graceful no-op
+        console.log('[ElevenAgentsEngine] resume_agent ignored - agent resumes automatically');
         break;
       case 'interrupt':
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
