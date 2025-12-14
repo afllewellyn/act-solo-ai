@@ -27,6 +27,8 @@ interface UseConversationEngineOptions {
   onAgentResponseEnded?: (fullText: string) => void;
   /** Called when agent audio starts playing */
   onAgentAudioStarted?: () => void;
+  /** Called for each audio chunk from agent */
+  onAgentAudioDelta?: (audioData: ArrayBuffer) => void;
   /** Called when agent audio finishes */
   onAgentAudioEnded?: () => void;
   /** Called on any error */
@@ -64,6 +66,7 @@ export function useConversationEngine(
     onAgentResponseDelta,
     onAgentResponseEnded,
     onAgentAudioStarted,
+    onAgentAudioDelta,
     onAgentAudioEnded,
     onError,
     onStatusChange,
@@ -114,6 +117,10 @@ export function useConversationEngine(
         onAgentAudioStarted?.();
         break;
 
+      case 'agent_audio_delta':
+        onAgentAudioDelta?.(event.audioData);
+        break;
+
       case 'agent_audio_ended':
         onAgentAudioEnded?.();
         break;
@@ -134,6 +141,7 @@ export function useConversationEngine(
     onAgentResponseDelta,
     onAgentResponseEnded,
     onAgentAudioStarted,
+    onAgentAudioDelta,
     onAgentAudioEnded,
     onError,
     onStatusChange,
