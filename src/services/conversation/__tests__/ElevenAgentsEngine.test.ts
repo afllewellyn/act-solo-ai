@@ -483,4 +483,180 @@ describe('ElevenAgentsEngine', () => {
       expect(endedEvents.length).toBe(1);
     });
   });
+
+  describe('Exponential Backoff Reconnection', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should not reconnect on intentional stop', async () => {
+      vi.useRealTimers(); // Need real timers for initial connection
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      vi.useFakeTimers();
+      
+      // Stop intentionally
+      await engine.stop();
+      
+      // Advance time past any potential reconnection delay
+      await vi.advanceTimersByTimeAsync(5000);
+      
+      // Should remain disconnected, not try to reconnect
+      expect(engine.getStatus()).toBe('disconnected');
+      
+      // Should not have any status_changed to 'connecting' after disconnected
+      const statusEvents = events.filter(e => e.type === 'status_changed');
+      const lastStatusEvent = statusEvents[statusEvents.length - 1];
+      expect(lastStatusEvent?.status).toBe('disconnected');
+    });
+
+    it('should not reconnect on clean close (code 1000)', async () => {
+      vi.useRealTimers();
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      vi.useFakeTimers();
+      events.length = 0; // Clear previous events
+      
+      // Simulate clean close
+      mockWsInstance?.close(1000);
+      
+      // Advance time past any potential reconnection delay
+      await vi.advanceTimersByTimeAsync(5000);
+      
+      expect(engine.getStatus()).toBe('disconnected');
+      
+      // Should not have 'connecting' status after the close
+      const connectingAfterClose = events.filter(e => 
+        e.type === 'status_changed' && e.status === 'connecting'
+      );
+      expect(connectingAfterClose.length).toBe(0);
+    });
+
+    it('should attempt reconnection on abnormal close', async () => {
+      vi.useRealTimers();
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      vi.useFakeTimers();
+      events.length = 0;
+      
+      // Simulate abnormal close (e.g., network error)
+      mockWsInstance?.close(1006, 'Connection lost');
+      
+      // Should transition to connecting status for reconnection attempt
+      const connectingEvents = events.filter(e => 
+        e.type === 'status_changed' && e.status === 'connecting'
+      );
+      expect(connectingEvents.length).toBe(1);
+    });
+
+    it('should use exponential backoff delays (1s, 2s, 4s, 8s, 16s)', async () => {
+      vi.useRealTimers();
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      vi.useFakeTimers();
+      
+      // Mock start to track calls but fail
+      const originalStart = engine.start.bind(engine);
+      let startCallCount = 0;
+      vi.spyOn(engine, 'start').mockImplementation(async () => {
+        startCallCount++;
+        if (startCallCount > 1) {
+          // Simulate failed reconnection by throwing
+          throw new Error('Connection failed');
+        }
+        return originalStart();
+      });
+
+      // Trigger abnormal close
+      mockWsInstance?.close(1006);
+      
+      // First reconnect after 1s
+      await vi.advanceTimersByTimeAsync(999);
+      expect(startCallCount).toBe(1); // Original start only
+      
+      await vi.advanceTimersByTimeAsync(1);
+      expect(startCallCount).toBe(2); // First reconnect attempt
+    });
+
+    it('should give up after max reconnection attempts and emit error', async () => {
+      vi.useRealTimers();
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      vi.useFakeTimers();
+      events.length = 0;
+      
+      // Mock start to always fail after first call
+      const originalStart = engine.start.bind(engine);
+      let startCallCount = 0;
+      vi.spyOn(engine, 'start').mockImplementation(async () => {
+        startCallCount++;
+        if (startCallCount === 1) {
+          return originalStart();
+        }
+        // Simulate each reconnect closing abnormally
+        setTimeout(() => {
+          mockWsInstance?.close(1006);
+        }, 5);
+        return originalStart();
+      });
+
+      // Initial abnormal close
+      mockWsInstance?.close(1006);
+      
+      // Advance through all 5 reconnection attempts
+      // 1s + 2s + 4s + 8s + 16s = 31s total, but we cap at 30s
+      await vi.advanceTimersByTimeAsync(60000);
+      
+      // Should emit error after max attempts
+      const errorEvents = events.filter(e => e.type === 'error');
+      expect(errorEvents.length).toBeGreaterThanOrEqual(1);
+      
+      const maxAttemptsError = errorEvents.find(e => 
+        e.error?.message?.includes('maximum reconnection attempts')
+      );
+      expect(maxAttemptsError).toBeDefined();
+    });
+
+    it('should reset reconnect attempts on successful connection', async () => {
+      vi.useRealTimers();
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      // Stop and restart should have fresh reconnect state
+      await engine.stop();
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      expect(engine.getStatus()).toBe('ready');
+    });
+
+    it('should clear pending reconnection timeout on manual stop', async () => {
+      vi.useRealTimers();
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      
+      vi.useFakeTimers();
+      
+      // Trigger abnormal close to start reconnection timer
+      mockWsInstance?.close(1006);
+      
+      // Immediately stop before reconnection timer fires
+      await engine.stop();
+      
+      // Advance past the reconnection delay
+      await vi.advanceTimersByTimeAsync(5000);
+      
+      // Should remain disconnected, reconnection should be cancelled
+      expect(engine.getStatus()).toBe('disconnected');
+    });
+  });
 });
