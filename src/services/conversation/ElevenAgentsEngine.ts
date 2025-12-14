@@ -19,6 +19,14 @@ export class ElevenAgentsEngine implements ConversationEngine {
   
   // Connection state
   private isInitialized: boolean = false;
+  private intentionalStop: boolean = false;
+  
+  // Reconnection state
+  private reconnectAttempts: number = 0;
+  private readonly maxReconnectAttempts: number = 5;
+  private readonly baseReconnectDelay: number = 1000; // 1 second
+  private readonly maxReconnectDelay: number = 30000; // 30 seconds
+  private reconnectTimeoutId: ReturnType<typeof setTimeout> | null = null;
   
   // Response buffering state
   private currentResponseText: string = '';
@@ -40,6 +48,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   async start(): Promise<void> {
     console.log('[ElevenAgentsEngine] Starting...');
+    
+    // Reset intentional stop flag on fresh start
+    this.intentionalStop = false;
     
     try {
       this.setStatus('connecting');
@@ -75,6 +86,18 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   async stop(): Promise<void> {
     console.log('[ElevenAgentsEngine] Stopping...');
+    
+    // Mark as intentional stop to prevent reconnection
+    this.intentionalStop = true;
+    
+    // Clear any pending reconnection timeout
+    if (this.reconnectTimeoutId) {
+      clearTimeout(this.reconnectTimeoutId);
+      this.reconnectTimeoutId = null;
+    }
+    
+    // Reset reconnection state
+    this.reconnectAttempts = 0;
     
     // Stop audio playback
     this.audioPlayer.stop();
@@ -447,7 +470,93 @@ export class ElevenAgentsEngine implements ConversationEngine {
       this.isAudioActive = false;
     }
     
-    this.setStatus('disconnected');
+    // Reset initialized state
+    this.isInitialized = false;
+    
+    // If this was an intentional stop (user clicked stop), don't reconnect
+    if (this.intentionalStop) {
+      console.log('[ElevenAgentsEngine] Intentional stop, not reconnecting');
+      this.setStatus('disconnected');
+      return;
+    }
+    
+    // Normal close code (1000) typically means intentional close
+    if (event.code === 1000) {
+      console.log('[ElevenAgentsEngine] Clean close, not reconnecting');
+      this.setStatus('disconnected');
+      return;
+    }
+    
+    // Attempt reconnection with exponential backoff
+    this.attemptReconnect();
+  }
+
+  private attemptReconnect(): void {
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.log('[ElevenAgentsEngine] Max reconnection attempts reached, giving up');
+      this.setStatus('disconnected');
+      this.emitEvent({
+        type: 'error',
+        error: new Error('Connection lost after maximum reconnection attempts'),
+        timestamp: Date.now(),
+      });
+      this.reconnectAttempts = 0;
+      return;
+    }
+
+    // Calculate delay with exponential backoff: 1s, 2s, 4s, 8s, 16s (capped at 30s)
+    const delay = Math.min(
+      this.baseReconnectDelay * Math.pow(2, this.reconnectAttempts),
+      this.maxReconnectDelay
+    );
+    
+    this.reconnectAttempts++;
+    console.log(`[ElevenAgentsEngine] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    
+    this.setStatus('connecting');
+    
+    this.reconnectTimeoutId = setTimeout(async () => {
+      try {
+        // Clean up before reconnecting
+        await this.cleanupForReconnect();
+        
+        // Attempt to start again
+        await this.start();
+        
+        // Reset attempts on successful connection
+        this.reconnectAttempts = 0;
+        console.log('[ElevenAgentsEngine] Reconnection successful');
+      } catch (error) {
+        console.error('[ElevenAgentsEngine] Reconnection failed:', error);
+        // start() already handles error state, attemptReconnect will be called again from handleClose
+      }
+    }, delay);
+  }
+
+  private async cleanupForReconnect(): Promise<void> {
+    // Stop audio playback
+    this.audioPlayer.stop();
+    
+    // Disconnect and clean up audio worklet
+    if (this.audioWorkletNode) {
+      this.audioWorkletNode.disconnect();
+      this.audioWorkletNode.port.close();
+      this.audioWorkletNode = null;
+    }
+    
+    // Stop media stream
+    if (this.mediaStream) {
+      this.mediaStream.getTracks().forEach(track => track.stop());
+      this.mediaStream = null;
+    }
+    
+    // Close audio context
+    if (this.audioContext?.state !== 'closed') {
+      await this.audioContext?.close();
+      this.audioContext = null;
+    }
+    
+    this.ws = null;
   }
 
   private async initializeMicrophone(): Promise<void> {
