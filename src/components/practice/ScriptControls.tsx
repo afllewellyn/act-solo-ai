@@ -18,8 +18,6 @@ interface ScriptControlsProps {
   onScrollSpeedChange: (speed: number[]) => void; // Callback when scroll speed changes
   onFontSizeChange: (size: number[]) => void; // Callback when font size changes (min: 12px, max: 32px)
   onToggleFullscreen: () => void; // Callback to toggle fullscreen mode
-  onMasterStop?: () => void; // Master stop button to halt all AI operations
-  showMasterStop?: boolean; // Whether to show the master stop button
 }
 
 /**
@@ -39,10 +37,9 @@ export const ScriptControls = ({
   onScrollSpeedChange,
   onFontSizeChange,
   onToggleFullscreen,
-  onMasterStop,
-  showMasterStop = false,
 }: ScriptControlsProps) => {
-  const { rehearsalState, currentCueWords } = useRehearsal();
+  const { rehearsalState, currentCueWords, isPaused, handlePause, handleResume } = useRehearsal();
+  
   return (
     <>
       {/* Rehearse Script Section */}
@@ -55,19 +52,23 @@ export const ScriptControls = ({
         {isRehearsalActive && (
           <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 space-y-2">
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium">Rehearsal Active</span>
+              <span className="text-sm font-medium">
+                {isPaused ? 'Paused' : 'Rehearsal Active'}
+              </span>
               <Badge variant={
+                isPaused ? 'secondary' :
                 rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'destructive' :
                 rehearsalState === 'AI_SPEAKING' ? 'default' :
                 rehearsalState === 'TRANSITIONING' ? 'secondary' : 'outline'
               }>
-                {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Listening for your line...' : 
+                {isPaused ? 'Paused' :
+                 rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Listening for your line...' : 
                  rehearsalState === 'AI_SPEAKING' ? 'AI Speaking' :
                  rehearsalState === 'TRANSITIONING' ? 'Transitioning' : rehearsalState}
               </Badge>
             </div>
             
-            {currentCueWords.length > 0 && (
+            {!isPaused && currentCueWords.length > 0 && (
               <div className="flex items-center gap-1 flex-wrap">
                 <span className="text-xs text-muted-foreground">Say:</span>
                 {currentCueWords.map((word, index) => (
@@ -103,17 +104,26 @@ export const ScriptControls = ({
             <span className="ml-1">Reset</span>
           </Button>
 
-          {/* Master Stop Button - Emergency stop for all AI operations */}
-          {showMasterStop && onMasterStop && (
+          {/* Pause/Resume Button - Only show during active rehearsal */}
+          {isRehearsalActive && (
             <Button
-              variant="destructive"
+              variant={isPaused ? "default" : "outline"}
               size="sm"
-              onClick={onMasterStop}
+              onClick={isPaused ? handleResume : handlePause}
               className="flex-1"
-              aria-label="Emergency stop all AI operations"
+              aria-label={isPaused ? 'Resume rehearsal' : 'Pause rehearsal'}
             >
-              <Square className="h-4 w-4" />
-              <span className="ml-1">Stop All</span>
+              {isPaused ? (
+                <>
+                  <Play className="h-4 w-4" />
+                  <span className="ml-1">Resume</span>
+                </>
+              ) : (
+                <>
+                  <Pause className="h-4 w-4" />
+                  <span className="ml-1">Pause</span>
+                </>
+              )}
             </Button>
           )}
 

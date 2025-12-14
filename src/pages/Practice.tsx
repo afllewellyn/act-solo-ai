@@ -399,7 +399,6 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
               isManualTTSPlaying={useRehearsal().isManualTTSPlaying}
               rehearsalState={useRehearsal().rehearsalState}
               onTTSPlay={useRehearsal().handleTTSPlay}
-              onMasterStop={handleMasterStop}
               
               // Audio manager props
               isMobile={useRehearsal().audioManager?.isMobile}
@@ -431,8 +430,6 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                       onScrollSpeedChange={setScrollSpeed}
                       onFontSizeChange={setFontSize}
                       onToggleFullscreen={toggleFullscreen}
-                      onMasterStop={handleMasterStop}
-                      showMasterStop={voiceActivated && rehearsalMode}
                     />
                   </div>
                 ) : (
@@ -451,8 +448,6 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                           onScrollSpeedChange={setScrollSpeed}
                           onFontSizeChange={setFontSize}
                           onToggleFullscreen={toggleFullscreen}
-                          onMasterStop={handleMasterStop}
-                          showMasterStop={voiceActivated && rehearsalMode}
                         />
                       </div>
 

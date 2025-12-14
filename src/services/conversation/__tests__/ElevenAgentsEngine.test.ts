@@ -338,16 +338,19 @@ describe('ElevenAgentsEngine', () => {
       expect(interruptMsg).toBeDefined();
     });
 
-    it('should emit error event for unsupported resume_agent', async () => {
-      await engine.start();
-      await new Promise(resolve => setTimeout(resolve, 10));
+  it('should handle resume_agent as graceful no-op (no error)', async () => {
+    await engine.start();
+    await new Promise(resolve => setTimeout(resolve, 10));
 
-      await engine.sendControl({ type: 'resume_agent' });
+    // Clear any previous events
+    events.length = 0;
 
-      const errorEvents = events.filter(e => e.type === 'error');
-      expect(errorEvents.length).toBeGreaterThan(0);
-      expect(errorEvents[0].error.message).toContain('resume_agent');
-    });
+    await engine.sendControl({ type: 'resume_agent' });
+
+    // Should NOT emit any error events - it's a graceful no-op
+    const errorEvents = events.filter(e => e.type === 'error');
+    expect(errorEvents.length).toBe(0);
+  });
   });
 
   describe('Context Formatting', () => {

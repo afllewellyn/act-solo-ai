@@ -42,6 +42,7 @@ interface RehearsalContextType {
   currentCueWords: string[];
   textFilter: TextFilter;
   rehearsalMode: boolean;
+  isPaused: boolean;
   
   // Audio State  
   isListening: boolean;
@@ -70,6 +71,8 @@ interface RehearsalContextType {
   setPlaybackSpeed: (speed: number) => void;
   handleActorLineDetected: (line: string) => void;
   handleMasterStop: () => void;
+  handlePause: () => void;
+  handleResume: () => void;
   handleTTSPlay: () => Promise<void>;
   handleTTSStop: () => void;
   reset: () => void;
@@ -97,6 +100,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const [currentCueWords, setCurrentCueWords] = useState<string[]>([]);
   const [textFilter, setTextFilterState] = useState<TextFilter>('italic');
   const [rehearsalMode, setRehearsalModeState] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [noMatchesBanner, setNoMatchesBanner] = useState<{ show: boolean; filter: TextFilter } | null>(null);
   
   // Voice Settings
@@ -639,8 +643,57 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       stateMachineRef.current.stop();
     }
     setRehearsalModeState(false);
+    setIsPaused(false);
     setNoMatchesBanner(null);
   };
+
+  // Pause rehearsal - interrupt AI and stop listening
+  const handlePause = useCallback(() => {
+    if (!rehearsalMode) return;
+    
+    console.log('⏸️ Pausing rehearsal');
+    setIsPaused(true);
+    
+    // Interrupt AI if using conversation engine
+    if (useElevenEngine && conversationEngine.isActive) {
+      conversationEngine.sendControl({ type: 'pause_agent' });
+    }
+    
+    // Stop legacy audio
+    audioManager.stopTTS();
+    audioManager.stopVADConnection();
+    
+    toast({
+      title: "Rehearsal Paused",
+      description: "Tap Resume to continue",
+      duration: 2000,
+    });
+  }, [rehearsalMode, useElevenEngine, conversationEngine, audioManager, toast]);
+
+  // Resume rehearsal - restart listening
+  const handleResume = useCallback(() => {
+    if (!rehearsalMode || !isPaused) return;
+    
+    console.log('▶️ Resuming rehearsal');
+    setIsPaused(false);
+    
+    // Resume agent (graceful no-op, agent resumes automatically)
+    if (useElevenEngine && conversationEngine.isActive) {
+      conversationEngine.sendControl({ type: 'resume_agent' });
+    }
+    
+    // Restart legacy VAD connection if not using conversation engine
+    if (!useElevenEngine && voiceActivated) {
+      audioManager.initializeVADConnection().catch((error) => {
+        console.error('Failed to reinitialize VAD connection:', error);
+      });
+    }
+    
+    toast({
+      title: "Rehearsal Resumed",
+      duration: 1500,
+    });
+  }, [rehearsalMode, isPaused, useElevenEngine, conversationEngine, audioManager, voiceActivated, toast]);
 
   // Clean up on unmount
   useEffect(() => {
@@ -659,6 +712,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     currentCueWords,
     textFilter,
     rehearsalMode,
+    isPaused,
     isListening: audioManager?.isListening ?? false,
     isTTSPlaying: audioManager?.isTTSPlaying ?? false,
     isManualTTSPlaying,
@@ -677,6 +731,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setPlaybackSpeed,
     handleActorLineDetected,
     handleMasterStop,
+    handlePause,
+    handleResume,
     handleTTSPlay,
     handleTTSStop,
     reset,
@@ -691,6 +747,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     currentCueWords,
     textFilter,
     rehearsalMode,
+    isPaused,
     audioManager?.isListening,
     audioManager?.isTTSPlaying,
     isManualTTSPlaying,
@@ -709,6 +766,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setPlaybackSpeed,
     handleActorLineDetected,
     handleMasterStop,
+    handlePause,
+    handleResume,
     handleTTSPlay,
     handleTTSStop,
     reset,
