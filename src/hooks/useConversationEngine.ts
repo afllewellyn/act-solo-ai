@@ -1,6 +1,7 @@
 /**
  * useConversationEngine - React hook for ConversationEngine lifecycle
  * Phase 3: React integration with factory pattern
+ * Phase 3.5: Expose derived telemetry state (lastError, reconnectCount)
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
@@ -13,6 +14,7 @@ import type {
 } from '@/services/conversation/types';
 import type { ConversationEngineConfig, ScriptContext } from '@/services/conversation/domain';
 import { isFeatureEnabled } from '@/lib/featureFlags';
+import { ElevenAgentsEngine } from '@/services/conversation/ElevenAgentsEngine';
 
 interface UseConversationEngineOptions {
   /** Called when user speech is detected */
@@ -54,6 +56,10 @@ interface UseConversationEngineReturn {
   updateContext: (context: ScriptContext) => Promise<void>;
   /** Send control command */
   sendControl: (command: ConversationControlCommand) => Promise<void>;
+  /** Last error encountered (for UI diagnostics) */
+  lastError: Error | null;
+  /** Current reconnection attempt count (0 if connected) */
+  reconnectCount: number;
 }
 
 export function useConversationEngine(
@@ -73,6 +79,9 @@ export function useConversationEngine(
   } = options;
 
   const [status, setStatus] = useState<ConversationStatus>('idle');
+  const [lastError, setLastError] = useState<Error | null>(null);
+  const [reconnectCount, setReconnectCount] = useState<number>(0);
+  
   const engineRef = useRef<ConversationEngine | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const responseBufferRef = useRef<string>('');
@@ -80,9 +89,19 @@ export function useConversationEngine(
   // Check if feature flag is enabled
   const isEnabled = isFeatureEnabled('conversation_engine_eleven');
 
+  // Poll engine for telemetry state (reconnectCount, lastError)
+  const updateTelemetryState = useCallback(() => {
+    if (engineRef.current && engineRef.current instanceof ElevenAgentsEngine) {
+      const engine = engineRef.current as ElevenAgentsEngine;
+      setReconnectCount(engine.getReconnectCount());
+      setLastError(engine.getLastError());
+    }
+  }, []);
+
   // Handle events from the engine
   const handleEvent = useCallback((event: ConversationEvent) => {
-    console.log('[useConversationEngine] Event:', event.type);
+    // Update telemetry state on relevant events
+    updateTelemetryState();
 
     switch (event.type) {
       case 'user_speech_started':
@@ -131,6 +150,7 @@ export function useConversationEngine(
         break;
 
       case 'error':
+        setLastError(event.error);
         onError?.(event.error);
         break;
     }
@@ -145,6 +165,7 @@ export function useConversationEngine(
     onAgentAudioEnded,
     onError,
     onStatusChange,
+    updateTelemetryState,
   ]);
 
   // Start engine
@@ -160,7 +181,8 @@ export function useConversationEngine(
 
     try {
       setStatus('connecting');
-      console.log('[useConversationEngine] Creating engine with config:', config);
+      setLastError(null);
+      setReconnectCount(0);
       
       const engine = await createConversationEngine(config);
       engineRef.current = engine;
@@ -170,11 +192,11 @@ export function useConversationEngine(
 
       // Start the engine
       await engine.start();
-      console.log('[useConversationEngine] Engine started successfully');
     } catch (error) {
-      console.error('[useConversationEngine] Failed to start engine:', error);
+      const err = error instanceof Error ? error : new Error(String(error));
       setStatus('error');
-      onError?.(error instanceof Error ? error : new Error(String(error)));
+      setLastError(err);
+      onError?.(err);
     }
   }, [isEnabled, handleEvent, onError]);
 
@@ -188,7 +210,6 @@ export function useConversationEngine(
     if (engineRef.current) {
       try {
         await engineRef.current.stop();
-        console.log('[useConversationEngine] Engine stopped');
       } catch (error) {
         console.error('[useConversationEngine] Error stopping engine:', error);
       }
@@ -196,6 +217,7 @@ export function useConversationEngine(
     }
 
     setStatus('idle');
+    setReconnectCount(0);
   }, []);
 
   // Send text
@@ -246,5 +268,7 @@ export function useConversationEngine(
     sendText,
     updateContext,
     sendControl,
+    lastError,
+    reconnectCount,
   };
 }

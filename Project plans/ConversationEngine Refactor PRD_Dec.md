@@ -59,6 +59,20 @@
    - Calls `engine.updateContext` whenever cue/line changes.
    - Removes direct usage of `useTTS`, `useSpeechRecognition`, `EnhancedAudioManager`.
 
+### Phase 3.5 – Production Monitoring (NEW - IN PROGRESS)
+1. **Structured Telemetry:**
+   - Replace raw `console.log` calls in `ElevenAgentsEngine` with structured logger via `logConversationEngine()`.
+   - Capture metrics: connection latency, reconnection attempts/delays, WebSocket close codes, audio chunk counts, status duration.
+   - Categorize errors: `auth`, `network`, `protocol`, `audio`, `timeout`, `unknown`.
+
+2. **Hook State Extensions:**
+   - Expose `lastError` and `reconnectCount` via `useConversationEngine` for UI diagnostics.
+   - Telemetry stays logger-only; `ConversationEvent` stream remains UI-focused.
+
+3. **Debug Utilities:**
+   - Add `checkBrowserCompatibility()`, `testElevenAgentsToken()`, `enableElevenAgents()` to `debugUtils.ts`.
+   - Create browser compatibility documentation with troubleshooting checklists.
+
 ### Phase 4 – Cleanup & Migration (Deferred)
 1. Toggle `conversation_engine_eleven` to `true` by default once QA passes and staging rehearsals prove stable; legacy flow remains as a fallback until then.
 2. Keep the legacy audio managers/hooks (`AudioManager`, `EnhancedAudioManager`, `useTTS`, `useSpeechRecognition`, etc.) in place during this rollout window; we will schedule their deletion in a dedicated cleanup cycle once the new engine is fully trusted.
@@ -71,6 +85,16 @@
 - Tool-call integration for performance analytics dashboards.
 
 Phase 5 items are nice-to-haves for later — coach mode and analytics dashboards stay on the back burner until the core rehearsal experience is rock-solid.
+
+## Current Status (Updated: Dec 2024)
+
+| Phase | Status | Notes |
+|-------|--------|-------|
+| Phase 1 – Foundations | ✅ COMPLETE | Types, factory, feature flag |
+| Phase 2 – ElevenAgentsEngine | ✅ COMPLETE | WebSocket, audio, reconnection |
+| Phase 3 – React Integration | ✅ COMPLETE | useConversationEngine, RehearsalMode |
+| Phase 3.5 – Monitoring | ✅ COMPLETE | Structured telemetry, debug utilities |
+| Phase 4 – Cleanup | ⏸️ DEFERRED | Awaiting stability data from production |
 
 ## Risks & Mitigations
 

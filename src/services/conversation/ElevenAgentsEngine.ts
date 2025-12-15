@@ -1,12 +1,14 @@
 /**
  * ElevenLabs Conversational AI Engine
  * Phase 2: Real implementation using ElevenLabs Agents API
+ * Phase 3.5: Structured telemetry for production monitoring
  */
 
 import { ConversationEngine, ConversationStatus, ConversationEvent, ConversationControlCommand } from './types';
 import { ConversationEngineConfig, ScriptContext } from './domain';
 import { supabase } from '@/integrations/supabase/client';
 import { ConversationAudioPlayer } from './AudioPlayer';
+import { logConversationEngine, type ConversationEngineLogContext } from '@/lib/logger';
 
 export class ElevenAgentsEngine implements ConversationEngine {
   private ws: WebSocket | null = null;
@@ -35,19 +37,37 @@ export class ElevenAgentsEngine implements ConversationEngine {
   
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
+  
+  // Telemetry state
+  private connectionStartTime: number = 0;
+  private statusChangeTime: number = 0;
+  private audioChunksReceived: number = 0;
+  private lastError: Error | null = null;
 
   constructor(config: ConversationEngineConfig) {
     this.config = config;
     this.audioPlayer = new ConversationAudioPlayer();
-    console.log('[ElevenAgentsEngine] Created with config:', { 
-      agentId: config.agentId,
-      voiceId: config.voiceId,
-      language: config.language 
+    logConversationEngine('engine_created', {
+      engine: 'eleven_agents',
+      component: 'ElevenAgentsEngine',
     });
   }
 
+  // Public getters for telemetry state (used by hook)
+  getLastError(): Error | null {
+    return this.lastError;
+  }
+
+  getReconnectCount(): number {
+    return this.reconnectAttempts;
+  }
+
   async start(): Promise<void> {
-    console.log('[ElevenAgentsEngine] Starting...');
+    this.connectionStartTime = performance.now();
+    logConversationEngine('websocket_connecting', {
+      engine: 'eleven_agents',
+      connectionStartMs: this.connectionStartTime,
+    });
     
     // Reset intentional stop flag on fresh start
     this.intentionalStop = false;
@@ -59,10 +79,18 @@ export class ElevenAgentsEngine implements ConversationEngine {
       const { data, error } = await supabase.functions.invoke('eleven-agent-token');
       
       if (error || !data?.signed_url) {
-        throw new Error(`Failed to get signed URL: ${error?.message || 'No URL returned'}`);
+        const tokenError = new Error(`Failed to get signed URL: ${error?.message || 'No URL returned'}`);
+        this.lastError = tokenError;
+        logConversationEngine('token_fetch_failed', {
+          engine: 'eleven_agents',
+          errorCategory: 'auth',
+        });
+        throw tokenError;
       }
 
-      console.log('[ElevenAgentsEngine] Got signed URL, connecting WebSocket...');
+      logConversationEngine('token_fetched', {
+        engine: 'eleven_agents',
+      });
 
       // Connect to ElevenLabs WebSocket
       this.ws = new WebSocket(data.signed_url);
@@ -73,11 +101,15 @@ export class ElevenAgentsEngine implements ConversationEngine {
       this.ws.onclose = (event) => this.handleClose(event);
 
     } catch (error) {
-      console.error('[ElevenAgentsEngine] Start error:', error);
+      this.lastError = error instanceof Error ? error : new Error('Unknown error');
+      logConversationEngine('start_error', {
+        engine: 'eleven_agents',
+        errorCategory: this.categorizeError(this.lastError),
+      });
       this.setStatus('error');
       this.emitEvent({
         type: 'error',
-        error: error instanceof Error ? error : new Error('Unknown error'),
+        error: this.lastError,
         timestamp: Date.now(),
       });
       throw error;
@@ -85,7 +117,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
   }
 
   async stop(): Promise<void> {
-    console.log('[ElevenAgentsEngine] Stopping...');
+    logConversationEngine('stopping', {
+      engine: 'eleven_agents',
+    });
     
     // Mark as intentional stop to prevent reconnection
     this.intentionalStop = true;
@@ -132,11 +166,16 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   async sendText(text: string): Promise<void> {
     if (this.ws?.readyState !== WebSocket.OPEN) {
-      console.warn('[ElevenAgentsEngine] Cannot send text, WebSocket not open');
+      logConversationEngine('send_text_failed', {
+        engine: 'eleven_agents',
+        errorCategory: 'network',
+      });
       return;
     }
 
-    console.log('[ElevenAgentsEngine] Sending text:', text);
+    logConversationEngine('send_text', {
+      engine: 'eleven_agents',
+    });
     this.ws.send(JSON.stringify({
       type: 'user_message',
       text,
@@ -145,14 +184,19 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   async updateContext(context: ScriptContext): Promise<void> {
     if (this.ws?.readyState !== WebSocket.OPEN) {
-      console.warn('[ElevenAgentsEngine] Cannot update context, WebSocket not open');
+      logConversationEngine('update_context_failed', {
+        engine: 'eleven_agents',
+        errorCategory: 'network',
+      });
       return;
     }
 
     // Format script context for ElevenLabs
     const contextMessage = this.formatScriptContext(context);
     
-    console.log('[ElevenAgentsEngine] Updating context:', contextMessage);
+    logConversationEngine('update_context', {
+      engine: 'eleven_agents',
+    });
     this.ws.send(JSON.stringify({
       type: 'contextual_update',
       text: contextMessage,
@@ -161,11 +205,16 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   async sendControl(command: ConversationControlCommand): Promise<void> {
     if (this.ws?.readyState !== WebSocket.OPEN) {
-      console.warn('[ElevenAgentsEngine] Cannot send control, WebSocket not open');
+      logConversationEngine('send_control_failed', {
+        engine: 'eleven_agents',
+        errorCategory: 'network',
+      });
       return;
     }
 
-    console.log('[ElevenAgentsEngine] Sending control:', command);
+    logConversationEngine('send_control', {
+      engine: 'eleven_agents',
+    });
 
     switch (command.type) {
       case 'pause_agent':
@@ -174,7 +223,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
         break;
       case 'resume_agent':
         // ElevenLabs resumes automatically when user speaks - this is a graceful no-op
-        console.log('[ElevenAgentsEngine] resume_agent ignored - agent resumes automatically');
+        logConversationEngine('resume_agent_noop', {
+          engine: 'eleven_agents',
+        });
         break;
       case 'interrupt':
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
@@ -199,8 +250,24 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   // Private methods
 
+  private categorizeError(error: Error, wsCloseCode?: number): ConversationEngineLogContext['errorCategory'] {
+    if (wsCloseCode === 1008) return 'protocol';
+    if (wsCloseCode === 1006) return 'network';
+    if (error.message.includes('token') || error.message.includes('auth') || error.message.includes('API')) return 'auth';
+    if (error.message.includes('microphone') || error.message.includes('audio') || error.message.includes('getUserMedia')) return 'audio';
+    if (error.message.includes('timeout')) return 'timeout';
+    return 'unknown';
+  }
+
   private async handleOpen(): Promise<void> {
-    console.log('[ElevenAgentsEngine] WebSocket connected');
+    const connectionLatencyMs = performance.now() - this.connectionStartTime;
+    logConversationEngine('websocket_connected', {
+      engine: 'eleven_agents',
+      connectionLatencyMs,
+    });
+    
+    // Reset reconnect attempts on successful connection
+    this.reconnectAttempts = 0;
     
     try {
       // Build conversation override with voice and custom prompt from initial context
@@ -211,7 +278,6 @@ export class ElevenAgentsEngine implements ConversationEngine {
         conversationOverride.tts = {
           voice_id: this.config.voiceId,
         };
-        console.log('[ElevenAgentsEngine] Voice override:', this.config.voiceId);
       }
       
       // Add custom prompt from initial context (script lines for rehearsal)
@@ -221,8 +287,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
             prompt: this.config.initialContext.customInstructions,
           },
         };
-        console.log('[ElevenAgentsEngine] Custom prompt set with', 
-          this.config.initialContext.customInstructions.length, 'chars');
+        logConversationEngine('custom_prompt_set', {
+          engine: 'eleven_agents',
+        });
       }
       
       // Send initial configuration with overrides
@@ -230,18 +297,20 @@ export class ElevenAgentsEngine implements ConversationEngine {
         type: 'conversation_initiation_client_data',
         conversation_config_override: conversationOverride,
       }));
-      console.log('[ElevenAgentsEngine] Sent conversation_initiation_client_data');
-
-      // THEN: Wait for conversation_initiation_metadata before starting microphone
-      // The microphone will be initialized in handleMessage() when we receive the metadata
-      console.log('[ElevenAgentsEngine] Waiting for server initialization metadata...');
+      logConversationEngine('initiation_sent', {
+        engine: 'eleven_agents',
+      });
 
     } catch (error) {
-      console.error('[ElevenAgentsEngine] Error in handleOpen:', error);
+      this.lastError = error instanceof Error ? error : new Error('Unknown error');
+      logConversationEngine('handle_open_error', {
+        engine: 'eleven_agents',
+        errorCategory: this.categorizeError(this.lastError),
+      });
       this.setStatus('error');
       this.emitEvent({
         type: 'error',
-        error: error instanceof Error ? error : new Error('Unknown error'),
+        error: this.lastError,
         timestamp: Date.now(),
       });
     }
@@ -263,19 +332,16 @@ export class ElevenAgentsEngine implements ConversationEngine {
               transcript: transcriptEvent.user_transcript || '',
               timestamp: Date.now(),
             });
-            console.log('[ElevenAgentsEngine] User transcript:', transcriptEvent.user_transcript);
-          } else {
-            console.warn('[ElevenAgentsEngine] user_transcript missing user_transcription_event:', message);
+            logConversationEngine('user_transcript', {
+              engine: 'eleven_agents',
+            });
           }
           break;
 
         case 'agent_response':
           // ElevenLabs uses agent_response_event nested object
           const responseEvent = message.agent_response_event;
-          if (!responseEvent) {
-            console.warn('[ElevenAgentsEngine] agent_response missing agent_response_event:', message);
-            break;
-          }
+          if (!responseEvent) break;
           
           // Start tracking response if not already active
           if (!this.isResponseActive) {
@@ -295,7 +361,6 @@ export class ElevenAgentsEngine implements ConversationEngine {
             delta,
             timestamp: Date.now(),
           });
-          console.log('[ElevenAgentsEngine] Agent response delta:', delta);
           break;
 
         case 'agent_response_end':
@@ -312,20 +377,21 @@ export class ElevenAgentsEngine implements ConversationEngine {
             });
             this.isResponseActive = false;
             this.currentResponseText = '';
+            logConversationEngine('agent_response_complete', {
+              engine: 'eleven_agents',
+            });
           }
           break;
 
         case 'audio':
           // ElevenLabs uses audio_event nested object with audio_base_64
           const audioEvent = message.audio_event;
-          if (!audioEvent) {
-            console.warn('[ElevenAgentsEngine] audio missing audio_event:', message);
-            break;
-          }
+          if (!audioEvent) break;
           
           // Track audio streaming state
           if (!this.isAudioActive) {
             this.isAudioActive = true;
+            this.audioChunksReceived = 0;
             this.emitEvent({
               type: 'agent_audio_started',
               timestamp: Date.now(),
@@ -334,6 +400,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
           // Base64 decode audio and emit
           const audioData = this.base64ToArrayBuffer(audioEvent.audio_base_64);
+          this.audioChunksReceived++;
           this.emitEvent({
             type: 'agent_audio_delta',
             audioData: audioData,
@@ -351,6 +418,10 @@ export class ElevenAgentsEngine implements ConversationEngine {
               type: 'agent_audio_ended',
               timestamp: Date.now(),
             });
+            logConversationEngine('audio_stream_complete', {
+              engine: 'eleven_agents',
+              audioChunksReceived: this.audioChunksReceived,
+            });
             this.isAudioActive = false;
           }
           break;
@@ -358,6 +429,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
         case 'interruption':
           // Stop audio playback immediately on interruption
           this.audioPlayer.stop();
+          logConversationEngine('interruption_received', {
+            engine: 'eleven_agents',
+          });
           
           // Handle interruption - end both response and audio if active
           if (this.isResponseActive) {
@@ -394,13 +468,22 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
         case 'conversation_initiation_metadata':
           // Server acknowledged initialization - now we can start microphone
-          console.log('[ElevenAgentsEngine] Received initialization metadata, starting microphone...');
+          logConversationEngine('initiation_metadata_received', {
+            engine: 'eleven_agents',
+          });
           this.isInitialized = true;
           
           // Initialize microphone and send context asynchronously
           (async () => {
             try {
+              const micStartTime = performance.now();
               await this.initializeMicrophone();
+              const micInitLatencyMs = performance.now() - micStartTime;
+              
+              logConversationEngine('microphone_initialized', {
+                engine: 'eleven_agents',
+                micInitLatencyMs,
+              });
               
               // Send initial context if provided
               if (this.config.initialContext) {
@@ -409,7 +492,11 @@ export class ElevenAgentsEngine implements ConversationEngine {
               
               this.setStatus('ready');
             } catch (error) {
-              console.error('[ElevenAgentsEngine] Error during initialization:', error);
+              this.lastError = error instanceof Error ? error : new Error('Unknown error');
+              logConversationEngine('microphone_init_error', {
+                engine: 'eleven_agents',
+                errorCategory: 'audio',
+              });
               this.setStatus('error');
             }
           })();
@@ -423,30 +510,41 @@ export class ElevenAgentsEngine implements ConversationEngine {
               type: 'pong',
               event_id: eventId,
             }));
-            console.log('[ElevenAgentsEngine] Sent pong with event_id:', eventId);
           }
           break;
 
         default:
-          console.log('[ElevenAgentsEngine] Unhandled message type:', message.type);
+          // Unhandled message types are ignored silently
+          break;
       }
     } catch (error) {
-      console.error('[ElevenAgentsEngine] Error handling message:', error);
+      logConversationEngine('message_parse_error', {
+        engine: 'eleven_agents',
+        errorCategory: 'protocol',
+      });
     }
   }
 
   private handleError(error: Event): void {
-    console.error('[ElevenAgentsEngine] WebSocket error:', error);
+    this.lastError = new Error('WebSocket error');
+    logConversationEngine('websocket_error', {
+      engine: 'eleven_agents',
+      errorCategory: 'network',
+    });
     this.setStatus('error');
     this.emitEvent({
       type: 'error',
-      error: new Error('WebSocket error'),
+      error: this.lastError,
       timestamp: Date.now(),
     });
   }
 
   private handleClose(event: CloseEvent): void {
-    console.log('[ElevenAgentsEngine] WebSocket closed:', event.code, event.reason);
+    logConversationEngine('websocket_closed', {
+      engine: 'eleven_agents',
+      wsCloseCode: event.code,
+      wsCloseReason: event.reason,
+    });
     
     // Clean up any active response/audio state
     if (this.isResponseActive) {
@@ -475,14 +573,18 @@ export class ElevenAgentsEngine implements ConversationEngine {
     
     // If this was an intentional stop (user clicked stop), don't reconnect
     if (this.intentionalStop) {
-      console.log('[ElevenAgentsEngine] Intentional stop, not reconnecting');
+      logConversationEngine('intentional_stop', {
+        engine: 'eleven_agents',
+      });
       this.setStatus('disconnected');
       return;
     }
     
     // Normal close code (1000) typically means intentional close
     if (event.code === 1000) {
-      console.log('[ElevenAgentsEngine] Clean close, not reconnecting');
+      logConversationEngine('clean_close', {
+        engine: 'eleven_agents',
+      });
       this.setStatus('disconnected');
       return;
     }
@@ -493,7 +595,12 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   private attemptReconnect(): void {
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
-      console.log('[ElevenAgentsEngine] Max reconnection attempts reached, giving up');
+      logConversationEngine('reconnect_exhausted', {
+        engine: 'eleven_agents',
+        reconnectAttempt: this.reconnectAttempts,
+        maxReconnectAttempts: this.maxReconnectAttempts,
+        errorCategory: 'network',
+      });
       this.setStatus('disconnected');
       this.emitEvent({
         type: 'error',
@@ -511,7 +618,12 @@ export class ElevenAgentsEngine implements ConversationEngine {
     );
     
     this.reconnectAttempts++;
-    console.log(`[ElevenAgentsEngine] Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
+    logConversationEngine('reconnect_scheduled', {
+      engine: 'eleven_agents',
+      reconnectAttempt: this.reconnectAttempts,
+      maxReconnectAttempts: this.maxReconnectAttempts,
+      reconnectDelayMs: delay,
+    });
     
     this.setStatus('connecting');
     
@@ -520,14 +632,24 @@ export class ElevenAgentsEngine implements ConversationEngine {
         // Clean up before reconnecting
         await this.cleanupForReconnect();
         
+        logConversationEngine('reconnect_attempting', {
+          engine: 'eleven_agents',
+          reconnectAttempt: this.reconnectAttempts,
+        });
+        
         // Attempt to start again
         await this.start();
         
-        // Reset attempts on successful connection
-        this.reconnectAttempts = 0;
-        console.log('[ElevenAgentsEngine] Reconnection successful');
+        logConversationEngine('reconnect_success', {
+          engine: 'eleven_agents',
+          reconnectAttempt: this.reconnectAttempts,
+        });
       } catch (error) {
-        console.error('[ElevenAgentsEngine] Reconnection failed:', error);
+        logConversationEngine('reconnect_failed', {
+          engine: 'eleven_agents',
+          reconnectAttempt: this.reconnectAttempts,
+          errorCategory: this.categorizeError(error instanceof Error ? error : new Error('Unknown')),
+        });
         // start() already handles error state, attemptReconnect will be called again from handleClose
       }
     }, delay);
@@ -560,8 +682,6 @@ export class ElevenAgentsEngine implements ConversationEngine {
   }
 
   private async initializeMicrophone(): Promise<void> {
-    console.log('[ElevenAgentsEngine] Initializing microphone...');
-    
     // Request microphone access
     this.mediaStream = await navigator.mediaDevices.getUserMedia({ 
       audio: {
@@ -602,9 +722,14 @@ export class ElevenAgentsEngine implements ConversationEngine {
       source.connect(this.audioWorkletNode);
       this.audioWorkletNode.connect(this.audioContext.destination);
       
-      console.log('[ElevenAgentsEngine] Microphone initialized with AudioWorklet - streaming PCM16 @ 16kHz');
+      logConversationEngine('audio_worklet_active', {
+        engine: 'eleven_agents',
+      });
     } catch (workletError) {
-      console.warn('[ElevenAgentsEngine] AudioWorklet not supported, falling back to ScriptProcessorNode:', workletError);
+      logConversationEngine('audio_worklet_fallback', {
+        engine: 'eleven_agents',
+        errorCategory: 'audio',
+      });
       // Fallback to ScriptProcessorNode for older browsers
       const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
       
@@ -624,8 +749,6 @@ export class ElevenAgentsEngine implements ConversationEngine {
       
       source.connect(processor);
       processor.connect(this.audioContext.destination);
-      
-      console.log('[ElevenAgentsEngine] Microphone initialized with ScriptProcessorNode (fallback) - streaming PCM16 @ 16kHz');
     }
   }
 
@@ -661,7 +784,19 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
   private setStatus(newStatus: ConversationStatus): void {
     const previousStatus = this.status;
+    const statusDurationMs = this.statusChangeTime 
+      ? performance.now() - this.statusChangeTime 
+      : undefined;
+    
     this.status = newStatus;
+    this.statusChangeTime = performance.now();
+    
+    logConversationEngine('status_changed', {
+      engine: 'eleven_agents',
+      previousStatus,
+      newStatus,
+      statusDurationMs,
+    });
     
     this.emitEvent({
       type: 'status_changed',
@@ -676,7 +811,10 @@ export class ElevenAgentsEngine implements ConversationEngine {
       try {
         callback(event);
       } catch (error) {
-        console.error('[ElevenAgentsEngine] Error in event callback:', error);
+        logConversationEngine('event_callback_error', {
+          engine: 'eleven_agents',
+          errorCategory: 'unknown',
+        });
       }
     });
   }
