@@ -44,6 +44,34 @@ export interface StreamingTTSLogContext extends LogContext {
   cut_to_silence_ms?: number;
 }
 
+export interface ConversationEngineLogContext extends LogContext {
+  engine?: 'eleven_agents' | 'openai_hybrid' | 'stub';
+  
+  // Connection metrics
+  connectionStartMs?: number;
+  connectionLatencyMs?: number;
+  wsCloseCode?: number;
+  wsCloseReason?: string;
+  
+  // Reconnection metrics
+  reconnectAttempt?: number;
+  maxReconnectAttempts?: number;
+  reconnectDelayMs?: number;
+  
+  // Audio metrics
+  audioChunksReceived?: number;
+  audioPlaybackFailures?: number;
+  micInitLatencyMs?: number;
+  
+  // Error categorization
+  errorCategory?: 'auth' | 'network' | 'protocol' | 'audio' | 'timeout' | 'unknown';
+  
+  // Status tracking
+  previousStatus?: string;
+  newStatus?: string;
+  statusDurationMs?: number;
+}
+
 export interface LogEvent {
   timestamp: string;
   level: LogLevel;
@@ -187,6 +215,11 @@ class Logger {
     this.info(`VAD: ${event}`, { component: 'VAD', ...context });
   }
 
+  // ConversationEngine telemetry
+  conversationEngine(event: string, context: ConversationEngineLogContext): void {
+    this.info(`ConversationEngine: ${event}`, { component: 'ConversationEngine', ...context });
+  }
+
   // Latency calculation helpers
   calculateLatency(startTime: number | string, endTime: number | string): number {
     if (typeof startTime === 'string' && typeof endTime === 'string') {
@@ -223,3 +256,7 @@ export const logClientTiming = (event: string, context: StreamingTTSLogContext) 
 export const logVAD = (event: string, context: StreamingTTSLogContext) => logger.logVAD(event, context);
 export const generateRequestId = () => logger.generateRequestId();
 export const calculateLatency = (startTime: number | string, endTime: number | string) => logger.calculateLatency(startTime, endTime);
+
+// ConversationEngine telemetry export
+export const logConversationEngine = (event: string, context: ConversationEngineLogContext) => 
+  logger.conversationEngine(event, context);
