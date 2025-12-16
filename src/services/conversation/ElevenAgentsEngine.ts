@@ -691,8 +691,18 @@ export class ElevenAgentsEngine implements ConversationEngine {
       } 
     });
 
-    // Create audio context for resampling to 16kHz (ElevenLabs requirement)
-    this.audioContext = new AudioContext({ sampleRate: 16000 });
+    // Create audio context with native sample rate (Firefox compatibility)
+    // Firefox doesn't allow connecting MediaStreamSource to AudioContext with different sample rates
+    this.audioContext = new AudioContext();
+    const nativeSampleRate = this.audioContext.sampleRate;
+    const targetSampleRate = 16000; // ElevenLabs requirement
+    
+    logConversationEngine('audio_context_created', {
+      engine: 'eleven_agents',
+      nativeSampleRate,
+      targetSampleRate,
+    });
+    
     const source = this.audioContext.createMediaStreamSource(this.mediaStream);
     
     // Use AudioWorklet for modern, efficient audio processing (replaces deprecated ScriptProcessorNode)
@@ -700,6 +710,13 @@ export class ElevenAgentsEngine implements ConversationEngine {
       await this.audioContext.audioWorklet.addModule('/audio-processor.js');
       
       this.audioWorkletNode = new AudioWorkletNode(this.audioContext, 'pcm16-audio-processor');
+      
+      // Send sample rate configuration to worklet for resampling
+      this.audioWorkletNode.port.postMessage({
+        type: 'init',
+        sourceSampleRate: nativeSampleRate,
+        targetSampleRate: targetSampleRate,
+      });
       
       // Handle audio data from worklet
       this.audioWorkletNode.port.onmessage = (event) => {
@@ -724,22 +741,38 @@ export class ElevenAgentsEngine implements ConversationEngine {
       
       logConversationEngine('audio_worklet_active', {
         engine: 'eleven_agents',
+        nativeSampleRate,
       });
     } catch (workletError) {
       logConversationEngine('audio_worklet_fallback', {
         engine: 'eleven_agents',
         errorCategory: 'audio',
+        nativeSampleRate,
       });
       // Fallback to ScriptProcessorNode for older browsers
       const processor = this.audioContext.createScriptProcessor(4096, 1, 1);
       
+      // Resampling state for ScriptProcessorNode fallback
+      const resampleRatio = nativeSampleRate / targetSampleRate;
+      
       processor.onaudioprocess = (e) => {
         if (this.ws?.readyState !== WebSocket.OPEN || !this.isInitialized) return;
         
-        const float32Array = e.inputBuffer.getChannelData(0);
-        const int16Array = new Int16Array(float32Array.length);
-        for (let i = 0; i < float32Array.length; i++) {
-          const s = Math.max(-1, Math.min(1, float32Array[i]));
+        const inputData = e.inputBuffer.getChannelData(0);
+        
+        // Resample from native rate to 16kHz using linear interpolation
+        const outputLength = Math.floor(inputData.length / resampleRatio);
+        const int16Array = new Int16Array(outputLength);
+        
+        for (let i = 0; i < outputLength; i++) {
+          const srcIndex = i * resampleRatio;
+          const srcIndexFloor = Math.floor(srcIndex);
+          const srcIndexCeil = Math.min(srcIndexFloor + 1, inputData.length - 1);
+          const fraction = srcIndex - srcIndexFloor;
+          
+          // Linear interpolation between samples
+          const sample = inputData[srcIndexFloor] * (1 - fraction) + inputData[srcIndexCeil] * fraction;
+          const s = Math.max(-1, Math.min(1, sample));
           int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
         
