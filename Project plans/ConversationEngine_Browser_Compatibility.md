@@ -6,10 +6,16 @@
 |---------|---------|--------|-------|
 | Chrome Desktop | 120+ | ✅ Validated | AudioWorklet supported |
 | Safari Desktop | 17+ | ✅ Validated | AudioWorklet supported |
+| Firefox Desktop | 121+ | ✅ Validated | Requires sample rate resampling |
 | Chrome Mobile | 120+ | ⚠️ Needs testing | Mic permissions vary by device |
 | Safari iOS | 17+ | ⚠️ Needs testing | Requires user gesture for audio |
-| Firefox | 121+ | ❓ Untested | AudioWorklet support varies |
 | Edge | 120+ | ❓ Untested | Chromium-based, likely works |
+
+## Firefox Compatibility
+
+Firefox strictly enforces sample rate matching between `getUserMedia()` streams and `AudioContext`. Unlike Chrome/Safari, it does not automatically resample.
+
+**Solution**: AudioContext is created with native sample rate (e.g., 48kHz), and resampling to 16kHz (ElevenLabs requirement) is performed in the AudioWorklet processor using linear interpolation. This approach works across all browsers without affecting Chrome/Safari functionality.
 
 ## Debug Commands
 
