@@ -49,10 +49,10 @@ export function RichTextEditor({
           <div className="flex flex-wrap items-center gap-2">
             {/* Text formatting */}
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleBold().run()} data-active={editor.isActive('bold')} className="data-[active=true]:bg-accent">
+              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleBold().run()} data-active={editor.isActive('bold')} className="data-[active=true]:bg-accent" aria-label="Toggle bold">
                 <Bold className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleItalic().run()} data-active={editor.isActive('italic')} className="data-[active=true]:bg-accent">
+              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().toggleItalic().run()} data-active={editor.isActive('italic')} className="data-[active=true]:bg-accent" aria-label="Toggle italic">
                 <Italic className="h-4 w-4" />
               </Button>
             </div>
@@ -88,10 +88,10 @@ export function RichTextEditor({
 
             {/* Undo/Redo */}
             <div className="flex items-center gap-1">
-              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()}>
+              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} aria-label="Undo">
                 <Undo className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()}>
+              <Button variant="outline" size="sm" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} aria-label="Redo">
                 <Redo className="h-4 w-4" />
               </Button>
             </div>

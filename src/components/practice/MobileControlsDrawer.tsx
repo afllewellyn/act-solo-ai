@@ -141,6 +141,7 @@ export function MobileControlsDrawer({
             className={`rounded-full shadow-lg transition-all duration-300 ${
               isFullscreen ? 'bg-background/70 backdrop-blur-md' : ''
             }`}
+            aria-label="Open practice controls"
           >
             <Settings className={isFullscreen ? "h-4 w-4" : "h-5 w-5"} />
           </Button>
@@ -305,6 +306,7 @@ export function MobileControlsDrawer({
                       variant="outline"
                       size="sm"
                       className="px-2"
+                      aria-label="Enable audio playback"
                     >
                       <Volume2 className="h-3 w-3" />
                     </Button>
