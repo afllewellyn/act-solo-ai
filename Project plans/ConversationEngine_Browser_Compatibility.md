@@ -9,7 +9,12 @@
 | Firefox Desktop | 121+ | ✅ Validated | Requires sample rate resampling |
 | Chrome Mobile | 120+ | ⚠️ Needs testing | Mic permissions vary by device |
 | Safari iOS | 17+ | ⚠️ Needs testing | Requires user gesture for audio |
-| Edge | 120+ | ❓ Untested | Chromium-based, likely works |
+| Edge | 120+ | ✅ Validated | Chromium-based, confirmed behavior matches Chrome |
+
+## Browser Validation Notes
+
+- Desktop Chrome and Safari already validated (see table above).
+- Newly tested: Firefox Desktop (121+) and Edge Desktop (120+) both work with the AudioWorklet path; Firefox requires explicit sample resampling, and Edge behaves identically to Chrome.
 
 ## Firefox Compatibility
 
