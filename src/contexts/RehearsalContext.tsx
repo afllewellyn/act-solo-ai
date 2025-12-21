@@ -334,25 +334,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     if (useElevenEngine) return;
 
     if (rehearsalMode && scriptContent && !stateMachineRef.current) {
-      console.log('🎭 Initializing State Machine + VAD connection for rehearsal (legacy)');
-      
-      // Initialize persistent VAD connection
-      audioManager.initializeVADConnection().catch((error) => {
-        console.error('❌ [CRITICAL] Failed to initialize VAD connection');
-        console.error('❌ Error:', error);
-        console.error('❌ Error stack:', error instanceof Error ? error.stack : '(no stack trace)');
-        console.error('❌ Time:', new Date().toISOString());
-        
-        // Only show error toast if microphone permission is denied
-        if (error instanceof Error && (error.message?.includes('permission') || error.message?.includes('NotAllowedError') || error.name === 'NotAllowedError')) {
-          toast({
-            title: "Microphone Error",
-            description: "Could not access microphone. Please check permissions.",
-            variant: "destructive",
-          });
-        }
-        // Otherwise, errors are logged but don't interrupt user experience
-      });
+      console.log('🎭 Initializing State Machine for rehearsal (legacy path)');
       
       const config = {
         scriptContent,
@@ -453,10 +435,9 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       stateMachineRef.current = new ScriptRehearsalStateMachine(config);
       stateMachineRef.current.start();
     } else if (!rehearsalMode && stateMachineRef.current) {
-      console.log('🛑 Stopping State Machine and VAD connection');
+      console.log('🛑 Stopping State Machine');
       stateMachineRef.current.stop();
       stateMachineRef.current = null;
-      audioManager.stopVADConnection();
       setRehearsalState('IDLE');
       setCurrentCueWords([]);
       setNoMatchesBanner(null);
@@ -659,9 +640,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       conversationEngine.sendControl({ type: 'pause_agent' });
     }
     
-    // Stop legacy audio
+    // Stop TTS
     audioManager.stopTTS();
-    audioManager.stopVADConnection();
     
     toast({
       title: "Rehearsal Paused",
@@ -682,18 +662,11 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       conversationEngine.sendControl({ type: 'resume_agent' });
     }
     
-    // Restart legacy VAD connection if not using conversation engine
-    if (!useElevenEngine && voiceActivated) {
-      audioManager.initializeVADConnection().catch((error) => {
-        console.error('Failed to reinitialize VAD connection:', error);
-      });
-    }
-    
     toast({
       title: "Rehearsal Resumed",
       duration: 1500,
     });
-  }, [rehearsalMode, isPaused, useElevenEngine, conversationEngine, audioManager, voiceActivated, toast]);
+  }, [rehearsalMode, isPaused, useElevenEngine, conversationEngine, toast]);
 
   // Clean up on unmount
   useEffect(() => {

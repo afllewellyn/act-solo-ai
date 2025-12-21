@@ -1,19 +1,15 @@
 /**
  * Feature flags infrastructure for runtime configuration
- * Phase 0.5 - Access & Readiness
+ * Production-hardened version - legacy flags removed
  */
 
 export type FeatureFlag = 
-  | 'realtime_api_enabled'
-  | 'tts_streaming_enabled'
   | 'enhanced_speech_recognition'
   | 'structured_logging'
   | 'mobile_audio_optimization'
-  | 'server_vad_enabled'
   | 'auto_fallback_enabled'
   | 'diagnostics_overlay'
-  | 'vad_auto_gain_control'
-  | 'conversation_engine_eleven'; // Phase 1: ConversationEngine abstraction
+  | 'conversation_engine_eleven'; // ElevenLabs Conversational AI
 
 interface FeatureFlags {
   [key: string]: boolean;
@@ -21,16 +17,12 @@ interface FeatureFlags {
 
 // Default feature flags - can be overridden by window.__FEATURES__
 const DEFAULT_FLAGS: FeatureFlags = {
-  realtime_api_enabled: true, // OpenAI Realtime API - ENABLED BY DEFAULT
-  tts_streaming_enabled: true, // Streaming ElevenLabs TTS (Phase 2) - ENABLED
-  enhanced_speech_recognition: true, // Phase 1 enhancements
-  structured_logging: true, // Phase 1 logging
-  mobile_audio_optimization: true, // Phase 1 mobile improvements
-  server_vad_enabled: false, // Server-side VAD (Phase 4)
-  auto_fallback_enabled: true, // Engine auto-fallback (Phase 3)
-  diagnostics_overlay: false, // UX diagnostics (Phase 5)
-  vad_auto_gain_control: true, // VAD Auto Gain Control - Default ON
-  conversation_engine_eleven: true, // ConversationEngine abstraction - ENABLED for testing
+  enhanced_speech_recognition: true, // Enhanced speech recognition
+  structured_logging: true, // Structured logging
+  mobile_audio_optimization: true, // Mobile audio improvements
+  auto_fallback_enabled: true, // Engine auto-fallback
+  diagnostics_overlay: false, // UX diagnostics
+  conversation_engine_eleven: true, // ElevenLabs Conversational AI - PRODUCTION ENGINE
 };
 
 // Extend window interface for feature flags
