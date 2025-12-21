@@ -78,6 +78,7 @@
 2. Keep the legacy audio managers/hooks (`AudioManager`, `EnhancedAudioManager`, `useTTS`, `useSpeechRecognition`, etc.) in place during this rollout window; we will schedule their deletion in a dedicated cleanup cycle once the new engine is fully trusted.
 3. Update docs (`SUPABASE_WORKFLOW.md`, README) to reflect the new engine and eventual migration status.
 4. Remove unused dependencies (e.g., old speech-recognition polyfills) after the legacy path is fully retired.
+5. 🔗 Track CORS hardening, VAD clarification, and QA gates alongside the **November 2025 Sprint – Production Hardening** plan so the platform work lands in sync with this cleanup.
 
 ### Phase 5 – Optional Enhancements
 - Add `HybridOpenAIEngine` using OpenAI Realtime for fallback/dual-provider mode.

@@ -67,50 +67,84 @@ All production hardening objectives have been achieved. The ActSolo AI rehearsal
 
 ## 📦 **CODE CLEANUP SUMMARY**
 
-### Files Deleted
-- `supabase/functions/realtime-s2s/index.ts` - Legacy S2S WebSocket proxy
-- `supabase/functions/text-to-speech-stream/index.ts` - Streaming TTS
-- `src/services/StreamingAudioManager.ts` - Streaming audio playback
+### Sprint Goal
+**Secure, stable production deployment** ready for user testing by end of November. Zero security vulnerabilities, consistent user experience.
 
-### Files Simplified
-- `src/services/EnhancedAudioManager.ts` - Removed: `AudioRecorder`, `encodeAudioForAPI`, `soundsLike`, `initializeVADConnection`, `updateVADCueWords`, `stopVADConnection`, `speakWithS2S`
-- `src/hooks/useTTS.tsx` - Removed: streaming state, `handleStreamingSpeech`, `StreamingAudioManager` import
-- `src/contexts/RehearsalContext.tsx` - Removed: VAD initialization calls, VAD cue word updates
-- `src/lib/featureFlags.ts` - Removed: `realtime_api_enabled`, `tts_streaming_enabled`, `server_vad_enabled`, `vad_auto_gain_control`
-- `supabase/config.toml` - Removed: `realtime-s2s`, `text-to-speech-stream` entries
+### Success Metrics
+- [ ] **Security**: All API endpoints locked down with allowlisted CORS
+- [ ] **Reliability**: <5% error rate in staging environment
+- [ ] **Performance**: p50 TTS latency <600ms
+- [ ] **User Experience**: 100% of users can access microphone without issues
 
 ---
 
-## 🧪 **PRODUCTION SMOKE TEST CHECKLIST**
+## 📋 **NOVEMBER SPRINT BACKLOG**
 
-Run these tests after deployment to verify production readiness:
+### 🚨 **Week 1-2: Security & Stability** (November 1-15)
 
-### 1. ElevenLabs Conversation Engine
-- [ ] Navigate to Practice page
-- [ ] Select a script and start rehearsal
-- [ ] Verify AI partner connects (toast: "AI Partner Connected")
-- [ ] Speak your lines and verify AI responds
-- [ ] Check edge function logs for `eleven-agent-token` success
+#### P0 Critical Fixes
+- [ ] **CORS Migration Phase 1**: Migrate `text-to-speech-stream` and `realtime-s2s`
+  - Copy `getCorsHeaders()` pattern
+  - Test with production origins
+  - Verify 403 responses work
 
-### 2. Text-to-Speech
-- [ ] Click manual TTS play button
-- [ ] Verify audio plays without errors
-- [ ] Test voice selection dropdown
-- [ ] Test playback speed adjustment
+- [ ] **CORS Migration Phase 2**: Migrate `text-to-speech` and `get-voices`
+  - Final production endpoint lockdown
+  - Comprehensive origin testing
 
-### 3. CORS Enforcement
-- [ ] From browser console, attempt fetch from unauthorized origin
-- [ ] Verify 403 Forbidden response
-- [ ] Check edge function logs for origin rejection
+#### P1 Stability Improvements
+- [ ] **Sample Rate Consistency Audit**
+  - Standardize on planned 16kHz for STT/VAD
+  - Update `AudioRecorder` class configuration
+  - Verify OpenAI Realtime session config
 
-### 4. Health Check
-- [ ] Call `/functions/v1/health-realtime` from allowed origin
-- [ ] Verify healthy response with OpenAI connectivity
+- [ ] **VAD Architecture Clarification**
+  - Confirm S2S is VAD-only (no OpenAI TTS fallback)
+  - Remove `speakWithS2S()` ambiguity if needed
+  - Document current TTS flow: ElevenLabs only
 
-### 5. Mobile Experience
-- [ ] Test on iOS Safari
-- [ ] Verify "Tap to Enable Audio" flow works
-- [ ] Test rehearsal pause/resume
+### 🎨 **Week 3-4: Polish & UX** (November 15-30)
+
+#### P1 Quality of Life
+- [x] **Diagnostics Overlay**: Create p50/p95 latency metrics UI
+- [ ] **Keyboard Shortcuts**: Implement Next/Cut/Engine toggle
+- [ ] **Jitter Buffer**: Add 100-150ms buffer for playback resilience
+
+#### P2 Edge Cases & Error Handling
+- [ ] **WebSocket Reconnection Logic**
+  - Exponential backoff implementation
+  - Connection pool management
+  - Graceful degradation monitoring
+
+- [ ] **Audio Playback Resilience**
+  - Mobile audio interruption recovery
+  - Background tab throttling handling
+  - Concurrent session limit enforcement
+
+### 🧪 **Week 5: Testing & Validation** (December 1-7)
+
+#### End-to-End Testing
+- [ ] **Performance Validation**
+  - Load testing with concurrent users
+  - Latency measurement against 600ms SLA
+  - Memory leak assessment under prolonged use
+
+- [ ] **Browser Compatibility Matrix**
+  - Chrome/Edge stable
+  - Firefox latest
+  - Safari iOS/macOS
+  - Mobile gesture flow verification
+
+#### Production Readiness
+- [ ] **Security Audit**
+  - Environment variable exposure check
+  - API key rotation procedures
+  - Rate limiting validation
+
+- [ ] **Monitoring Setup**
+  - Error tracking implementation (Sentry/equivalent)
+  - Performance dashboard creation
+  - Alert threshold configuration
 
 ---
 
