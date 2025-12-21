@@ -382,7 +382,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
           console.log('🎤 Cue words changed:', cueWords);
           setCurrentCueWords(cueWords);
           
-          // Update VAD connection with new cue words
+          // Notify user of cue words (VAD removed - using ElevenLabs Conversational AI)
           if (cueWords.length > 0 && rehearsalMode) {
             // Auto-enable voice activation if not already enabled
             if (!voiceActivated) {
@@ -390,8 +390,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
               setVoiceActivated(true);
             }
             
-            console.log('🎤 Updating VAD cue words:', cueWords);
-            audioManager.updateVADCueWords(cueWords);
+            console.log('🎤 Cue words ready:', cueWords);
             toast({
               title: "Listening for your line",
               description: `Say: "${cueWords.join(' ')}"`,
