@@ -1,9 +1,18 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim());
+  const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim()).filter(Boolean);
   
-  if (origin && allowedOrigins.includes(origin)) {
+  // Check if origin matches allowed patterns
+  const isAllowed = origin && (
+    // Exact match from ALLOWED_ORIGINS env var
+    allowedOrigins.includes(origin) ||
+    // Pattern match for Lovable platform domains (safe - Lovable controls these)
+    origin.endsWith('.lovableproject.com') ||
+    origin.endsWith('.lovable.app')
+  );
+  
+  if (isAllowed) {
     return {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -18,15 +27,15 @@ serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
 
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  // Return 403 for disallowed origins
+  // Return 403 for disallowed origins (check BEFORE OPTIONS handler)
   if (origin && Object.keys(corsHeaders).length === 0) {
     console.error('[ElevenAgentToken] Forbidden origin:', origin);
     return new Response('Forbidden', { status: 403 });
+  }
+
+  // Handle CORS preflight
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
