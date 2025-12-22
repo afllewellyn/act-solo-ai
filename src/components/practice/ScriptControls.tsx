@@ -16,7 +16,7 @@ interface ScriptControlsProps {
   onStartStopRehearsal: () => void; // Callback to start/stop rehearsal session
   onReset: () => void; // Callback to reset playback to beginning
   onScrollSpeedChange: (speed: number[]) => void; // Callback when scroll speed changes
-  onFontSizeChange: (size: number[]) => void; // Callback when font size changes (min: 12px, max: 32px)
+  onFontSizeChange: (size: number[]) => void; // Callback when font size changes (min: 12px, max: 48px)
   onToggleFullscreen: () => void; // Callback to toggle fullscreen mode
 }
 
@@ -143,7 +143,7 @@ export const ScriptControls = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onFontSizeChange([Math.max(12, fontSize[0] - 2)])}
+            onClick={() => onFontSizeChange([Math.max(12, fontSize[0] - 4)])}
             className="flex-1"
             aria-label="Decrease font size"
           >
@@ -154,7 +154,7 @@ export const ScriptControls = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={() => onFontSizeChange([Math.min(32, fontSize[0] + 2)])}
+            onClick={() => onFontSizeChange([Math.min(48, fontSize[0] + 4)])}
             className="flex-1"
             aria-label="Increase font size"
           >

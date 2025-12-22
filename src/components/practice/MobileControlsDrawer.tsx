@@ -433,9 +433,9 @@ export function MobileControlsDrawer({
                 <Slider
                   value={fontSize}
                   onValueChange={onFontSizeChange}
-                  max={24}
+                  max={48}
                   min={12}
-                  step={1}
+                  step={2}
                   className="w-full"
                 />
               </div>
