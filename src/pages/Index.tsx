@@ -41,12 +41,16 @@ const Index = () => {
   };
   return <div className="min-h-screen bg-background">
       <header className="border-b">
-        <div className="container flex items-center justify-center gap-4 sm:gap-8 my-[8px] mx-0 py-[18px] px-[20px]">
-          <h1 className="text-xl sm:text-2xl font-semibold">ActSolo.AI</h1>
-          <span className="text-sm text-muted-foreground hidden sm:inline flex-1 text-center">
+        <div className="container mx-auto grid grid-cols-3 items-center py-4 px-4 sm:px-6">
+          <div className="justify-self-start">
+            <h1 className="text-xl sm:text-2xl font-semibold">ActSolo.AI</h1>
+          </div>
+          
+          <span className="text-sm text-muted-foreground hidden sm:block text-center">
             Welcome, {user.email}
           </span>
-          <div className="flex items-center gap-2 sm:gap-4">
+          
+          <div className="flex items-center gap-2 sm:gap-4 justify-self-end">
             <ThemeToggle />
             <Button variant="outline" size="sm" onClick={signOut}>
               <LogOut className="h-4 w-4 mr-2" />
