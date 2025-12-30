@@ -20,7 +20,9 @@ ActSolo.AI ingests your script, tracks your lines, and connects a conversation e
 - `src/services/conversation/domain.ts` – rehearsal domain objects (`Cue`, `ScriptContext`, etc.).
 - `src/services/conversation/ElevenAgentsEngine.ts` – ElevenLabs implementation (feature flagged).
 - `src/services/conversation/engineFactory.ts` – dynamic factory keyed off feature flags.
-- Upcoming Phase 3 brings `useConversationEngine`, `RehearsalModeContainer`, and full UI hookup.
+- Phase 3 complete: `useConversationEngine`, `RehearsalModeContainer`, and full UI hookup.
+- Phase 3.5 complete: structured telemetry + debug utilities.
+- Phase 4 deferred: legacy cleanup after production stability.
 
 Refer to `Project plans/ConversationEngine Refactor PRD_Dec.md` for the full PRD and phase roadmap.
 
@@ -53,9 +55,10 @@ Edit `src/lib/featureFlags.ts` or set `window.__FEATURES__` to toggle capabiliti
 ## Roadmap
 
 - **Phase 2 (done):** Engine interface, ElevenLabs edge token, ElevenAgentsEngine + tests.
-- **Phase 3 (next):** React hook integration, RehearsalMode container refactor, feature-flagged rollout.
-- **Phase 4:** Clean up legacy audio managers/hooks.
-- **Phase 5:** Hybrid UI polish, production hardening.
+- **Phase 3 (done):** React hook integration, RehearsalMode container refactor, feature-flagged rollout.
+- **Phase 3.5 (done):** Structured telemetry, debug utilities.
+- **Phase 4 (deferred):** Clean up legacy audio managers/hooks after production stability.
+- **Phase 5 (later):** Hybrid UI polish, production hardening.
 
 Track progress in:
 
