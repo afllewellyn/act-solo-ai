@@ -108,7 +108,7 @@ const Auth = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold">ActSolo.AI</CardTitle>
-          <CardDescription>Sign in to access your scripts and practice sessions</CardDescription>
+          <CardDescription>Sign in to access your scripts and perform your self-tapes.</CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="signin" className="w-full">
