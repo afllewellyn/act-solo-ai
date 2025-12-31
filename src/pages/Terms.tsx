@@ -1,9 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
-
 const Terms = () => {
-  return (
-    <div className="min-h-screen bg-background">
+  return <div className="min-h-screen bg-background">
       <header className="border-b border-border">
         <div className="container mx-auto px-4 py-4">
           <Link to="/" className="flex items-center gap-2">
@@ -21,7 +19,7 @@ const Terms = () => {
         <h1 className="text-4xl font-bold mb-8">Terms and Conditions</h1>
 
         <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6">
-          <p className="text-muted-foreground">Last updated: December 2024</p>
+          <p className="text-muted-foreground">Last updated: December 2025</p>
 
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold">1. Acceptance of Terms</h2>
@@ -78,8 +76,6 @@ const Terms = () => {
           <p className="text-sm text-muted-foreground">© 2024 ActSolo.AI. All rights reserved.</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Terms;
