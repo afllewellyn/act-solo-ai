@@ -9,6 +9,10 @@ import Auth from "./pages/Auth";
 import ManageScripts from "./pages/ManageScripts";
 import Practice from "./pages/Practice";
 import NotFound from "./pages/NotFound";
+import Terms from "./pages/Terms";
+import Privacy from "./pages/Privacy";
+import Contact from "./pages/Contact";
+import HelpCenter from "./pages/HelpCenter";
 import { ConversationEngineTest } from "./components/ConversationEngineTest";
 
 const queryClient = new QueryClient();
@@ -25,6 +29,10 @@ const App = () => (
             <Route path="/login" element={<Auth />} />
             <Route path="/manage-scripts" element={<ManageScripts />} />
             <Route path="/practice/:scriptId" element={<Practice />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/help" element={<HelpCenter />} />
             <Route path="/test-engine" element={<ConversationEngineTest />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

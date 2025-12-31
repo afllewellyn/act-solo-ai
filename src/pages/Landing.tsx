@@ -262,6 +262,12 @@ const Landing = () => {
               className="h-6 opacity-60"
             />
           </div>
+          <div className="flex justify-center gap-6 text-sm text-muted-foreground mb-6">
+            <Link to="/terms" className="hover:text-foreground">Terms</Link>
+            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
+            <Link to="/contact" className="hover:text-foreground">Contact</Link>
+            <Link to="/help" className="hover:text-foreground">Help</Link>
+          </div>
           <p className="text-sm text-muted-foreground text-center">
             ActSolo.AI is an AI teleprompter and AI scene partner for actors who want to rehearse and record self-tape auditions without needing a reader. Designed for urgent auditions, ActSolo helps actors run lines, maintain timing, and deliver more confident performances with responsive AI voices and real-time turn-taking.
           </p>
