@@ -36,10 +36,10 @@ const Landing = () => {
               <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-4">
                 AI Scene Partner for Actors
               </p>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">
                 ActSolo.AI — AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo
               </h1>
-              <p className="text-lg sm:text-xl text-muted-foreground mb-8 text-left">
+              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">
                 When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time—so your self-tapes feel alive, not mechanical.
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
@@ -85,11 +85,11 @@ const Landing = () => {
               <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
                 The Problem
               </p>
-              <h2 className="text-2xl sm:text-3xl font-bold mb-6">
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
                 Built for the Real Problem — Urgent Auditions and No Reader
               </h2>
-              <p className="text-lg text-muted-foreground mb-6">You know the moment:</p>
-              <ul className="text-lg text-muted-foreground space-y-3 mb-6">
+              <p className="text-lg text-gray-600 mb-6">You know the moment:</p>
+              <ul className="text-lg text-gray-600 space-y-3 mb-6">
                 <li className="flex items-start gap-3">
                   <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
                   <span>Sides arrive late.</span>
@@ -103,7 +103,7 @@ const Landing = () => {
                   <span>Your "available" reader can't read, rushes lines, or you need help with the kids.</span>
                 </li>
               </ul>
-              <p className="text-lg text-muted-foreground">
+              <p className="text-lg text-gray-600">
                 Most rehearsal apps help you memorize. Auditions demand something else: presence, timing, and reaction. ActSolo is built for that.
               </p>
             </div>
@@ -117,10 +117,10 @@ const Landing = () => {
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
             The Solution
           </p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
             Deliver a Confident, Performance-Ready Self-Tape Without Relying on Anyone
           </h2>
-          <p className="text-lg text-muted-foreground mt-6 max-w-2xl mx-auto">
+          <p className="text-lg text-gray-600 mt-6 max-w-2xl mx-auto">
             ActSolo.AI is designed to remove the friction that shows up on camera—so you can focus on the performance that books the role.
           </p>
         </div>
@@ -137,17 +137,17 @@ const Landing = () => {
               </p>
               <div className="flex items-center gap-3 mb-4">
                 <Clock className="h-8 w-8 text-primary" />
-                <h2 className="text-2xl sm:text-3xl font-bold">Perform Under Deadline Pressure</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Perform Under Deadline Pressure</h2>
               </div>
-              <h3 className="text-xl font-semibold text-muted-foreground mb-6">
+              <h3 className="text-xl font-semibold text-gray-700 mb-6">
                 Get from script to scene fast
               </h3>
-              <p className="text-lg text-muted-foreground mb-6">
+              <p className="text-lg text-gray-600 mb-6">
                 ActSolo is built for speed when the clock is real.
               </p>
               <div className="space-y-3">
-                <p className="font-semibold">Features</p>
-                <ul className="text-muted-foreground space-y-3">
+                <p className="font-semibold text-gray-900">Features</p>
+                <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>Paste your script and start immediately</span>
@@ -194,17 +194,17 @@ const Landing = () => {
               </p>
               <div className="flex items-center gap-3 mb-4">
                 <Mic className="h-8 w-8 text-primary" />
-                <h2 className="text-2xl sm:text-3xl font-bold">Stay Present in the Scene</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Stay Present in the Scene</h2>
               </div>
-              <h3 className="text-xl font-semibold text-muted-foreground mb-6">
+              <h3 className="text-xl font-semibold text-gray-700 mb-6">
                 Your tape feels responsive, not rehearsed
               </h3>
-              <p className="text-lg text-muted-foreground mb-6">
+              <p className="text-lg text-gray-600 mb-6">
                 The difference between "fine" and "bookable" is often reaction—timing, listening, and flow.
               </p>
               <div className="space-y-3">
-                <p className="font-semibold">Features</p>
-                <ul className="text-muted-foreground space-y-3">
+                <p className="font-semibold text-gray-900">Features</p>
+                <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>AI voices that listen and respond (not simple playback)</span>
@@ -235,17 +235,17 @@ const Landing = () => {
               </p>
               <div className="flex items-center gap-3 mb-4">
                 <Target className="h-8 w-8 text-primary" />
-                <h2 className="text-2xl sm:text-3xl font-bold">Control the Outcome</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Control the Outcome</h2>
               </div>
-              <h3 className="text-xl font-semibold text-muted-foreground mb-6">
+              <h3 className="text-xl font-semibold text-gray-700 mb-6">
                 Fewer takes, stronger submissions
               </h3>
-              <p className="text-lg text-muted-foreground mb-6">
+              <p className="text-lg text-gray-600 mb-6">
                 ActSolo is built to protect your energy and raise your floor—especially when you're taping alone.
               </p>
               <div className="space-y-3">
-                <p className="font-semibold">Features</p>
-                <ul className="text-muted-foreground space-y-3">
+                <p className="font-semibold text-gray-900">Features</p>
+                <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>Teleprompter support without breaking eye line</span>
@@ -279,7 +279,7 @@ const Landing = () => {
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">
             Who It's For
           </p>
-          <h2 className="text-2xl sm:text-3xl font-bold mb-12 text-center">Who ActSolo Is For</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-12 text-center text-gray-900">Who ActSolo Is For</h2>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
@@ -297,9 +297,9 @@ const Landing = () => {
                 <div className="p-3 bg-primary/10 rounded-xl">
                   <Zap className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold">Self-Tape Pros</h3>
+                <h3 className="text-xl font-semibold text-gray-900">Self-Tape Pros</h3>
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-gray-600">
                 You don't need another tool. You need control, consistency, and a process that keeps performances sharp under pressure. ActSolo is built to reduce friction and protect the work.
               </p>
             </div>
@@ -313,29 +313,29 @@ const Landing = () => {
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">
             FAQ
           </p>
-          <h2 className="text-2xl sm:text-3xl font-bold mb-10 text-center">Frequently Asked Questions</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-10 text-center text-gray-900">Frequently Asked Questions</h2>
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
-              <AccordionTrigger className="text-left text-lg font-medium">
+              <AccordionTrigger className="text-left text-lg font-medium text-gray-900">
                 Is ActSolo a line-learning app?
               </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground">
+              <AccordionContent className="text-gray-600">
                 It can help you rehearse, but it's built for performance, not just memorization—specifically for self-tapes when you need a responsive partner.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
-              <AccordionTrigger className="text-left text-lg font-medium">
+              <AccordionTrigger className="text-left text-lg font-medium text-gray-900">
                 Does it replace a human reader?
               </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground">
+              <AccordionContent className="text-gray-600">
                 It removes the dependency. When a reader isn't available—or isn't good—ActSolo gives you a consistent, responsive partner so the scene keeps its rhythm.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-3">
-              <AccordionTrigger className="text-left text-lg font-medium">
+              <AccordionTrigger className="text-left text-lg font-medium text-gray-900">
                 Is it a teleprompter?
               </AccordionTrigger>
-              <AccordionContent className="text-muted-foreground">
+              <AccordionContent className="text-gray-600">
                 Yes—ActSolo includes teleprompter support designed for actors, so you can stay present without breaking eye line.
               </AccordionContent>
             </AccordionItem>
@@ -349,8 +349,8 @@ const Landing = () => {
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
             Get Started
           </p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Submit Something You're Proud Of</h2>
-          <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-gray-900">Submit Something You're Proud Of</h2>
+          <p className="text-lg text-gray-600 mb-10 max-w-2xl mx-auto">
             When you're not scrambling for a reader, you don't settle. You commit. And that confidence shows up on camera.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
