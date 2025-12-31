@@ -40,7 +40,7 @@ const Auth = () => {
           title: "Success",
           description: "Signed in successfully!"
         });
-        navigate('/');
+        navigate('/manage-scripts');
       }
     } catch (error) {
       toast({
