@@ -10,9 +10,9 @@ import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from 'lucide-react'
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-[#FFFDF9] dark:bg-background">
+    <div className="min-h-screen bg-[#FFFDF9]">
       {/* Sticky Header */}
-      <header className="sticky top-0 z-50 border-b bg-[#FFFDF9]/80 dark:bg-background/80 backdrop-blur-md shadow-sm">
+      <header className="sticky top-0 z-50 border-b border-gray-200 bg-[#FFFDF9]/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6 max-w-6xl">
           <img 
             src="/actsolo-logo-color.png" 
@@ -69,7 +69,7 @@ const Landing = () => {
       </section>
 
       {/* Built for the Real Problem - Image Left, Text Right */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white dark:bg-muted/30">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
@@ -127,7 +127,7 @@ const Landing = () => {
       </section>
 
       {/* Feature 1: Perform Under Deadline Pressure - Text Left, Image Right */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white dark:bg-muted/30">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
@@ -225,7 +225,7 @@ const Landing = () => {
       </section>
 
       {/* Feature 3: Control the Outcome - Text Left, Image Right */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white dark:bg-muted/30">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
@@ -281,18 +281,18 @@ const Landing = () => {
           </p>
           <h2 className="text-2xl sm:text-3xl font-bold mb-12 text-center">Who ActSolo Is For</h2>
           <div className="grid md:grid-cols-2 gap-8">
-            <div className="bg-white dark:bg-muted/50 rounded-2xl p-8 shadow-sm">
+            <div className="bg-white rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-primary/10 rounded-xl">
                   <Users className="h-6 w-6 text-primary" />
                 </div>
-                <h3 className="text-xl font-semibold">Working / Striving Actors</h3>
+                <h3 className="text-xl font-semibold text-gray-900">Working / Striving Actors</h3>
               </div>
-              <p className="text-muted-foreground">
+              <p className="text-gray-600">
                 You're auditioning often, balancing life, and taping when you can—usually alone. ActSolo helps you deliver a stronger tape without dependence on anyone else.
               </p>
             </div>
-            <div className="bg-white dark:bg-muted/50 rounded-2xl p-8 shadow-sm">
+            <div className="bg-white rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-primary/10 rounded-xl">
                   <Zap className="h-6 w-6 text-primary" />
@@ -308,7 +308,7 @@ const Landing = () => {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white dark:bg-muted/30">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
         <div className="container mx-auto max-w-3xl">
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">
             FAQ
