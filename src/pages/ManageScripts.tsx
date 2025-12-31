@@ -7,7 +7,7 @@ import ScriptList from '@/components/ScriptList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { LogOut } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
-const Index = () => {
+const ManageScripts = () => {
   const {
     user,
     loading,
@@ -18,7 +18,7 @@ const Index = () => {
   const [selectedScript, setSelectedScript] = useState(null);
   useEffect(() => {
     if (!loading && !user) {
-      navigate('/auth');
+      navigate('/login');
     }
   }, [user, loading, navigate]);
   if (loading) {
@@ -82,4 +82,4 @@ const Index = () => {
       </main>
     </div>;
 };
-export default Index;
+export default ManageScripts;
