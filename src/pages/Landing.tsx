@@ -1,20 +1,19 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Separator } from '@/components/ui/separator';
 import {
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger,
 } from '@/components/ui/accordion';
-import { Clock, Mic, Target, Users, Zap } from 'lucide-react';
+import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from 'lucide-react';
 
 const Landing = () => {
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b">
-        <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6">
+    <div className="min-h-screen bg-[#FFFDF9] dark:bg-background">
+      {/* Sticky Header */}
+      <header className="sticky top-0 z-50 border-b bg-[#FFFDF9]/80 dark:bg-background/80 backdrop-blur-md shadow-sm">
+        <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6 max-w-6xl">
           <img 
             src="/actsolo-logo-color.png" 
             alt="ActSolo.AI" 
@@ -28,161 +27,276 @@ const Landing = () => {
         </div>
       </header>
 
-      {/* Hero Section */}
-      <section className="py-16 md:py-24 px-4 sm:px-6">
-        <div className="container mx-auto max-w-4xl text-center">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6">
-            ActSolo.AI — AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo
-          </h1>
-          <p className="text-lg sm:text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
-            When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time—so your self-tapes feel alive, not mechanical.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Link to="/login">
-              <Button size="lg" className="w-full sm:w-auto">
-                Start rehearsing in seconds
-              </Button>
-            </Link>
-            <Link to="/login">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
-                See how it works
-              </Button>
-            </Link>
+      {/* Hero Section - Split Layout */}
+      <section className="py-20 md:py-32 px-4 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Text Left */}
+            <div>
+              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-4">
+                AI Scene Partner for Actors
+              </p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left">
+                ActSolo.AI — AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo
+              </h1>
+              <p className="text-lg sm:text-xl text-muted-foreground mb-8 text-left">
+                When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time—so your self-tapes feel alive, not mechanical.
+              </p>
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Link to="/login">
+                  <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105">
+                    Start rehearsing in seconds
+                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                  </Button>
+                </Link>
+                <Link to="/login">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">
+                    See how it works
+                  </Button>
+                </Link>
+              </div>
+            </div>
+            {/* Image Right */}
+            <div className="relative order-first lg:order-last">
+              <img 
+                src="https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=800&auto=format&fit=crop&q=80" 
+                alt="Actor with headphones in recording setup"
+                className="rounded-3xl shadow-2xl w-full object-cover aspect-[4/3]"
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      <Separator />
-
-      {/* Built for the Real Problem */}
-      <section className="py-16 md:py-24 px-4 sm:px-6">
-        <div className="container mx-auto max-w-3xl">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-6">
-            Built for the Real Problem — Urgent Auditions and No Reader
-          </h2>
-          <p className="text-lg text-muted-foreground mb-6">You know the moment:</p>
-          <ul className="text-lg text-muted-foreground space-y-2 mb-6 list-disc list-inside">
-            <li>Sides arrive late.</li>
-            <li>Deadline is tomorrow.</li>
-            <li>Your "available" reader can't read, rushes lines, or you need help with the kids.</li>
-          </ul>
-          <p className="text-lg text-muted-foreground">
-            Most rehearsal apps help you memorize. Auditions demand something else: presence, timing, and reaction. ActSolo is built for that.
-          </p>
+      {/* Built for the Real Problem - Image Left, Text Right */}
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white dark:bg-muted/30">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Image Left */}
+            <div className="relative">
+              <img 
+                src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&auto=format&fit=crop&q=80" 
+                alt="Actor reviewing script"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
+            </div>
+            {/* Text Right */}
+            <div>
+              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
+                The Problem
+              </p>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6">
+                Built for the Real Problem — Urgent Auditions and No Reader
+              </h2>
+              <p className="text-lg text-muted-foreground mb-6">You know the moment:</p>
+              <ul className="text-lg text-muted-foreground space-y-3 mb-6">
+                <li className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                  <span>Sides arrive late.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                  <span>Deadline is tomorrow.</span>
+                </li>
+                <li className="flex items-start gap-3">
+                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                  <span>Your "available" reader can't read, rushes lines, or you need help with the kids.</span>
+                </li>
+              </ul>
+              <p className="text-lg text-muted-foreground">
+                Most rehearsal apps help you memorize. Auditions demand something else: presence, timing, and reaction. ActSolo is built for that.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
-      <Separator />
-
-      {/* Deliver a Confident... */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 bg-muted/30">
-        <div className="container mx-auto max-w-3xl text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold">
+      {/* Deliver a Confident... - Full Width Centered */}
+      <section className="py-20 md:py-32 px-4 sm:px-6">
+        <div className="container mx-auto max-w-4xl text-center">
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
+            The Solution
+          </p>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold">
             Deliver a Confident, Performance-Ready Self-Tape Without Relying on Anyone
           </h2>
-          <p className="text-lg text-muted-foreground mt-4">
+          <p className="text-lg text-muted-foreground mt-6 max-w-2xl mx-auto">
             ActSolo.AI is designed to remove the friction that shows up on camera—so you can focus on the performance that books the role.
           </p>
         </div>
       </section>
 
-      <Separator />
-
-      {/* Feature 1: Perform Under Deadline Pressure */}
-      <section className="py-16 md:py-24 px-4 sm:px-6">
-        <div className="container mx-auto max-w-3xl">
-          <div className="flex items-center gap-3 mb-4">
-            <Clock className="h-8 w-8 text-primary" />
-            <h2 className="text-2xl sm:text-3xl font-bold">Perform Under Deadline Pressure</h2>
-          </div>
-          <h3 className="text-xl font-semibold text-muted-foreground mb-6">
-            Get from script to scene fast
-          </h3>
-          <p className="text-lg text-muted-foreground mb-6">
-            ActSolo is built for speed when the clock is real.
-          </p>
-          <div className="space-y-3">
-            <p className="font-semibold">Features</p>
-            <ul className="text-muted-foreground space-y-2 list-disc list-inside">
-              <li>Paste your script and start immediately</li>
-              <li>Real-time cue detection to keep the scene moving</li>
-              <li>No scheduling, no favors, no waiting on a reader</li>
-            </ul>
-          </div>
-        </div>
-      </section>
-
-      <Separator />
-
-      {/* Feature 2: Stay Present in the Scene */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 bg-muted/30">
-        <div className="container mx-auto max-w-3xl">
-          <div className="flex items-center gap-3 mb-4">
-            <Mic className="h-8 w-8 text-primary" />
-            <h2 className="text-2xl sm:text-3xl font-bold">Stay Present in the Scene</h2>
-          </div>
-          <h3 className="text-xl font-semibold text-muted-foreground mb-6">
-            Your tape feels responsive, not rehearsed
-          </h3>
-          <p className="text-lg text-muted-foreground mb-6">
-            The difference between "fine" and "bookable" is often reaction—timing, listening, and flow.
-          </p>
-          <div className="space-y-3">
-            <p className="font-semibold">Features</p>
-            <ul className="text-muted-foreground space-y-2 list-disc list-inside">
-              <li>AI voices that listen and respond (not simple playback)</li>
-              <li>Natural turn-taking so your performance stays alive</li>
-              <li>Adjustable pacing and timing to match the scene</li>
-            </ul>
+      {/* Feature 1: Perform Under Deadline Pressure - Text Left, Image Right */}
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white dark:bg-muted/30">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Text Left */}
+            <div>
+              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
+                Feature
+              </p>
+              <div className="flex items-center gap-3 mb-4">
+                <Clock className="h-8 w-8 text-primary" />
+                <h2 className="text-2xl sm:text-3xl font-bold">Perform Under Deadline Pressure</h2>
+              </div>
+              <h3 className="text-xl font-semibold text-muted-foreground mb-6">
+                Get from script to scene fast
+              </h3>
+              <p className="text-lg text-muted-foreground mb-6">
+                ActSolo is built for speed when the clock is real.
+              </p>
+              <div className="space-y-3">
+                <p className="font-semibold">Features</p>
+                <ul className="text-muted-foreground space-y-3">
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>Paste your script and start immediately</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>Real-time cue detection to keep the scene moving</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>No scheduling, no favors, no waiting on a reader</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            {/* Image Right */}
+            <div className="relative order-first lg:order-last">
+              <img 
+                src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80" 
+                alt="Home recording setup with microphone"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
+            </div>
           </div>
         </div>
       </section>
 
-      <Separator />
-
-      {/* Feature 3: Control the Outcome */}
-      <section className="py-16 md:py-24 px-4 sm:px-6">
-        <div className="container mx-auto max-w-3xl">
-          <div className="flex items-center gap-3 mb-4">
-            <Target className="h-8 w-8 text-primary" />
-            <h2 className="text-2xl sm:text-3xl font-bold">Control the Outcome</h2>
-          </div>
-          <h3 className="text-xl font-semibold text-muted-foreground mb-6">
-            Fewer takes, stronger submissions
-          </h3>
-          <p className="text-lg text-muted-foreground mb-6">
-            ActSolo is built to protect your energy and raise your floor—especially when you're taping alone.
-          </p>
-          <div className="space-y-3">
-            <p className="font-semibold">Features</p>
-            <ul className="text-muted-foreground space-y-2 list-disc list-inside">
-              <li>Teleprompter support without breaking eye line</li>
-              <li>A consistent scene partner every time</li>
-              <li>Repeat scenes smoothly until you have the take you want</li>
-            </ul>
+      {/* Feature 2: Stay Present in the Scene - Image Left, Text Right */}
+      <section className="py-20 md:py-32 px-4 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Image Left */}
+            <div className="relative">
+              <img 
+                src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80" 
+                alt="Person speaking into microphone"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
+            </div>
+            {/* Text Right */}
+            <div>
+              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
+                Feature
+              </p>
+              <div className="flex items-center gap-3 mb-4">
+                <Mic className="h-8 w-8 text-primary" />
+                <h2 className="text-2xl sm:text-3xl font-bold">Stay Present in the Scene</h2>
+              </div>
+              <h3 className="text-xl font-semibold text-muted-foreground mb-6">
+                Your tape feels responsive, not rehearsed
+              </h3>
+              <p className="text-lg text-muted-foreground mb-6">
+                The difference between "fine" and "bookable" is often reaction—timing, listening, and flow.
+              </p>
+              <div className="space-y-3">
+                <p className="font-semibold">Features</p>
+                <ul className="text-muted-foreground space-y-3">
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>AI voices that listen and respond (not simple playback)</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>Natural turn-taking so your performance stays alive</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>Adjustable pacing and timing to match the scene</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      <Separator />
+      {/* Feature 3: Control the Outcome - Text Left, Image Right */}
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white dark:bg-muted/30">
+        <div className="container mx-auto max-w-6xl">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+            {/* Text Left */}
+            <div>
+              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
+                Feature
+              </p>
+              <div className="flex items-center gap-3 mb-4">
+                <Target className="h-8 w-8 text-primary" />
+                <h2 className="text-2xl sm:text-3xl font-bold">Control the Outcome</h2>
+              </div>
+              <h3 className="text-xl font-semibold text-muted-foreground mb-6">
+                Fewer takes, stronger submissions
+              </h3>
+              <p className="text-lg text-muted-foreground mb-6">
+                ActSolo is built to protect your energy and raise your floor—especially when you're taping alone.
+              </p>
+              <div className="space-y-3">
+                <p className="font-semibold">Features</p>
+                <ul className="text-muted-foreground space-y-3">
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>Teleprompter support without breaking eye line</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>A consistent scene partner every time</span>
+                  </li>
+                  <li className="flex items-start gap-3">
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <span>Repeat scenes smoothly until you have the take you want</span>
+                  </li>
+                </ul>
+              </div>
+            </div>
+            {/* Image Right */}
+            <div className="relative order-first lg:order-last">
+              <img 
+                src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&auto=format&fit=crop&q=80" 
+                alt="At-home podcast and recording setup"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* Who ActSolo Is For */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 bg-muted/30">
-        <div className="container mx-auto max-w-3xl">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-10 text-center">Who ActSolo Is For</h2>
+      {/* Who ActSolo Is For - Cards Layout */}
+      <section className="py-20 md:py-32 px-4 sm:px-6">
+        <div className="container mx-auto max-w-6xl">
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">
+            Who It's For
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-12 text-center">Who ActSolo Is For</h2>
           <div className="grid md:grid-cols-2 gap-8">
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Users className="h-6 w-6 text-primary" />
+            <div className="bg-white dark:bg-muted/50 rounded-2xl p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-primary/10 rounded-xl">
+                  <Users className="h-6 w-6 text-primary" />
+                </div>
                 <h3 className="text-xl font-semibold">Working / Striving Actors</h3>
               </div>
               <p className="text-muted-foreground">
                 You're auditioning often, balancing life, and taping when you can—usually alone. ActSolo helps you deliver a stronger tape without dependence on anyone else.
               </p>
             </div>
-            <div className="space-y-4">
-              <div className="flex items-center gap-3">
-                <Zap className="h-6 w-6 text-primary" />
+            <div className="bg-white dark:bg-muted/50 rounded-2xl p-8 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-primary/10 rounded-xl">
+                  <Zap className="h-6 w-6 text-primary" />
+                </div>
                 <h3 className="text-xl font-semibold">Self-Tape Pros</h3>
               </div>
               <p className="text-muted-foreground">
@@ -193,12 +307,13 @@ const Landing = () => {
         </div>
       </section>
 
-      <Separator />
-
       {/* FAQ Section */}
-      <section className="py-16 md:py-24 px-4 sm:px-6">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white dark:bg-muted/30">
         <div className="container mx-auto max-w-3xl">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center">Frequently Asked Questions</h2>
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">
+            FAQ
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-10 text-center">Frequently Asked Questions</h2>
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
               <AccordionTrigger className="text-left text-lg font-medium">
@@ -228,23 +343,25 @@ const Landing = () => {
         </div>
       </section>
 
-      <Separator />
-
       {/* Final CTA Section */}
-      <section className="py-16 md:py-24 px-4 sm:px-6 bg-muted/30">
-        <div className="container mx-auto max-w-3xl text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold mb-4">Submit Something You're Proud Of</h2>
-          <p className="text-lg text-muted-foreground mb-8">
+      <section className="py-20 md:py-32 px-4 sm:px-6">
+        <div className="container mx-auto max-w-4xl text-center">
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
+            Get Started
+          </p>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4">Submit Something You're Proud Of</h2>
+          <p className="text-lg text-muted-foreground mb-10 max-w-2xl mx-auto">
             When you're not scrambling for a reader, you don't settle. You commit. And that confidence shows up on camera.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/login">
-              <Button size="lg" className="w-full sm:w-auto">
+              <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105">
                 Start rehearsing with ActSolo.AI
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
             <Link to="/login">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">
                 Learn how it works
               </Button>
             </Link>
@@ -253,8 +370,8 @@ const Landing = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t py-8 px-4 sm:px-6">
-        <div className="container mx-auto max-w-3xl">
+      <footer className="border-t py-10 px-4 sm:px-6 bg-white dark:bg-background">
+        <div className="container mx-auto max-w-6xl">
           <div className="flex justify-center mb-6">
             <img 
               src="/actsolo-logo-bw.png" 
@@ -263,13 +380,16 @@ const Landing = () => {
             />
           </div>
           <div className="flex justify-center gap-6 text-sm text-muted-foreground mb-6">
-            <Link to="/terms" className="hover:text-foreground">Terms</Link>
-            <Link to="/privacy" className="hover:text-foreground">Privacy</Link>
-            <Link to="/contact" className="hover:text-foreground">Contact</Link>
-            <Link to="/help" className="hover:text-foreground">Help</Link>
+            <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
+            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
+            <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
+            <Link to="/help" className="hover:text-foreground transition-colors">Help</Link>
           </div>
-          <p className="text-sm text-muted-foreground text-center">
+          <p className="text-sm text-muted-foreground text-center max-w-2xl mx-auto">
             ActSolo.AI is an AI teleprompter and AI scene partner for actors who want to rehearse and record self-tape auditions without needing a reader. Designed for urgent auditions, ActSolo helps actors run lines, maintain timing, and deliver more confident performances with responsive AI voices and real-time turn-taking.
+          </p>
+          <p className="text-sm text-muted-foreground text-center mt-4">
+            © 2025 ActSolo.AI. All rights reserved.
           </p>
         </div>
       </footer>
