@@ -73,7 +73,7 @@ const Privacy = () => {
             <Link to="/contact" className="hover:text-foreground">Contact</Link>
             <Link to="/help" className="hover:text-foreground">Help</Link>
           </div>
-          <p className="text-sm text-muted-foreground">© 2024 ActSolo.AI. All rights reserved.</p>
+          <p className="text-sm text-muted-foreground">© 2025 ActSolo.AI. All rights reserved.</p>
         </div>
       </footer>
     </div>;
