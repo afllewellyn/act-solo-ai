@@ -1,24 +1,13 @@
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from 'lucide-react';
-
 const Landing = () => {
-  return (
-    <div className="min-h-screen bg-[#FFFDF9]">
+  return <div className="min-h-screen bg-[#FFFDF9]">
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-[#FFFDF9]/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6 max-w-6xl">
-          <img 
-            src="/actsolo-logo-color.png" 
-            alt="ActSolo.AI" 
-            className="h-8 sm:h-10"
-          />
+          <img src="/actsolo-logo-color.png" alt="ActSolo.AI" className="h-8 sm:h-10" />
           <Link to="/login">
             <Button variant="outline" size="sm">
               Log In
@@ -33,7 +22,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
             <div>
-              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-4">
+              <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">
                 AI Scene Partner for Actors
               </p>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">
@@ -58,11 +47,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img 
-                src="https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=800&auto=format&fit=crop&q=80" 
-                alt="Actor with headphones in recording setup"
-                className="rounded-3xl shadow-2xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=800&auto=format&fit=crop&q=80" alt="Actor with headphones in recording setup" className="rounded-3xl shadow-2xl w-full object-cover aspect-[4/3]" />
             </div>
           </div>
         </div>
@@ -74,15 +59,11 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&auto=format&fit=crop&q=80" 
-                alt="Actor reviewing script"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&auto=format&fit=crop&q=80" alt="Actor reviewing script" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
             {/* Text Right */}
             <div>
-              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
+              <p className="text-sm font-semibold uppercase tracking-wider mb-3 text-background">
                 The Problem
               </p>
               <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
@@ -112,15 +93,14 @@ const Landing = () => {
       </section>
 
       {/* Deliver a Confident... - Full Width Centered */}
-      <section className="py-20 md:py-32 px-4 sm:px-6">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-black">
         <div className="container mx-auto max-w-4xl text-center">
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
             The Solution
           </p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-gray-900">
-            Deliver a Confident, Performance-Ready Self-Tape Without Relying on Anyone
-          </h2>
-          <p className="text-lg text-gray-600 mt-6 max-w-2xl mx-auto">
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary">Deliver a Performance Ready
+Self-Tape Without Relying on Anyone</h2>
+          <p className="text-lg mt-6 max-w-2xl mx-auto text-slate-500">
             ActSolo.AI is designed to remove the friction that shows up on camera—so you can focus on the performance that books the role.
           </p>
         </div>
@@ -135,8 +115,8 @@ const Landing = () => {
               <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
                 Feature
               </p>
-              <div className="flex items-center gap-3 mb-4">
-                <Clock className="h-8 w-8 text-primary" />
+              <div className="flex items-center gap-3 mb-4 text-secondary">
+                <Clock className="h-8 w-8 text-secondary" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Perform Under Deadline Pressure</h2>
               </div>
               <h3 className="text-xl font-semibold text-gray-700 mb-6">
@@ -149,7 +129,7 @@ const Landing = () => {
                 <p className="font-semibold text-gray-900">Features</p>
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 mt-0.5 flex-shrink-0 text-secondary" />
                     <span>Paste your script and start immediately</span>
                   </li>
                   <li className="flex items-start gap-3">
@@ -165,11 +145,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img 
-                src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80" 
-                alt="Home recording setup with microphone"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80" alt="Home recording setup with microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
           </div>
         </div>
@@ -181,11 +157,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img 
-                src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80" 
-                alt="Person speaking into microphone"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80" alt="Person speaking into microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
             {/* Text Right */}
             <div>
@@ -225,7 +197,7 @@ const Landing = () => {
       </section>
 
       {/* Feature 3: Control the Outcome - Text Left, Image Right */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-secondary">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
@@ -235,51 +207,47 @@ const Landing = () => {
               </p>
               <div className="flex items-center gap-3 mb-4">
                 <Target className="h-8 w-8 text-primary" />
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Control the Outcome</h2>
+                <h2 className="text-2xl sm:text-3xl font-bold text-primary">Control the Outcome</h2>
               </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-6">
+              <h3 className="text-xl font-semibold mb-6 text-primary">
                 Fewer takes, stronger submissions
               </h3>
-              <p className="text-lg text-gray-600 mb-6">
+              <p className="text-lg mb-6 text-primary">
                 ActSolo is built to protect your energy and raise your floor—especially when you're taping alone.
               </p>
               <div className="space-y-3">
-                <p className="font-semibold text-gray-900">Features</p>
+                <p className="font-semibold text-primary">Features</p>
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>Teleprompter support without breaking eye line</span>
+                    <span className="text-primary">Teleprompter support without breaking eye line</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>A consistent scene partner every time</span>
+                    <span className="text-primary">A consistent scene partner every time</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>Repeat scenes smoothly until you have the take you want</span>
+                    <span className="text-primary">Repeat scenes smoothly until you have the take you want</span>
                   </li>
                 </ul>
               </div>
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img 
-                src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&auto=format&fit=crop&q=80" 
-                alt="At-home podcast and recording setup"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&auto=format&fit=crop&q=80" alt="At-home podcast and recording setup" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
           </div>
         </div>
       </section>
 
       {/* Who ActSolo Is For - Cards Layout */}
-      <section className="py-20 md:py-32 px-4 sm:px-6">
+      <section className="py-20 md:py-32 px-4 sm:px-6 text-secondary bg-secondary">
         <div className="container mx-auto max-w-6xl">
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">
             Who It's For
           </p>
-          <h2 className="text-2xl sm:text-3xl font-bold mb-12 text-center text-gray-900">Who ActSolo Is For</h2>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-12 text-center text-primary">ActSolo Is For</h2>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
@@ -373,11 +341,7 @@ const Landing = () => {
       <footer className="border-t py-10 px-4 sm:px-6 bg-white dark:bg-background">
         <div className="container mx-auto max-w-6xl">
           <div className="flex justify-center mb-6">
-            <img 
-              src="/actsolo-logo-bw.png" 
-              alt="ActSolo.AI" 
-              className="h-6 opacity-60"
-            />
+            <img src="/actsolo-logo-bw.png" alt="ActSolo.AI" className="h-6 opacity-60" />
           </div>
           <div className="flex justify-center gap-6 text-sm text-muted-foreground mb-6">
             <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
@@ -393,8 +357,6 @@ const Landing = () => {
           </p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
-
 export default Landing;
