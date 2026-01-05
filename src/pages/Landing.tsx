@@ -9,7 +9,7 @@ const Landing = () => {
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-[#FFFDF9]/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6 max-w-6xl">
-          <img src="/actsolo-logo-color.png" alt="ActSolo.AI" className="h-8 sm:h-10" />
+          <span className="text-xl sm:text-2xl font-bold text-gray-900">ActSolo.AI</span>
           <Link to="/login">
             <Button variant="outline" size="sm">
               Log In
