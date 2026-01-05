@@ -73,7 +73,7 @@ const Landing = () => {
               <img
                 src={movieScriptImg}
                 alt="Movie script with highlighter and pen"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+                className="rounded-2xl shadow-xl w-full object-cover object-top aspect-[4/3]"
               />
             </div>
             {/* Text Right */}
