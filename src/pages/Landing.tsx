@@ -45,7 +45,7 @@ const Landing = () => {
                   </Button>
                 </Link>
                 <Link to="/login">
-                <Button size="lg" variant="outline" className="w-full sm:w-auto bg-white border-gray-900 text-gray-900">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">
                     See how it works
                   </Button>
                 </Link>
@@ -152,7 +152,7 @@ const Landing = () => {
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
               <img
-                src="https://images.unsplash.com/photo-1761370980756-1e7fe8f1a731?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80"
                 alt="Home recording setup with microphone"
                 className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
               />
@@ -240,8 +240,8 @@ const Landing = () => {
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
               <img
-                src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&auto=format&fit=crop&q=80"
-                alt="At-home podcast and recording setup"
+                src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w"
+                alt="Anna Cameron smiling holding a movie clapper"
                 className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
               />
             </div>
@@ -333,13 +333,13 @@ const Landing = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/login">
-              <Button size="lg" className="w-full sm:w-auto group bg-black text-white hover:bg-gray-800">
+              <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105">
                 Start rehearsing with ActSolo.AI
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
             <Link to="/login">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto bg-white border-gray-900 text-gray-900">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">
                 Learn how it works
               </Button>
             </Link>
