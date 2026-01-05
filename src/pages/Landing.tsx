@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from "lucide-react";
 import movieScriptImg from "@/assets/movie-script.jpg";
+import actorHeadshotImg from "@/assets/actor-headshot.jpg";
 const Landing = () => {
   return (
     <div className="min-h-screen bg-[#FFFDF9]">
@@ -168,8 +169,8 @@ const Landing = () => {
             {/* Image Left */}
             <div className="relative">
               <img
-                src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80"
-                alt="Person speaking into microphone"
+                src={actorHeadshotImg}
+                alt="Actor headshot"
                 className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
               />
             </div>
