@@ -305,7 +305,7 @@ Self-Tape Without Relying on Anyone</h2>
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/login">
-              <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105 bg-primary-foreground text-primary">
+              <Button size="lg" className="w-full sm:w-auto group bg-primary-foreground text-primary hover:bg-primary-foreground hover:text-primary">
                 Start rehearsing with ActSolo.AI
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
