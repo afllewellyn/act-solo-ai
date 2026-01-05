@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from "lucide-react";
+import movieScriptImg from "@/assets/movie-script.jpg";
 const Landing = () => {
   return (
     <div className="min-h-screen bg-[#FFFDF9]">
@@ -70,8 +71,8 @@ const Landing = () => {
             {/* Image Left */}
             <div className="relative">
               <img
-                src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&auto=format&fit=crop&q=80"
-                alt="Actor reviewing script"
+                src={movieScriptImg}
+                alt="Movie script with highlighter and pen"
                 className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
               />
             </div>
