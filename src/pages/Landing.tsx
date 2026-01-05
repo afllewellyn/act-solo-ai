@@ -70,11 +70,11 @@ const Landing = () => {
                   <span>Sides arrive late.</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-gray-900 mt-1 flex-shrink-0" />
                   <span>Deadline is tomorrow.</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-gray-900 mt-1 flex-shrink-0" />
                   <span>Your "available" reader can't read, rushes lines, or you need help with the kids.</span>
                 </li>
               </ul>
@@ -125,11 +125,11 @@ Self-Tape Without Relying on Anyone</h2>
                     <span>Paste your script, format it, and start immediately</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
                     <span>Real-time cue detection to keep the scene moving</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
                     <span>No scheduling, no favors, no waiting on a reader</span>
                   </li>
                 </ul>
@@ -166,15 +166,15 @@ Self-Tape Without Relying on Anyone</h2>
                 <p className="font-semibold text-gray-900">You'll get:</p>
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
                     <span>A selection of AI voices that listen and respond (not simple playback)</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
                     <span>Natural turn-taking so your performance stays alive</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
                     <span>Adjustable pacing and timing to match the scene</span>
                   </li>
                 </ul>
