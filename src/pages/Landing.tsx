@@ -29,7 +29,7 @@ const Landing = () => {
               <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time so your self-tapes feel alive, not mechanical.</p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
-                  <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105">
+                  <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800">
                     Start rehearsing in seconds
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
