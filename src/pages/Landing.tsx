@@ -3,8 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from "lucide-react";
 const Landing = () => {
-  return (
-    <div className="min-h-screen bg-[#FFFDF9]">
+  return <div className="min-h-screen bg-[#FFFDF9]">
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-[#FFFDF9]/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6 max-w-6xl">
@@ -26,9 +25,8 @@ const Landing = () => {
               <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">
                 AI Scene Partner for Actors
               </p>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">
-                ActSolo.AI - AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo
-              </h1>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6 text-left text-gray-900 md:text-6xl">ActSolo.AI 
+AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo</h1>
               <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">
                 When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react,
                 and record with confidence. It's a performance-first teleprompter and AI reader that listens and
@@ -36,10 +34,7 @@ const Landing = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800"
-                  >
+                  <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800">
                     Start rehearsing in seconds
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
@@ -53,11 +48,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img
-                src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w"
-                alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it"
-                className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]"
-              />
+              <img src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w" alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it" className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]" />
             </div>
           </div>
         </div>
@@ -69,11 +60,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img
-                src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&auto=format&fit=crop&q=80"
-                alt="Actor reviewing script"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&auto=format&fit=crop&q=80" alt="Actor reviewing script" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
             {/* Text Right */}
             <div>
@@ -151,11 +138,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img
-                src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80"
-                alt="Home recording setup with microphone"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80" alt="Home recording setup with microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
           </div>
         </div>
@@ -167,11 +150,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img
-                src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80"
-                alt="Person speaking into microphone"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80" alt="Person speaking into microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
             {/* Text Right */}
             <div>
@@ -239,11 +218,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img
-                src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w"
-                alt="Anna Cameron smiling holding a movie clapper"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[3/4]"
-              />
+              <img src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w" alt="Anna Cameron smiling holding a movie clapper" className="rounded-2xl shadow-xl w-full object-cover aspect-[3/4]" />
             </div>
           </div>
         </div>
@@ -375,7 +350,6 @@ const Landing = () => {
           <p className="text-sm text-muted-foreground text-center mt-4">© 2025 ActSolo.AI. All rights reserved.</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
 export default Landing;
