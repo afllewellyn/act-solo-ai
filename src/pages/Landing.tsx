@@ -41,8 +41,7 @@ const Landing = () => {
                     size="lg"
                     className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800"
                   >
-                    Start rehearsing in seconds
-                    <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                    Run lines with AI now →
                   </Button>
                 </Link>
                 <Link to="/login">
