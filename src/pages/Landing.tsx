@@ -333,7 +333,7 @@ const Landing = () => {
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/login">
-              <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105">
+              <Button size="lg" className="w-full sm:w-auto group bg-black text-white hover:bg-gray-800">
                 Start rehearsing with ActSolo.AI
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
