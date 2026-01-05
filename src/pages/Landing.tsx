@@ -66,7 +66,7 @@ const Landing = () => {
               <p className="text-lg text-gray-600 mb-6">You know the moment:</p>
               <ul className="text-lg text-gray-600 space-y-3 mb-6">
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-gray-900 mt-1 flex-shrink-0" />
                   <span>Sides arrive late.</span>
                 </li>
                 <li className="flex items-start gap-3">
