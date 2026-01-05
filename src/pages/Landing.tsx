@@ -335,8 +335,7 @@ const Landing = () => {
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/login">
               <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105">
-                Start rehearsing with ActSolo.AI
-                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+                Make your next self tape stronger →
               </Button>
             </Link>
             <Link to="/login">
