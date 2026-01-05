@@ -1,9 +1,10 @@
-import { Link } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
-import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from 'lucide-react';
+import { Link } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from "lucide-react";
 const Landing = () => {
-  return <div className="min-h-screen bg-[#FFFDF9]">
+  return (
+    <div className="min-h-screen bg-[#FFFDF9]">
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-[#FFFDF9]/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6 max-w-6xl">
@@ -25,17 +26,26 @@ const Landing = () => {
               <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">
                 AI Scene Partner for Actors
               </p>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">ActSolo.AI - AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo</h1>
-              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time so your self-tapes feel alive, not mechanical.</p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">
+                ActSolo.AI - AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo
+              </h1>
+              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">
+                When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react,
+                and record with confidence. It's a performance-first teleprompter and AI reader that listens and
+                responds in real time so your self-tapes feel alive, not mechanical.
+              </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
-                  <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800">
+                  <Button
+                    size="lg"
+                    className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800"
+                  >
                     Start rehearsing in seconds
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
                 </Link>
                 <Link to="/login">
-                  <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105 bg-primary border-secondary text-primary-foreground">
+                  <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">
                     See how it works
                   </Button>
                 </Link>
@@ -43,7 +53,11 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img src="https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=800&auto=format&fit=crop&q=80" alt="Actor with headphones in recording setup" className="rounded-3xl shadow-2xl w-full object-cover aspect-[4/3]" />
+              <img
+                src="https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=800&auto=format&fit=crop&q=80"
+                alt="Actor with headphones in recording setup"
+                className="rounded-3xl shadow-2xl w-full object-cover aspect-[4/3]"
+              />
             </div>
           </div>
         </div>
@@ -55,31 +69,36 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&auto=format&fit=crop&q=80" alt="Actor reviewing script" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
+              <img
+                src="https://images.unsplash.com/photo-1516321497487-e288fb19713f?w=800&auto=format&fit=crop&q=80"
+                alt="Actor reviewing script"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
             </div>
             {/* Text Right */}
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wider mb-3 text-background">
-                The Problem
-              </p>
-              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">Built for the Real Problem - Urgent Auditions and No Reader</h2>
+              <p className="text-sm font-semibold uppercase tracking-wider mb-3 text-background">The Problem</p>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
+                Built for the Real Problem - Urgent Auditions and No Reader
+              </h2>
               <p className="text-lg text-gray-600 mb-6">You know the moment:</p>
               <ul className="text-lg text-gray-600 space-y-3 mb-6">
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-gray-900 mt-1 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
                   <span>Sides arrive late.</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-gray-900 mt-1 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
                   <span>Deadline is tomorrow.</span>
                 </li>
                 <li className="flex items-start gap-3">
-                  <Check className="h-5 w-5 text-gray-900 mt-1 flex-shrink-0" />
+                  <Check className="h-5 w-5 text-primary mt-1 flex-shrink-0" />
                   <span>Your "available" reader can't read, rushes lines, or you need help with the kids.</span>
                 </li>
               </ul>
               <p className="text-lg text-gray-600">
-                Most rehearsal apps help you memorize. Auditions demand something else: presence, timing, and reaction. ActSolo is built for that.
+                Most rehearsal apps help you memorize. Auditions demand something else: presence, timing, and reaction.
+                ActSolo is built for that.
               </p>
             </div>
           </div>
@@ -89,12 +108,14 @@ const Landing = () => {
       {/* Deliver a Confident... - Full Width Centered */}
       <section className="py-20 md:py-32 px-4 sm:px-6 bg-black">
         <div className="container mx-auto max-w-4xl text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-            The Solution
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">The Solution</p>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary">
+            Deliver a Performance Ready Self-Tape Without Relying on Anyone
+          </h2>
+          <p className="text-lg mt-6 max-w-2xl mx-auto text-slate-500">
+            ActSolo.AI is designed to remove the friction that shows up on camera so you can focus on the performance
+            that books the role.
           </p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary">Deliver a Performance Ready
-Self-Tape Without Relying on Anyone</h2>
-          <p className="text-lg mt-6 max-w-2xl mx-auto text-slate-500">ActSolo.AI is designed to remove the friction that shows up on camera so you can focus on the performance that books the role.</p>
         </div>
       </section>
 
@@ -104,32 +125,25 @@ Self-Tape Without Relying on Anyone</h2>
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
             <div>
-              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-                Feature
-              </p>
+              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Feature</p>
               <div className="flex items-center gap-3 mb-4 text-secondary">
                 <Clock className="h-8 w-8 text-secondary" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Perform Under Deadline Pressure</h2>
               </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-6">
-                Get from script to scene fast
-              </h3>
-              <p className="text-lg text-gray-600 mb-6">
-                ActSolo is built for speed when the clock is real.
-              </p>
+              <h3 className="text-xl font-semibold text-gray-700 mb-6">Get from script to scene fast</h3>
+              <p className="text-lg text-gray-600 mb-6">ActSolo is built for speed when the clock is real.</p>
               <div className="space-y-3">
-                
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 mt-0.5 flex-shrink-0 text-secondary" />
                     <span>Paste your script, format it, and start immediately</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>Real-time cue detection to keep the scene moving</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>No scheduling, no favors, no waiting on a reader</span>
                   </li>
                 </ul>
@@ -137,7 +151,11 @@ Self-Tape Without Relying on Anyone</h2>
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80" alt="Home recording setup with microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
+              <img
+                src="https://images.unsplash.com/photo-1761370980756-1e7fe8f1a731?q=80&w=774&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+                alt="Home recording setup with microphone"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
             </div>
           </div>
         </div>
@@ -149,32 +167,36 @@ Self-Tape Without Relying on Anyone</h2>
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80" alt="Person speaking into microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
+              <img
+                src="https://images.unsplash.com/photo-1590602847861-f357a9332bbc?w=800&auto=format&fit=crop&q=80"
+                alt="Person speaking into microphone"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
             </div>
             {/* Text Right */}
             <div>
-              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-                Feature
-              </p>
+              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Feature</p>
               <div className="flex items-center gap-3 mb-4">
-                <Mic className="h-8 w-8 text-gray-900" />
+                <Mic className="h-8 w-8 text-primary" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Stay Present in the Scene</h2>
               </div>
               <h3 className="text-xl font-semibold text-gray-700 mb-6">Your tape feels responsive, not rehearsed</h3>
-              <p className="text-lg text-gray-600 mb-6">The difference between "fine" and "bookable" is often reaction, timing, listening, and flow.</p>
+              <p className="text-lg text-gray-600 mb-6">
+                The difference between "fine" and "bookable" is often reaction, timing, listening, and flow.
+              </p>
               <div className="space-y-3">
                 <p className="font-semibold text-gray-900">You'll get:</p>
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>A selection of AI voices that listen and respond (not simple playback)</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>Natural turn-taking so your performance stays alive</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-gray-900 mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                     <span>Adjustable pacing and timing to match the scene</span>
                   </li>
                 </ul>
@@ -190,17 +212,15 @@ Self-Tape Without Relying on Anyone</h2>
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
             <div>
-              
               <div className="flex items-center gap-3 mb-4">
                 <Target className="h-8 w-8 text-primary" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-primary">Control the Outcome</h2>
               </div>
-              <h3 className="text-xl font-semibold mb-6 text-primary">
-                Fewer takes, stronger submissions
-              </h3>
-              <p className="text-lg mb-6 text-primary">ActSolo is built to protect your energy and raise your floor - especially when you're taping alone.</p>
+              <h3 className="text-xl font-semibold mb-6 text-primary">Fewer takes, stronger submissions</h3>
+              <p className="text-lg mb-6 text-primary">
+                ActSolo is built to protect your energy and raise your floor - especially when you're taping alone.
+              </p>
               <div className="space-y-3">
-                
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -219,7 +239,11 @@ Self-Tape Without Relying on Anyone</h2>
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&auto=format&fit=crop&q=80" alt="At-home podcast and recording setup" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
+              <img
+                src="https://images.unsplash.com/photo-1611532736597-de2d4265fba3?w=800&auto=format&fit=crop&q=80"
+                alt="At-home podcast and recording setup"
+                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
+              />
             </div>
           </div>
         </div>
@@ -228,9 +252,7 @@ Self-Tape Without Relying on Anyone</h2>
       {/* Who ActSolo Is For - Cards Layout */}
       <section className="py-20 md:py-32 px-4 sm:px-6 text-secondary bg-secondary">
         <div className="container mx-auto max-w-6xl">
-          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">
-            Who It's For
-          </p>
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">Who It's For</p>
           <h2 className="text-2xl sm:text-3xl font-bold mb-12 text-center text-primary">ActSolo Is For</h2>
           <div className="grid md:grid-cols-2 gap-8">
             <div className="bg-white rounded-2xl p-8 shadow-sm">
@@ -240,7 +262,10 @@ Self-Tape Without Relying on Anyone</h2>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900">Working / Striving Actors</h3>
               </div>
-              <p className="text-gray-600">You're auditioning often, balancing life, and taping when you can - usually alone. ActSolo helps you deliver a stronger tape without dependence on anyone else.</p>
+              <p className="text-gray-600">
+                You're auditioning often, balancing life, and taping when you can - usually alone. ActSolo helps you
+                deliver a stronger tape without dependence on anyone else.
+              </p>
             </div>
             <div className="bg-white rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
@@ -250,7 +275,8 @@ Self-Tape Without Relying on Anyone</h2>
                 <h3 className="text-xl font-semibold text-gray-900">Self-Tape Pros</h3>
               </div>
               <p className="text-gray-600">
-                You don't need another tool. You need control, consistency, and a process that keeps performances sharp under pressure. ActSolo is built to reduce friction and protect the work.
+                You don't need another tool. You need control, consistency, and a process that keeps performances sharp
+                under pressure. ActSolo is built to reduce friction and protect the work.
               </p>
             </div>
           </div>
@@ -260,9 +286,7 @@ Self-Tape Without Relying on Anyone</h2>
       {/* FAQ Section */}
       <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
         <div className="container mx-auto max-w-3xl">
-          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">
-            FAQ
-          </p>
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3 text-center">FAQ</p>
           <h2 className="text-2xl sm:text-3xl font-bold mb-10 text-center text-gray-900">Frequently Asked Questions</h2>
           <Accordion type="single" collapsible className="w-full">
             <AccordionItem value="item-1">
@@ -270,7 +294,8 @@ Self-Tape Without Relying on Anyone</h2>
                 Is ActSolo a line-learning app?
               </AccordionTrigger>
               <AccordionContent className="text-gray-600">
-                It can help you rehearse, but it's built for performance, not just memorization—specifically for self-tapes when you need a responsive partner.
+                It can help you rehearse, but it's built for performance, not just memorization—specifically for
+                self-tapes when you need a responsive partner.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-2">
@@ -278,7 +303,8 @@ Self-Tape Without Relying on Anyone</h2>
                 Does it replace a human reader?
               </AccordionTrigger>
               <AccordionContent className="text-gray-600">
-                It removes the dependency. When a reader isn't available—or isn't good—ActSolo gives you a consistent, responsive partner so the scene keeps its rhythm.
+                It removes the dependency. When a reader isn't available—or isn't good—ActSolo gives you a consistent,
+                responsive partner so the scene keeps its rhythm.
               </AccordionContent>
             </AccordionItem>
             <AccordionItem value="item-3">
@@ -286,7 +312,8 @@ Self-Tape Without Relying on Anyone</h2>
                 Is it a teleprompter?
               </AccordionTrigger>
               <AccordionContent className="text-gray-600">
-                Yes—ActSolo includes teleprompter support designed for actors, so you can stay present without breaking eye line.
+                Yes—ActSolo includes teleprompter support designed for actors, so you can stay present without breaking
+                eye line.
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -296,22 +323,23 @@ Self-Tape Without Relying on Anyone</h2>
       {/* Final CTA Section */}
       <section className="py-20 md:py-32 px-4 sm:px-6">
         <div className="container mx-auto max-w-4xl text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-            Get Started
-          </p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-gray-900">Submit Something You're Proud Of</h2>
+          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Get Started</p>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-4 text-gray-900">
+            Submit Something You're Proud Of
+          </h2>
           <p className="text-lg text-gray-600 mb-10 max-w-2xl mx-auto">
-            When you're not scrambling for a reader, you don't settle. You commit. And that confidence shows up on camera.
+            When you're not scrambling for a reader, you don't settle. You commit. And that confidence shows up on
+            camera.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link to="/login">
-              <Button size="lg" className="w-full sm:w-auto group bg-primary-foreground text-primary hover:bg-primary-foreground hover:text-primary">
+              <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105">
                 Start rehearsing with ActSolo.AI
                 <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
               </Button>
             </Link>
             <Link to="/login">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105 text-primary-foreground bg-primary border-primary-foreground">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">
                 Learn how it works
               </Button>
             </Link>
@@ -326,19 +354,28 @@ Self-Tape Without Relying on Anyone</h2>
             <img src="/actsolo-logo-bw.png" alt="ActSolo.AI" className="h-6 opacity-60" />
           </div>
           <div className="flex justify-center gap-6 text-sm text-muted-foreground mb-6">
-            <Link to="/terms" className="hover:text-foreground transition-colors">Terms</Link>
-            <Link to="/privacy" className="hover:text-foreground transition-colors">Privacy</Link>
-            <Link to="/contact" className="hover:text-foreground transition-colors">Contact</Link>
-            <Link to="/help" className="hover:text-foreground transition-colors">Help</Link>
+            <Link to="/terms" className="hover:text-foreground transition-colors">
+              Terms
+            </Link>
+            <Link to="/privacy" className="hover:text-foreground transition-colors">
+              Privacy
+            </Link>
+            <Link to="/contact" className="hover:text-foreground transition-colors">
+              Contact
+            </Link>
+            <Link to="/help" className="hover:text-foreground transition-colors">
+              Help
+            </Link>
           </div>
           <p className="text-sm text-muted-foreground text-center max-w-2xl mx-auto">
-            ActSolo.AI is an AI teleprompter and AI scene partner for actors who want to rehearse and record self-tape auditions without needing a reader. Designed for urgent auditions, ActSolo helps actors run lines, maintain timing, and deliver more confident performances with responsive AI voices and real-time turn-taking.
+            ActSolo.AI is an AI teleprompter and AI scene partner for actors who want to rehearse and record self-tape
+            auditions without needing a reader. Designed for urgent auditions, ActSolo helps actors run lines, maintain
+            timing, and deliver more confident performances with responsive AI voices and real-time turn-taking.
           </p>
-          <p className="text-sm text-muted-foreground text-center mt-4">
-            © 2025 ActSolo.AI. All rights reserved.
-          </p>
+          <p className="text-sm text-muted-foreground text-center mt-4">© 2025 ActSolo.AI. All rights reserved.</p>
         </div>
       </footer>
-    </div>;
+    </div>
+  );
 };
 export default Landing;
