@@ -35,7 +35,7 @@ AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo</h1>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
                   <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800">
-                    Start rehearsing in seconds
+                    Run lines with AI now
                     <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
                   </Button>
                 </Link>
