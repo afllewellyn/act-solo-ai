@@ -54,8 +54,8 @@ const Landing = () => {
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
               <img
-                src="https://images.unsplash.com/photo-1478737270239-2f02b77fc618?w=800&auto=format&fit=crop&q=80"
-                alt="Actor with headphones in recording setup"
+                src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w"
+                alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it"
                 className="rounded-3xl shadow-2xl w-full object-cover aspect-[4/3]"
               />
             </div>
