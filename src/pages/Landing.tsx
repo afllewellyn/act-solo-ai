@@ -177,7 +177,7 @@ const Landing = () => {
             <div>
               <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Feature</p>
               <div className="flex items-center gap-3 mb-4">
-                <Mic className="h-8 w-8 text-primary" />
+                <Mic className="h-8 w-8 text-black" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Stay Present in the Scene</h2>
               </div>
               <h3 className="text-xl font-semibold text-gray-700 mb-6">Your tape feels responsive, not rehearsed</h3>
@@ -258,7 +258,7 @@ const Landing = () => {
             <div className="bg-white rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-primary/10 rounded-xl">
-                  <Users className="h-6 w-6 text-primary" />
+                  <Users className="h-6 w-6 text-black" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900">Working / Striving Actors</h3>
               </div>
@@ -270,7 +270,7 @@ const Landing = () => {
             <div className="bg-white rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
                 <div className="p-3 bg-primary/10 rounded-xl">
-                  <Zap className="h-6 w-6 text-primary" />
+                  <Zap className="h-6 w-6 text-black" />
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900">Self-Tape Pros</h3>
               </div>
