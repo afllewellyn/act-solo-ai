@@ -25,12 +25,8 @@ const Landing = () => {
               <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">
                 AI Scene Partner for Actors
               </p>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">
-                ActSolo.AI — AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo
-              </h1>
-              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">
-                When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time—so your self-tapes feel alive, not mechanical.
-              </p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">ActSolo.AI - AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo</h1>
+              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time so your self-tapes feel alive, not mechanical.</p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
                   <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105">
@@ -66,9 +62,7 @@ const Landing = () => {
               <p className="text-sm font-semibold uppercase tracking-wider mb-3 text-background">
                 The Problem
               </p>
-              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
-                Built for the Real Problem — Urgent Auditions and No Reader
-              </h2>
+              <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">Built for the Real Problem - Urgent Auditions and No Reader</h2>
               <p className="text-lg text-gray-600 mb-6">You know the moment:</p>
               <ul className="text-lg text-gray-600 space-y-3 mb-6">
                 <li className="flex items-start gap-3">
@@ -100,9 +94,7 @@ const Landing = () => {
           </p>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary">Deliver a Performance Ready
 Self-Tape Without Relying on Anyone</h2>
-          <p className="text-lg mt-6 max-w-2xl mx-auto text-slate-500">
-            ActSolo.AI is designed to remove the friction that shows up on camera—so you can focus on the performance that books the role.
-          </p>
+          <p className="text-lg mt-6 max-w-2xl mx-auto text-slate-500">ActSolo.AI is designed to remove the friction that shows up on camera so you can focus on the performance that books the role.</p>
         </div>
       </section>
 
@@ -126,11 +118,11 @@ Self-Tape Without Relying on Anyone</h2>
                 ActSolo is built for speed when the clock is real.
               </p>
               <div className="space-y-3">
-                <p className="font-semibold text-gray-900">Features</p>
+                
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 mt-0.5 flex-shrink-0 text-secondary" />
-                    <span>Paste your script and start immediately</span>
+                    <span>Paste your script, format it, and start immediately</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -168,18 +160,14 @@ Self-Tape Without Relying on Anyone</h2>
                 <Mic className="h-8 w-8 text-primary" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Stay Present in the Scene</h2>
               </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-6">
-                Your tape feels responsive, not rehearsed
-              </h3>
-              <p className="text-lg text-gray-600 mb-6">
-                The difference between "fine" and "bookable" is often reaction—timing, listening, and flow.
-              </p>
+              <h3 className="text-xl font-semibold text-gray-700 mb-6">Your tape feels responsive, not rehearsed</h3>
+              <p className="text-lg text-gray-600 mb-6">The difference between "fine" and "bookable" is often reaction, timing, listening, and flow.</p>
               <div className="space-y-3">
-                <p className="font-semibold text-gray-900">Features</p>
+                <p className="font-semibold text-gray-900">You'll get:</p>
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
-                    <span>AI voices that listen and respond (not simple playback)</span>
+                    <span>A selection of AI voices that listen and respond (not simple playback)</span>
                   </li>
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -202,9 +190,7 @@ Self-Tape Without Relying on Anyone</h2>
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
             <div>
-              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">
-                Feature
-              </p>
+              
               <div className="flex items-center gap-3 mb-4">
                 <Target className="h-8 w-8 text-primary" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-primary">Control the Outcome</h2>
@@ -212,11 +198,9 @@ Self-Tape Without Relying on Anyone</h2>
               <h3 className="text-xl font-semibold mb-6 text-primary">
                 Fewer takes, stronger submissions
               </h3>
-              <p className="text-lg mb-6 text-primary">
-                ActSolo is built to protect your energy and raise your floor—especially when you're taping alone.
-              </p>
+              <p className="text-lg mb-6 text-primary">ActSolo is built to protect your energy and raise your floor - especially when you're taping alone.</p>
               <div className="space-y-3">
-                <p className="font-semibold text-primary">Features</p>
+                
                 <ul className="text-gray-600 space-y-3">
                   <li className="flex items-start gap-3">
                     <Check className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
@@ -256,9 +240,7 @@ Self-Tape Without Relying on Anyone</h2>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-900">Working / Striving Actors</h3>
               </div>
-              <p className="text-gray-600">
-                You're auditioning often, balancing life, and taping when you can—usually alone. ActSolo helps you deliver a stronger tape without dependence on anyone else.
-              </p>
+              <p className="text-gray-600">You're auditioning often, balancing life, and taping when you can - usually alone. ActSolo helps you deliver a stronger tape without dependence on anyone else.</p>
             </div>
             <div className="bg-white rounded-2xl p-8 shadow-sm">
               <div className="flex items-center gap-3 mb-4">
