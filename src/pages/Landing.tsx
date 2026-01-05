@@ -157,7 +157,7 @@ Self-Tape Without Relying on Anyone</h2>
                 Feature
               </p>
               <div className="flex items-center gap-3 mb-4">
-                <Mic className="h-8 w-8 text-primary" />
+                <Mic className="h-8 w-8 text-gray-900" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Stay Present in the Scene</h2>
               </div>
               <h3 className="text-xl font-semibold text-gray-700 mb-6">Your tape feels responsive, not rehearsed</h3>
