@@ -339,7 +339,7 @@ const Landing = () => {
               </Button>
             </Link>
             <Link to="/login">
-              <Button size="lg" variant="outline" className="w-full sm:w-auto transition-transform hover:scale-105">
+              <Button size="lg" variant="outline" className="w-full sm:w-auto bg-white border-gray-900 text-gray-900">
                 Learn how it works
               </Button>
             </Link>
