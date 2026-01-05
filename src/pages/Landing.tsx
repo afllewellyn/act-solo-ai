@@ -25,7 +25,7 @@ const Landing = () => {
               <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">
                 AI Scene Partner for Actors
               </p>
-              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6 text-left text-gray-900 md:text-6xl">ActSolo.AI 
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight mb-6 text-left text-primary md:text-6xl">ActSolo.AI 
 AI Scene Partner & Teleprompter for Actors Who Need to Nail Self-Tapes Solo</h1>
               <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">
                 When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react,
