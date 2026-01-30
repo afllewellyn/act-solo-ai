@@ -50,7 +50,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w" alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it" className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]" />
+              <img alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it" className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]" src="/lovable-uploads/532fdcc2-4588-46c3-b1df-39a02807533c.png" />
             </div>
           </div>
         </div>
@@ -62,7 +62,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img alt="Movie script with highlighter and pen" className="rounded-2xl shadow-xl w-full object-cover object-top aspect-[4/3]" src="/lovable-uploads/94ee3c69-f424-4746-89b0-3003b9147218.png" />
+              <img src={movieScriptImg} alt="Movie script with highlighter and pen" className="rounded-2xl shadow-xl w-full object-cover object-top aspect-[4/3]" />
             </div>
             {/* Text Right */}
             <div>
