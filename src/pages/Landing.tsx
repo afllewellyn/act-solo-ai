@@ -42,7 +42,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it" className="rounded-3xl shadow-2xl w-full aspect-[3/4] object-fill" src="/lovable-uploads/f33571c4-8b56-48eb-8058-679cfd737c6c.png" />
+              <img src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w" alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it" className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]" />
             </div>
           </div>
         </div>
@@ -62,7 +62,7 @@ const Landing = () => {
               <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
                 Built for the Real Problem - Urgent Auditions and No Reader
               </h2>
-              <p className="text-lg text-gray-600 mb-6">You know the moment:</p>
+              <p className="text-lg text-gray-600 mb-6">You know what we mean:</p>
               <ul className="text-lg text-gray-600 space-y-3 mb-6">
                 <li className="flex items-start gap-3">
                   <Check className="h-5 w-5 text-black mt-1 flex-shrink-0" />
