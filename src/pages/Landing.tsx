@@ -180,7 +180,7 @@ const Landing = () => {
       </section>
 
       {/* Feature 3: Control the Outcome - Text Left, Image Right */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-secondary">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-popover">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
