@@ -101,30 +101,30 @@ const Landing = () => {
       </section>
 
       {/* Feature 1: Perform Under Deadline Pressure - Text Left, Image Right */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-background">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
             <div>
               <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Feature</p>
               <div className="flex items-center gap-3 mb-4">
-                <Clock className="h-8 w-8 text-gray-900" />
-                <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Perform Under Deadline Pressure</h2>
+                <Clock className="h-8 w-8 text-foreground" />
+                <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Perform Under Deadline Pressure</h2>
               </div>
-              <h3 className="text-xl font-semibold text-gray-700 mb-6">Get from script to scene fast</h3>
-              <p className="text-lg text-gray-600 mb-6">ActSolo is built for speed when the clock is real.</p>
+              <h3 className="text-xl font-semibold text-foreground/80 mb-6">Get from script to scene fast</h3>
+              <p className="text-lg text-muted-foreground mb-6">ActSolo is built for speed when the clock is real.</p>
               <div className="space-y-3">
-                <ul className="text-gray-600 space-y-3">
+                <ul className="text-muted-foreground space-y-3">
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 mt-0.5 flex-shrink-0 text-secondary" />
+                    <Check className="h-5 w-5 mt-0.5 flex-shrink-0 text-foreground" />
                     <span>Paste your script, format it, and start immediately</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-black mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-foreground mt-0.5 flex-shrink-0" />
                     <span>Real-time cue detection to keep the scene moving</span>
                   </li>
                   <li className="flex items-start gap-3">
-                    <Check className="h-5 w-5 text-black mt-0.5 flex-shrink-0" />
+                    <Check className="h-5 w-5 text-foreground mt-0.5 flex-shrink-0" />
                     <span>No scheduling, no favors, no waiting on a reader</span>
                   </li>
                 </ul>
