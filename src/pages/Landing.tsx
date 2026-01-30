@@ -5,8 +5,7 @@ import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from "lucide-react"
 import movieScriptImg from "@/assets/movie-script.jpg";
 import actorHeadshotImg from "@/assets/actor-headshot.jpg";
 const Landing = () => {
-  return (
-    <div className="min-h-screen bg-[#FFFDF9]">
+  return <div className="min-h-screen bg-[#FFFDF9]">
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-[#FFFDF9]/80 backdrop-blur-md shadow-sm">
         <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6 max-w-6xl">
@@ -38,10 +37,7 @@ const Landing = () => {
               </p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
-                  <Button
-                    size="lg"
-                    className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800"
-                  >
+                  <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800">
                     Run lines with AI now →
                   </Button>
                 </Link>
@@ -54,11 +50,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img
-                src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w"
-                alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it"
-                className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]"
-              />
+              <img src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w" alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it" className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]" />
             </div>
           </div>
         </div>
@@ -70,11 +62,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img
-                src={movieScriptImg}
-                alt="Movie script with highlighter and pen"
-                className="rounded-2xl shadow-xl w-full object-cover object-top aspect-[4/3]"
-              />
+              <img alt="Movie script with highlighter and pen" className="rounded-2xl shadow-xl w-full object-cover object-top aspect-[4/3]" src="/lovable-uploads/94ee3c69-f424-4746-89b0-3003b9147218.png" />
             </div>
             {/* Text Right */}
             <div>
@@ -152,11 +140,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img
-                src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80"
-                alt="Home recording setup with microphone"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80" alt="Home recording setup with microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
           </div>
         </div>
@@ -168,11 +152,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
             <div className="relative">
-              <img
-                src={actorHeadshotImg}
-                alt="Actor headshot"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]"
-              />
+              <img src={actorHeadshotImg} alt="Actor headshot" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
             {/* Text Right */}
             <div>
@@ -240,11 +220,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img
-                src="https://images.squarespace-cdn.com/content/v1/630bad25b4306e0ea902c91a/3dd0b3e8-4c6b-4d7f-b9fe-e12ab6c222f7/Copy+of+Coney2c.jpg?format=1500w"
-                alt="Anna Cameron smiling with a shirt that says 'babe you've got this'"
-                className="rounded-2xl shadow-xl w-full object-cover aspect-[3/4]"
-              />
+              <img src="https://images.squarespace-cdn.com/content/v1/630bad25b4306e0ea902c91a/3dd0b3e8-4c6b-4d7f-b9fe-e12ab6c222f7/Copy+of+Coney2c.jpg?format=1500w" alt="Anna Cameron smiling with a shirt that says 'babe you've got this'" className="rounded-2xl shadow-xl w-full object-cover aspect-[3/4]" />
             </div>
           </div>
         </div>
@@ -375,7 +351,6 @@ const Landing = () => {
           <p className="text-sm text-muted-foreground text-center mt-4">© 2025 ActSolo.AI. All rights reserved.</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>;
 };
 export default Landing;
