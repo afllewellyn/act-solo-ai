@@ -74,7 +74,7 @@ const Landing = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="h-5 w-5 text-black mt-1 flex-shrink-0" />
-                  <span>Your "available" reader can't read, rushes lines, or you need help with the kids.</span>
+                  <span>Your reliable reader isn't available</span>
                 </li>
               </ul>
               <p className="text-lg text-gray-600">
