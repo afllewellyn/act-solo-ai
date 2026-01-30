@@ -89,11 +89,11 @@ const Landing = () => {
       {/* Deliver a Confident... - Full Width Centered */}
       <section className="py-20 md:py-32 px-4 sm:px-6 bg-black">
         <div className="container mx-auto max-w-4xl text-center">
-          <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">The Solution</p>
-          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary">
+          <p className="text-sm font-semibold text-white uppercase tracking-wider mb-3">The Solution</p>
+          <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-white">
             Deliver a Performance Ready Self-Tape Solo
           </h2>
-          <p className="text-lg mt-6 max-w-2xl mx-auto text-slate-500">
+          <p className="text-lg mt-6 max-w-2xl mx-auto text-white/70">
             ActSolo.AI is designed to remove the friction that shows up on camera so you can focus on the performance
             that books the role.
           </p>
