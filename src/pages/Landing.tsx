@@ -26,7 +26,10 @@ const Landing = () => {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">AI SCENE PARTNER & TELEPROMPTER</p>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">A Scene Partner for Solo Actors</h1>
-              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time so your self-tapes feel alive, not mechanical.</p>
+              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. 
+
+
+It's a performance-first teleprompter and AI reader that listens and responds in real time so your self-tapes feel alive, not mechanical.</p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
                   <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800">
@@ -180,7 +183,7 @@ const Landing = () => {
       </section>
 
       {/* Feature 3: Control the Outcome - Text Left, Image Right */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-popover">
+      <section className="py-20 md:py-32 px-4 sm:px-6 bg-secondary">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
