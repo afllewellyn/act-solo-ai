@@ -62,7 +62,7 @@ const Landing = () => {
               <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
                 Built for the Real Problem - Urgent Auditions and No Reader
               </h2>
-              <p className="text-lg text-gray-600 mb-6">You know what we mean:</p>
+              <p className="text-lg text-gray-600 mb-6">You know the moment:</p>
               <ul className="text-lg text-gray-600 space-y-3 mb-6">
                 <li className="flex items-start gap-3">
                   <Check className="h-5 w-5 text-black mt-1 flex-shrink-0" />
@@ -70,7 +70,7 @@ const Landing = () => {
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="h-5 w-5 text-black mt-1 flex-shrink-0" />
-                  <span>Deadline is tomorrow.</span>
+                  <span>Deadline is tomorrow</span>
                 </li>
                 <li className="flex items-start gap-3">
                   <Check className="h-5 w-5 text-black mt-1 flex-shrink-0" />
