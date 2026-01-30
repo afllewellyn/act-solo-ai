@@ -42,7 +42,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img src="https://images.squarespace-cdn.com/content/v1/649ad2482f67106e83a2403a/5eed9e03-6cbb-45aa-aa76-7924e4e3074f/MVP+Anna+L+1.png?format=750w" alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it" className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]" />
+              <img alt="Anna Cameron smiling and holding a movie clapper with Cameraon Creative written on it" className="rounded-3xl shadow-2xl w-full object-cover aspect-[3/4]" src="/lovable-uploads/1e247672-fafc-446e-8034-385f9905741e.png" />
             </div>
           </div>
         </div>
@@ -132,7 +132,7 @@ const Landing = () => {
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
-              <img alt="Home recording setup with microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" src="/lovable-uploads/31f24c4c-647e-4f22-a234-49dd694876bf.png" />
+              <img src="https://images.unsplash.com/photo-1587829741301-dc798b83add3?w=800&auto=format&fit=crop&q=80" alt="Home recording setup with microphone" className="rounded-2xl shadow-xl w-full object-cover aspect-[4/3]" />
             </div>
           </div>
         </div>
