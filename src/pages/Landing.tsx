@@ -91,7 +91,7 @@ const Landing = () => {
         <div className="container mx-auto max-w-4xl text-center">
           <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">The Solution</p>
           <h2 className="text-2xl sm:text-3xl md:text-4xl font-bold text-primary">
-            Deliver a Performance Ready Self-Tape Without Relying on Anyone
+            Deliver a Performance Ready Self-Tape Solo
           </h2>
           <p className="text-lg mt-6 max-w-2xl mx-auto text-slate-500">
             ActSolo.AI is designed to remove the friction that shows up on camera so you can focus on the performance
