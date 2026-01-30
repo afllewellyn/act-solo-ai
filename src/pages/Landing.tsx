@@ -78,8 +78,7 @@ const Landing = () => {
                 </li>
               </ul>
               <p className="text-lg text-gray-600">
-                Most rehearsal apps help you memorize. Auditions demand something else: presence, timing, and reaction.
-                ActSolo is built for that.
+                Your regular reader isn't available          
               </p>
             </div>
           </div>
