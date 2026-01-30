@@ -107,8 +107,8 @@ const Landing = () => {
             {/* Text Left */}
             <div>
               <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Feature</p>
-              <div className="flex items-center gap-3 mb-4 text-secondary">
-                <Clock className="h-8 w-8 text-secondary" />
+              <div className="flex items-center gap-3 mb-4">
+                <Clock className="h-8 w-8 text-gray-900" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">Perform Under Deadline Pressure</h2>
               </div>
               <h3 className="text-xl font-semibold text-gray-700 mb-6">Get from script to scene fast</h3>
