@@ -24,9 +24,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">
-                AI Scene Partner for Actors
-              </p>
+              <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">AI SCENE PARTNER & TELEPROMPTER</p>
               <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">A Scene Partner for Solo Actors</h1>
               <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence.  
 
