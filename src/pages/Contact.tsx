@@ -97,7 +97,7 @@ const Contact = () => {
             <Input
               id="name"
               placeholder="Your name"
-              className="bg-white border-gray-300"
+              className="bg-white border-gray-300 text-gray-900"
               value={name}
               onChange={(e) => setName(e.target.value)}
               disabled={isSubmitting}
@@ -110,7 +110,7 @@ const Contact = () => {
               id="email"
               type="email"
               placeholder="your@email.com"
-              className="bg-white border-gray-300"
+              className="bg-white border-gray-300 text-gray-900"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               disabled={isSubmitting}
@@ -123,7 +123,7 @@ const Contact = () => {
               id="message"
               placeholder="How can we help?"
               rows={5}
-              className="bg-white border-gray-300"
+              className="bg-white border-gray-300 text-gray-900"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
               disabled={isSubmitting}
