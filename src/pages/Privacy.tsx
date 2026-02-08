@@ -20,7 +20,7 @@ const Privacy = () => {
 
         <h1 className="text-4xl font-bold text-gray-900 mb-8">Privacy Policy</h1>
 
-        <div className="prose max-w-none space-y-6">
+        <div className="max-w-none space-y-6">
           <p className="text-gray-500">Last updated: December 2025</p>
 
           <section className="space-y-4">
@@ -61,7 +61,7 @@ const Privacy = () => {
           <section className="space-y-4">
             <h2 className="text-2xl font-semibold text-gray-900">6. Contact</h2>
             <p className="text-gray-600">
-              For privacy-related questions, please contact us through our <Link to="/contact" className="text-primary hover:underline">contact page</Link>.
+              For privacy-related questions, please contact us through our <Link to="/contact" className="text-blue-600 hover:underline">contact page</Link>.
             </p>
           </section>
         </div>
