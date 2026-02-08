@@ -19,7 +19,7 @@ declare global {
   }
   
   interface SpeechRecognitionEvent extends Event {
-    results: SpeechRecognitionResultList;
+    readonly results: SpeechRecognitionResultList;
   }
   
   interface SpeechRecognition extends EventTarget {
