@@ -175,7 +175,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         text: cleanText,
-        model_id: 'eleven_multilingual_v2',
+        model_id: 'eleven_v3',
         voice_settings: {
           stability: Math.max(0, Math.min(1, 0.5)), // Clamp between 0-1
           similarity_boost: Math.max(0, Math.min(1, 0.5)), // Clamp between 0-1
