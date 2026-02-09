@@ -1,23 +1,66 @@
 
-# Fix: Force Black Text in Contact Form Fields
 
-## Problem
-The text typed into the Name, Email, and Message fields appears white (invisible against the white background), making it unreadable on some devices and screens.
+# Plan: Tune Voice Settings for Dramatic Script Delivery with eleven_v3
 
-## Root Cause
-The Input and Textarea components inherit their text color from the CSS variable `--foreground`, which can resolve to a light color depending on theme context. The fields have `bg-white` set explicitly, but no explicit text color override, so the text can end up white-on-white.
+## Context
 
-## Fix
-Add `text-gray-900` to the `className` of each Input and Textarea on the Contact page. This forces the typed text to be consistently dark/black regardless of theme variables or device rendering.
+ActSolo is a script rehearsal app for actors. The AI reads scene partner dialogue aloud while users practice their own lines. This means the TTS output needs to sound like a **real acting partner** -- emotionally engaged, expressive, and responsive to the script's dramatic intent.
 
-### File: `src/pages/Contact.tsx`
+## Current Settings (Suboptimal for Acting)
 
-Three changes, all adding `text-gray-900` to existing class strings:
+| Parameter | Current Value | Effect |
+|-----------|--------------|--------|
+| stability | 0.5 | Middle ground -- slightly flat for dramatic work |
+| similarity_boost | 0.5 | Lower than recommended -- voice clarity suffers |
+| style | 0.0 | **Completely disabled** -- no style expression at all |
+| use_speaker_boost | true | Good -- enhances clarity |
 
-1. **Name Input (line 100)**: Change `className="bg-white border-gray-300"` to `className="bg-white border-gray-300 text-gray-900"`
+## Recommended Settings for Dramatic Script Delivery
 
-2. **Email Input (line 113)**: Change `className="bg-white border-gray-300"` to `className="bg-white border-gray-300 text-gray-900"`
+Based on ElevenLabs v3 documentation and best practices for acting/storytelling:
 
-3. **Message Textarea (line 126)**: Change `className="bg-white border-gray-300"` to `className="bg-white border-gray-300 text-gray-900"`
+| Parameter | New Value | Rationale |
+|-----------|-----------|-----------|
+| stability | **0.35** | Lower stability = more emotional range and varied delivery. ElevenLabs docs recommend 0.30-0.50 for "lively and dramatic performance." 0.35 gives expressiveness while avoiding unstable/garbled output. |
+| similarity_boost | **0.78** | Raised to ~0.78 for clearer, more consistent voice identity. The "sweet spot" per ElevenLabs is around 0.75-0.80. |
+| style | **0.45** | Raised from 0 to 0.45 to unlock v3's style exaggeration. This amplifies the voice's natural expressiveness -- critical for dramatic delivery. Keeping it under 0.5 avoids over-the-top results. |
+| use_speaker_boost | true | No change -- already optimal for clarity. |
 
-No other files need changes. This is a targeted, minimal fix that ensures consistent black text across all devices and screens.
+## Why These Values
+
+- **Stability at 0.35**: For a scene partner reading dialogue, you want variation -- rising tension, surprise, sadness, anger. Low stability lets v3 flex its emotional muscles. ElevenLabs categorizes this range as "Creative" mode, ideal for "character acting, storytelling."
+- **Similarity boost at 0.78**: Ensures the chosen voice stays recognizable and clear across different emotional deliveries. Prevents the voice from drifting too far from its identity.
+- **Style at 0.45**: This is the biggest improvement. Style was at 0.0, meaning v3's most distinctive feature (expressive style exaggeration) was completely turned off. At 0.45, the voice will add dramatic flair without becoming caricatured.
+
+## Change
+
+### File: `supabase/functions/text-to-speech/index.ts`
+
+Update lines 179-184 (the `voice_settings` object):
+
+**Before:**
+```
+voice_settings: {
+  stability: Math.max(0, Math.min(1, 0.5)),
+  similarity_boost: Math.max(0, Math.min(1, 0.5)),
+  style: 0.0,
+  use_speaker_boost: true
+}
+```
+
+**After:**
+```
+voice_settings: {
+  stability: Math.max(0, Math.min(1, 0.35)),
+  similarity_boost: Math.max(0, Math.min(1, 0.78)),
+  style: Math.max(0, Math.min(1, 0.45)),
+  use_speaker_boost: true
+}
+```
+
+The `Math.max(0, Math.min(1, ...))` clamping pattern is already in place, keeping the values safe.
+
+## Testing
+
+After deploying, we can test the updated function by calling it with a dramatic line (e.g., Shakespeare or a film monologue) and comparing the output quality against the previous flat delivery.
+
