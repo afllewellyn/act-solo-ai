@@ -177,9 +177,9 @@ serve(async (req) => {
         text: cleanText,
         model_id: 'eleven_v3',
         voice_settings: {
-          stability: Math.max(0, Math.min(1, 0.5)), // Clamp between 0-1
-          similarity_boost: Math.max(0, Math.min(1, 0.5)), // Clamp between 0-1
-          style: 0.0,
+          stability: 0.0, // Creative mode (v3 accepts 0.0/0.5/1.0) — max emotional range for dramatic delivery
+          similarity_boost: Math.max(0, Math.min(1, 0.78)), // Higher for clear, consistent voice identity
+          style: Math.max(0, Math.min(1, 0.45)), // Unlock v3 style exaggeration for expressive acting
           use_speaker_boost: true
         }
       }),
