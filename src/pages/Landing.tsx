@@ -106,7 +106,7 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
             <div>
-              <p className="text-sm font-semibold text-primary uppercase tracking-wider mb-3">Feature</p>
+              
               <div className="flex items-center gap-3 mb-4">
                 <Clock className="h-8 w-8 text-foreground" />
                 <h2 className="text-2xl sm:text-3xl font-bold text-foreground">Perform Under Deadline Pressure</h2>
