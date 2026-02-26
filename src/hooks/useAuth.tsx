@@ -39,8 +39,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, []);
 
+  const getRedirectOrigin = () => {
+    const origin = window.location.origin;
+    if (origin.includes('lovable.app') || origin.includes('lovableproject.com')) {
+      return 'https://actsolo.ai';
+    }
+    return origin;
+  };
+
   const signUp = async (email: string, password: string) => {
-    const redirectUrl = `${window.location.origin}/manage-scripts`;
+    const redirectUrl = `${getRedirectOrigin()}/manage-scripts`;
     
     const { error } = await supabase.auth.signUp({
       email,
@@ -64,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/manage-scripts`
+        redirectTo: `${getRedirectOrigin()}/manage-scripts`
       }
     });
     return { error };
@@ -72,7 +80,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signOut = async () => {
     await supabase.auth.signOut();
-    window.location.href = '/login';
+    window.location.href = 'https://actsolo.ai/login';
   };
 
   return (
