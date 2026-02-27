@@ -1,40 +1,23 @@
 
 
-# Plan: Harden OAuth Redirects in useAuth.tsx
+# Plan: Convert Help Center to FAQ-Only Page
 
-Now that the dashboard settings are updated, we should apply the code-level safety net to ensure redirects always use the production domain, even if a user somehow lands on a preview URL.
+## File: `src/pages/HelpCenter.tsx`
 
-## Change
+1. **Remove** the four quick-link cards and unused icon imports (`BookOpen`, `MessageCircle`, `Video`, `Zap`).
 
-### File: `src/hooks/useAuth.tsx`
+2. **Update heading** to "Help & FAQ".
 
-Add a `getRedirectOrigin()` helper and use it in three places:
+3. **Expand FAQ** with these new items (in addition to keeping existing ones):
 
-**Add helper** (before the `signUp` function, around line 43):
-```typescript
-const getRedirectOrigin = () => {
-  const origin = window.location.origin;
-  if (origin.includes('lovable.app') || origin.includes('lovableproject.com')) {
-    return 'https://actsolo.ai';
-  }
-  return origin;
-};
-```
+   - **"How do I get started with ActSolo?"** — Create account, add a script, start rehearsal.
+   - **"How does Rehearsal Mode work?"** — AI reads scene partner lines aloud via TTS, user follows along and practices their own lines, play/pause controls.
+   - **"How do I manage and edit my scripts?"** — Manage Scripts page for adding, editing, deleting scripts using the rich text editor.
+   - **"What script format should I use?"** — Use the rich text editor to format your script. **Italic text** is read aloud by the AI voice (scene partner lines). **Bold text** marks your lines to practice. No special format like character names with colons is required.
+   - **"Can I choose different voices for characters?"** — Voice selection during role/rehearsal setup.
+   - **"Is ActSolo free?"** — Current availability info.
 
-**Update `signUp`** — replace `window.location.origin` with `getRedirectOrigin()`:
-```typescript
-const redirectUrl = `${getRedirectOrigin()}/manage-scripts`;
-```
+4. **Update existing FAQ item-1** ("How do I upload a script?") to remove the requirement about "character names followed by colons" — replace with guidance about using bold/italic formatting.
 
-**Update `signInWithGoogle`** — same replacement:
-```typescript
-redirectTo: `${getRedirectOrigin()}/manage-scripts`
-```
-
-**Update `signOut`** — use absolute production URL:
-```typescript
-window.location.href = 'https://actsolo.ai/login';
-```
-
-This ensures that no matter which domain the user is on (preview, staging, or production), OAuth flows always redirect to `https://actsolo.ai`.
+5. **Keep** the "Still need help? Contact Support" CTA at bottom.
 
