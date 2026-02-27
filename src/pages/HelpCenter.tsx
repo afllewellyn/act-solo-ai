@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import {
@@ -8,6 +9,21 @@ import {
 } from "@/components/ui/accordion";
 
 const HelpCenter = () => {
+  useEffect(() => {
+    document.title = "Help & FAQ – ActSolo.AI | Script Rehearsal Questions Answered";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) {
+      meta.setAttribute("content", "Find answers to common questions about ActSolo.AI — how to upload scripts, use Rehearsal Mode, assign voices, and practice self-tapes with your AI scene partner.");
+    }
+    return () => {
+      document.title = "ActSolo.AI";
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) {
+        meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
+      }
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#FFFDF9]">
       <header className="border-b border-gray-200 bg-[#FFFDF9]">
