@@ -1,7 +1,19 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
 const Terms = () => {
+  useEffect(() => {
+    document.title = "Terms of Service – ActSolo.AI";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", "Read the Terms of Service for ActSolo.AI — the AI scene partner for actors practicing self-tapes solo.");
+    return () => {
+      document.title = "ActSolo.AI";
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#FFFDF9]">
       <header className="border-b border-gray-200 bg-[#FFFDF9]">

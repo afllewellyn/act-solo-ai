@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -5,6 +6,17 @@ import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from "lucide-react"
 import movieScriptImg from "@/assets/movie-script.jpg";
 import actorHeadshotImg from "@/assets/actor-headshot.jpg";
 const Landing = () => {
+  useEffect(() => {
+    document.title = "ActSolo.AI – AI Scene Partner & Teleprompter for Self-Tapes";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", "Rehearse scenes solo with an AI scene partner that reads your cue lines aloud. Upload scripts, assign voices, and nail your self-tape auditions with ActSolo.AI.");
+    return () => {
+      document.title = "ActSolo.AI";
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
+    };
+  }, []);
+
   return <div className="min-h-screen bg-[#FFFDF9]">
       {/* Sticky Header */}
       <header className="sticky top-0 z-50 border-b border-gray-200 bg-[#FFFDF9]/80 backdrop-blur-md shadow-sm">

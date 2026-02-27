@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { z } from "zod";
@@ -16,6 +16,17 @@ const contactSchema = z.object({
 });
 
 const Contact = () => {
+  useEffect(() => {
+    document.title = "Contact Us – ActSolo.AI";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", "Get in touch with the ActSolo.AI team. Questions, feedback, or support — we're here to help actors nail their self-tapes.");
+    return () => {
+      document.title = "ActSolo.AI";
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
+    };
+  }, []);
+
   const { toast } = useToast();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
