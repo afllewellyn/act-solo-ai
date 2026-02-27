@@ -5,8 +5,8 @@ import {
   Accordion,
   AccordionContent,
   AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
+  AccordionTrigger } from
+"@/components/ui/accordion";
 
 const HelpCenter = () => {
   useEffect(() => {
@@ -128,7 +128,7 @@ const HelpCenter = () => {
           <h3 className="font-semibold text-gray-900 mb-2">Still need help?</h3>
           <p className="text-gray-600 mb-4">Our support team is here to assist you.</p>
           <Link to="/contact">
-            <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 bg-primary text-primary-foreground hover:bg-primary/90 h-10 px-4 py-2">
+            <button className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 h-10 px-4 py-2 bg-primary-foreground text-primary">
               Contact Support
             </button>
           </Link>
@@ -146,8 +146,8 @@ const HelpCenter = () => {
           <p className="text-sm text-gray-500">© 2025 ActSolo.AI. All rights reserved.</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>);
+
 };
 
 export default HelpCenter;
