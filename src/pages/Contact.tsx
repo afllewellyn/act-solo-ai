@@ -12,7 +12,7 @@ import { supabase } from "@/integrations/supabase/client";
 const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
   email: z.string().trim().email("Please enter a valid email").max(255, "Email must be 255 characters or less"),
-  message: z.string().trim().min(1, "Message is required").max(2000, "Message must be 2000 characters or less"),
+  message: z.string().trim().min(1, "Message is required").max(2000, "Message must be 2000 characters or less")
 });
 
 const Contact = () => {
@@ -43,7 +43,7 @@ const Contact = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("send-contact-email", {
-        body: { name: name.trim(), email: email.trim(), message: message.trim() },
+        body: { name: name.trim(), email: email.trim(), message: message.trim() }
       });
 
       if (error) {
@@ -52,7 +52,7 @@ const Contact = () => {
 
       toast({
         title: "Message sent!",
-        description: "Thanks for reaching out. We'll get back to you soon.",
+        description: "Thanks for reaching out. We'll get back to you soon."
       });
 
       setName("");
@@ -63,7 +63,7 @@ const Contact = () => {
       toast({
         title: "Failed to send",
         description: err.message || "Something went wrong. Please try again.",
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setIsSubmitting(false);
@@ -100,8 +100,8 @@ const Contact = () => {
               className="bg-white border-gray-300 text-gray-900"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              disabled={isSubmitting}
-            />
+              disabled={isSubmitting} />
+
             {errors.name && <p className="text-sm text-red-600">{errors.name}</p>}
           </div>
           <div className="space-y-2">
@@ -113,8 +113,8 @@ const Contact = () => {
               className="bg-white border-gray-300 text-gray-900"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              disabled={isSubmitting}
-            />
+              disabled={isSubmitting} />
+
             {errors.email && <p className="text-sm text-red-600">{errors.email}</p>}
           </div>
           <div className="space-y-2">
@@ -126,19 +126,19 @@ const Contact = () => {
               className="bg-white border-gray-300 text-gray-900"
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              disabled={isSubmitting}
-            />
+              disabled={isSubmitting} />
+
             {errors.message && <p className="text-sm text-red-600">{errors.message}</p>}
           </div>
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
+          <Button type="submit" className="w-full bg-yellow-500 hover:bg-yellow-400 text-primary-foreground" disabled={isSubmitting}>
+            {isSubmitting ?
+            <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 Sending...
-              </>
-            ) : (
-              "Send Message"
-            )}
+              </> :
+
+            "Send Message"
+            }
           </Button>
         </form>
       </main>
@@ -154,8 +154,8 @@ const Contact = () => {
           <p className="text-sm text-gray-500">© 2025 ActSolo.AI. All rights reserved.</p>
         </div>
       </footer>
-    </div>
-  );
+    </div>);
+
 };
 
 export default Contact;
