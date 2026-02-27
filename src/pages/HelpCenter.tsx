@@ -119,7 +119,7 @@ const HelpCenter = () => {
           <AccordionItem value="delete-account" className="border-gray-200">
             <AccordionTrigger className="text-gray-900">How do I delete my account?</AccordionTrigger>
             <AccordionContent className="text-gray-600">
-              To delete your account and all associated data, please contact us through our <Link to="/contact" className="text-primary hover:underline">contact page</Link>. We'll process your request within 48 hours.
+              To delete your account and all associated data, please contact us through our <Link to="/contact" className="hover:underline text-secondary">contact page</Link>. We'll process your request within 48 hours.
             </AccordionContent>
           </AccordionItem>
         </Accordion>
