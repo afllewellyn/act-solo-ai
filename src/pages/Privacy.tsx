@@ -1,7 +1,19 @@
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 
 const Privacy = () => {
+  useEffect(() => {
+    document.title = "Privacy Policy – ActSolo.AI";
+    const meta = document.querySelector('meta[name="description"]');
+    if (meta) meta.setAttribute("content", "Learn how ActSolo.AI collects, uses, and protects your data. Your privacy matters to us.");
+    return () => {
+      document.title = "ActSolo.AI";
+      const meta = document.querySelector('meta[name="description"]');
+      if (meta) meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#FFFDF9]">
       <header className="border-b border-gray-200 bg-[#FFFDF9]">
