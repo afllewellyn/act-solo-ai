@@ -7,7 +7,14 @@ const OPENAI_REALTIME_MODEL = 'gpt-4o-realtime-preview-2025-06-03';
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim());
   
-  if (origin && allowedOrigins.includes(origin)) {
+  const isAllowed = origin && (
+    allowedOrigins.includes(origin) ||
+    origin.endsWith('.lovableproject.com') ||
+    origin.endsWith('.lovable.app') ||
+    origin === 'https://actsolo.ai' ||
+    origin === 'https://www.actsolo.ai'
+  );
+  if (isAllowed) {
     return {
       'Access-Control-Allow-Origin': origin,
       'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',

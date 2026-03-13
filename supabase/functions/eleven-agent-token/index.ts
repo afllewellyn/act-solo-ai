@@ -5,11 +5,11 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
   
   // Check if origin matches allowed patterns
   const isAllowed = origin && (
-    // Exact match from ALLOWED_ORIGINS env var
     allowedOrigins.includes(origin) ||
-    // Pattern match for Lovable platform domains (safe - Lovable controls these)
     origin.endsWith('.lovableproject.com') ||
-    origin.endsWith('.lovable.app')
+    origin.endsWith('.lovable.app') ||
+    origin === 'https://actsolo.ai' ||
+    origin === 'https://www.actsolo.ai'
   );
   
   if (isAllowed) {
