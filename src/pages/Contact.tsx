@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { setCanonical } from "@/lib/seo";
 
 const contactSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(100, "Name must be 100 characters or less"),
@@ -20,10 +21,12 @@ const Contact = () => {
     document.title = "Contact Us – ActSolo.AI";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute("content", "Get in touch with the ActSolo.AI team. Questions, feedback, or support — we're here to help actors nail their self-tapes.");
+    const restoreCanonical = setCanonical("/contact");
     return () => {
       document.title = "ActSolo.AI";
       const meta = document.querySelector('meta[name="description"]');
       if (meta) meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
+      restoreCanonical();
     };
   }, []);
 
