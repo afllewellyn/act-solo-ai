@@ -15,12 +15,39 @@ const HelpCenter = () => {
     if (meta) {
       meta.setAttribute("content", "Find answers to common questions about ActSolo.AI — how to upload scripts, use Rehearsal Mode, assign voices, and practice self-tapes with your AI scene partner.");
     }
+    const faqs: { q: string; a: string }[] = [
+      { q: "How do I get started with ActSolo?", a: "Getting started is simple: create a free account, then head to the Manage Scripts page to add your first script. Paste or type your script content into the rich text editor, format it using bold and italic styles, and you're ready to start rehearsing." },
+      { q: "How do I upload a script?", a: "After signing in, go to the Manage Scripts page and click \"Add Script.\" You can paste your script content directly or type it in using the rich text editor. Use italic formatting for lines you want the AI to read aloud (scene partner lines) and bold formatting for your own lines to practice." },
+      { q: "What script format should I use?", a: "No special format is required. Simply use the rich text editor to style your script. Mark scene partner lines in italic — these will be read aloud by the AI voice during rehearsal. Mark your own lines in bold so you know when it's your turn. Everything else (stage directions, notes) can be left as regular text." },
+      { q: "How does Rehearsal Mode work?", a: "In Rehearsal Mode, ActSolo acts as your scene partner. The AI reads the other characters' lines aloud using text-to-speech while you follow along in the script display and practice your own lines. Use the play/pause controls to move at your own pace, and on mobile you'll find convenient touch controls as well." },
+      { q: "How do I assign roles for rehearsal?", a: "When you start a rehearsal, you'll be prompted to assign roles. Select which character you want to play, and ActSolo will read the other characters' lines for you using text-to-speech." },
+      { q: "Can I choose different voices for characters?", a: "Yes! During the role assignment step before rehearsal, you can select from a variety of voices for each character. This helps you distinguish between scene partners and makes rehearsal feel more natural." },
+      { q: "How do I manage and edit my scripts?", a: "The Manage Scripts page is your hub for all your scripts. From there you can add new scripts, edit existing ones using the rich text editor, or delete scripts you no longer need. All changes are saved automatically to your account." },
+      { q: "Can I practice offline?", a: "Currently, ActSolo requires an internet connection for text-to-speech and script synchronization. We're working on offline support for future releases." },
+      { q: "What audio formats are supported?", a: "ActSolo uses high-quality text-to-speech technology that works in all modern browsers. For best results, use Chrome, Safari, Firefox, or Edge with your device's audio enabled." },
+      { q: "Is ActSolo free?", a: "ActSolo is currently free to use while we're in early access. We'll announce any future pricing changes well in advance so you can plan accordingly." },
+      { q: "How do I delete my account?", a: "To delete your account and all associated data, please contact us through our contact page. We'll process your request within 48 hours." }
+    ];
+    const faqScript = document.createElement("script");
+    faqScript.type = "application/ld+json";
+    faqScript.id = "faq-jsonld-help";
+    faqScript.text = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: faqs.map(({ q, a }) => ({
+        "@type": "Question",
+        name: q,
+        acceptedAnswer: { "@type": "Answer", text: a }
+      }))
+    });
+    document.head.appendChild(faqScript);
     return () => {
       document.title = "ActSolo.AI";
       const meta = document.querySelector('meta[name="description"]');
       if (meta) {
         meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
       }
+      document.getElementById("faq-jsonld-help")?.remove();
     };
   }, []);
 
