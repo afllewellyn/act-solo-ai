@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { setCanonical } from "@/lib/seo";
 import {
   Accordion,
   AccordionContent,
@@ -10,11 +11,12 @@ import {
 
 const HelpCenter = () => {
   useEffect(() => {
-    document.title = "Help & FAQ – ActSolo.AI | Script Rehearsal Questions Answered";
+    document.title = "Help & FAQ – ActSolo.AI";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) {
-      meta.setAttribute("content", "Find answers to common questions about ActSolo.AI — how to upload scripts, use Rehearsal Mode, assign voices, and practice self-tapes with your AI scene partner.");
+      meta.setAttribute("content", "Answers about ActSolo.AI — uploading scripts, Rehearsal Mode, assigning voices, and practicing self-tapes with your AI scene partner.");
     }
+    const restoreCanonical = setCanonical("/help");
     const faqs: { q: string; a: string }[] = [
       { q: "How do I get started with ActSolo?", a: "Getting started is simple: create a free account, then head to the Manage Scripts page to add your first script. Paste or type your script content into the rich text editor, format it using bold and italic styles, and you're ready to start rehearsing." },
       { q: "How do I upload a script?", a: "After signing in, go to the Manage Scripts page and click \"Add Script.\" You can paste your script content directly or type it in using the rich text editor. Use italic formatting for lines you want the AI to read aloud (scene partner lines) and bold formatting for your own lines to practice." },
@@ -48,6 +50,7 @@ const HelpCenter = () => {
         meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
       }
       document.getElementById("faq-jsonld-help")?.remove();
+      restoreCanonical();
     };
   }, []);
 
