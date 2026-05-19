@@ -10,10 +10,36 @@ const Landing = () => {
     document.title = "ActSolo.AI – AI Scene Partner & Teleprompter for Self-Tapes";
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute("content", "Rehearse scenes solo with an AI scene partner that reads your cue lines aloud. Upload scripts, assign voices, and nail your self-tape auditions with ActSolo.AI.");
+    const faq = document.createElement("script");
+    faq.type = "application/ld+json";
+    faq.id = "faq-jsonld-landing";
+    faq.text = JSON.stringify({
+      "@context": "https://schema.org",
+      "@type": "FAQPage",
+      mainEntity: [
+        {
+          "@type": "Question",
+          name: "Is ActSolo a line-learning app?",
+          acceptedAnswer: { "@type": "Answer", text: "It can help you rehearse, but it's built for performance, not just memorization—specifically for self-tapes when you need a responsive partner." }
+        },
+        {
+          "@type": "Question",
+          name: "Does it replace a human reader?",
+          acceptedAnswer: { "@type": "Answer", text: "It removes the dependency. When a reader isn't available—or isn't good—ActSolo gives you a consistent, responsive partner so the scene keeps its rhythm." }
+        },
+        {
+          "@type": "Question",
+          name: "Is it a teleprompter?",
+          acceptedAnswer: { "@type": "Answer", text: "Yes—ActSolo includes teleprompter support designed for actors, so you can stay present without breaking eye line." }
+        }
+      ]
+    });
+    document.head.appendChild(faq);
     return () => {
       document.title = "ActSolo.AI";
       const meta = document.querySelector('meta[name="description"]');
       if (meta) meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
+      document.getElementById("faq-jsonld-landing")?.remove();
     };
   }, []);
 
