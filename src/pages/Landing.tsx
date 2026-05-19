@@ -3,13 +3,15 @@ import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from "lucide-react";
+import { setCanonical } from "@/lib/seo";
 import movieScriptImg from "@/assets/movie-script.jpg";
 import actorHeadshotImg from "@/assets/actor-headshot.jpg";
 const Landing = () => {
   useEffect(() => {
     document.title = "ActSolo.AI – AI Scene Partner & Teleprompter for Self-Tapes";
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", "Rehearse scenes solo with an AI scene partner that reads your cue lines aloud. Upload scripts, assign voices, and nail your self-tape auditions with ActSolo.AI.");
+    if (meta) meta.setAttribute("content", "Rehearse scenes solo with an AI scene partner that reads cue lines aloud. Upload scripts, assign voices, and nail your self-tape auditions.");
+    const restoreCanonical = setCanonical("/");
     const faq = document.createElement("script");
     faq.type = "application/ld+json";
     faq.id = "faq-jsonld-landing";
@@ -40,6 +42,7 @@ const Landing = () => {
       const meta = document.querySelector('meta[name="description"]');
       if (meta) meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
       document.getElementById("faq-jsonld-landing")?.remove();
+      restoreCanonical();
     };
   }, []);
 
