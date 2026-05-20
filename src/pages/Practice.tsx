@@ -335,7 +335,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
         </header>
       )}
 
-      <div className={`flex ${isFullscreen ? 'h-screen' : 'h-[calc(100vh-73px)]'}`}>
+      <main className={`flex ${isFullscreen ? 'h-screen' : 'h-[calc(100vh-73px)]'}`}>
         {/* Script Content */}
         <div className="flex-1 relative">
           {/* Progress Bar */}
@@ -498,7 +498,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
             </Card>
           </div>
         </div>
-      </div>
+      </main>
 
       {/* TTS Visual Indicator */}
       {isTTSPlaying && (
