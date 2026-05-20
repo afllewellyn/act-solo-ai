@@ -59,6 +59,7 @@ const Landing = () => {
         </div>
       </header>
 
+      <main>
       {/* Hero Section - Split Layout */}
       <section className="py-20 md:py-32 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
@@ -107,7 +108,7 @@ const Landing = () => {
             </div>
             {/* Text Right */}
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wider mb-3 text-background">The Problem</p>
+              <p className="text-sm font-semibold uppercase tracking-wider mb-3 text-gray-900">The Problem</p>
               <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
                 Built for the Real Problem - Urgent Auditions and No Reader
               </h2>
@@ -363,6 +364,8 @@ const Landing = () => {
           </div>
         </div>
       </section>
+
+      </main>
 
       {/* Footer */}
       <footer className="border-t py-10 px-4 sm:px-6 bg-white dark:bg-background">
