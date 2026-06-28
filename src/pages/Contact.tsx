@@ -72,11 +72,11 @@ const Contact = () => {
       setName("");
       setEmail("");
       setMessage("");
-    } catch (err: any) {
+    } catch (err) {
       console.error("Contact form error:", err);
       toast({
         title: "Failed to send",
-        description: err.message || "Something went wrong. Please try again.",
+        description: (err instanceof Error ? err.message : "") || "Something went wrong. Please try again.",
         variant: "destructive"
       });
     } finally {

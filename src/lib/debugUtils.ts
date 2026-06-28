@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 // Add to window for debugging (development only)
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  (window as any).__DEBUG_AUDIO__ = {
+  (window as unknown as Record<string, unknown>).__DEBUG_AUDIO__ = {
     // Feature flag utilities
     isFeatureEnabled,
     setFeatureFlags,
@@ -19,7 +19,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     
     // Logger utilities
     getSessionId: () => logger.getSessionId(),
-    setLogContext: (context: any) => logger.setDefaultContext(context),
+    setLogContext: (context: Record<string, unknown>) => logger.setDefaultContext(context),
     
     // Quick feature flag presets for testing
     enableAllFeatures: () => setFeatureFlags({
@@ -68,9 +68,9 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         const data = await response.json();
         console.log('Health Realtime Check:', data);
         return data;
-      } catch (error: any) {
+      } catch (error) {
         console.error('Health Realtime Error:', error);
-        return { error: error.message };
+        return { error: error instanceof Error ? error.message : String(error) };
       }
     },
     
@@ -90,9 +90,9 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
         
         console.log('ElevenAgents Token Result:', result);
         return result;
-      } catch (error: any) {
+      } catch (error) {
         console.error('❌ ElevenAgents Token Error:', error);
-        return { status: 'error', error: error.message };
+        return { status: 'error', error: error instanceof Error ? error.message : String(error) };
       }
     },
     
@@ -157,9 +157,9 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
             resolve({ status: 'error', message: 'S2S WebSocket connection failed' });
           };
         });
-      } catch (error: any) {
+      } catch (error) {
         console.error('❌ S2S Connection Test Error:', error);
-        return { status: 'error', message: error.message };
+        return { status: 'error', message: error instanceof Error ? error.message : String(error) };
       }
     },
     
@@ -175,12 +175,13 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
           message: 'Use VoiceControls component to test S2S speech functionality',
           instructions: 'Go to /practice page and try the "Read Script" button'
         };
-      } catch (error: any) {
-        return { status: 'error', message: error.message };
+      } catch (error) {
+        return { status: 'error', message: error instanceof Error ? error.message : String(error) };
       }
     }
   };
-  (window as any).DEBUG_AUDIO = (window as any).__DEBUG_AUDIO__;
+  const debugWindow = window as unknown as Record<string, unknown>;
+  debugWindow.DEBUG_AUDIO = debugWindow.__DEBUG_AUDIO__;
   console.log('🔧 Debug utilities available at window.__DEBUG_AUDIO__ and window.DEBUG_AUDIO');
   console.log('📋 Try: __DEBUG_AUDIO__.logFeatureFlags()');
   console.log('🧪 Try: __DEBUG_AUDIO__.testHealthRealtime()');

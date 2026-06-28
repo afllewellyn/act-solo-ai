@@ -12,7 +12,7 @@ interface UseSecureRequestOptions {
   onError?: (error: Error) => void;
 }
 
-export function useSecureRequest<T extends any[], R>(
+export function useSecureRequest<T extends unknown[], R>(
   requestFn: (...args: T) => Promise<R>,
   options: UseSecureRequestOptions
 ) {

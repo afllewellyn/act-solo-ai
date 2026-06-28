@@ -271,7 +271,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
     
     try {
       // Build conversation override with voice and custom prompt from initial context
-      const conversationOverride: Record<string, any> = {};
+      const conversationOverride: Record<string, unknown> = {};
       
       // Add voice override if specified
       if (this.config.voiceId) {
@@ -322,7 +322,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
       
       // Normalize ElevenLabs events to ConversationEvent types
       switch (message.type) {
-        case 'user_transcript':
+        case 'user_transcript': {
           // ElevenLabs uses user_transcription_event nested object
           const transcriptEvent = message.user_transcription_event;
           if (transcriptEvent) {
@@ -337,12 +337,13 @@ export class ElevenAgentsEngine implements ConversationEngine {
             });
           }
           break;
+        }
 
-        case 'agent_response':
+        case 'agent_response': {
           // ElevenLabs uses agent_response_event nested object
           const responseEvent = message.agent_response_event;
           if (!responseEvent) break;
-          
+
           // Start tracking response if not already active
           if (!this.isResponseActive) {
             this.isResponseActive = true;
@@ -362,6 +363,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
             timestamp: Date.now(),
           });
           break;
+        }
 
         case 'agent_response_end':
           // Response completed - emit final aggregated response
@@ -383,11 +385,11 @@ export class ElevenAgentsEngine implements ConversationEngine {
           }
           break;
 
-        case 'audio':
+        case 'audio': {
           // ElevenLabs uses audio_event nested object with audio_base_64
           const audioEvent = message.audio_event;
           if (!audioEvent) break;
-          
+
           // Track audio streaming state
           if (!this.isAudioActive) {
             this.isAudioActive = true;
@@ -406,10 +408,11 @@ export class ElevenAgentsEngine implements ConversationEngine {
             audioData: audioData,
             timestamp: Date.now(),
           });
-          
+
           // Play the audio chunk
           this.audioPlayer.addChunk(audioData);
           break;
+        }
 
         case 'audio_end':
           // Audio streaming completed

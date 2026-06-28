@@ -6,8 +6,8 @@
  * without changing UI code.
  */
 
-import { ConversationEngine } from './types';
-import { ConversationEngineConfig } from './domain';
+import { ConversationEngine, ConversationEvent, ConversationControlCommand } from './types';
+import { ConversationEngineConfig, ScriptContext } from './domain';
 import { isFeatureEnabled } from '@/lib/featureFlags';
 
 /**
@@ -49,7 +49,7 @@ export async function createConversationEngine(
 function createStubEngine(config: ConversationEngineConfig): ConversationEngine {
   console.warn('[ConversationEngine] Using stub engine - no real conversation will occur');
   
-  const eventListeners: Array<(event: any) => void> = [];
+  const eventListeners: Array<(event: ConversationEvent) => void> = [];
 
   return {
     async start() {
@@ -76,15 +76,15 @@ function createStubEngine(config: ConversationEngineConfig): ConversationEngine 
       console.log('[StubEngine] sendText() called:', text);
     },
 
-    async updateContext(context: any) {
+    async updateContext(context: ScriptContext) {
       console.log('[StubEngine] updateContext() called:', context);
     },
 
-    async sendControl(command: any) {
+    async sendControl(command: ConversationControlCommand) {
       console.log('[StubEngine] sendControl() called:', command);
     },
 
-    onEvent(callback: (event: any) => void) {
+    onEvent(callback: (event: ConversationEvent) => void) {
       eventListeners.push(callback);
       return () => {
         const index = eventListeners.indexOf(callback);

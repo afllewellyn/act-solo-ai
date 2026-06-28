@@ -16,11 +16,11 @@ Tailwind/shadcn, originally scaffolded in Lovable.
 ## Commands
 
 ```bash
-npm install          # install deps (see "Known issues" re: lockfile)
+npm ci               # install deps (npm is canonical; lockfile is in sync)
 npm run dev          # Vite dev server on http://localhost:8080
 npm run build        # production build to dist/  (also the CI gate)
 npm run build:dev    # development-mode build
-npm run lint         # eslint . (currently failing — see Known issues)
+npm run lint         # eslint . — 0 errors (CI gate); ~32 warnings remain
 npm run preview      # preview a production build
 npm test             # unit tests (Vitest, jsdom) — passing
 npx tsc --noEmit -p tsconfig.app.json   # typecheck app code (clean)
@@ -73,19 +73,23 @@ the browser console for debugging.
 
 ## Known issues / gotchas
 
-These were found during a June 2026 health check and are tracked as GitHub issues:
+The June 2026 health-check findings have all been resolved:
 
-1. **Lint is red.** ~89 eslint errors / 32 warnings, dominated by
-   `@typescript-eslint/no-explicit-any` in the conversation engine and edge
-   functions. CI runs lint non-blocking until the backlog is cleared.
-2. **Bundle/code-split.** `ElevenAgentsEngine.ts` is imported both statically
-   (`useConversationEngine.ts`) and dynamically (`engineFactory.ts`), which
-   defeats the dynamic import; the main chunk is ~1.1 MB. Pick one import style
-   to restore lazy-loading.
+- **Tests** previously hung (missing `jsdom` dependency + a non-constructable
+  WebSocket mock). Fixed; run via `npm test`, gated in CI.
+- **Lockfile** drift / dual lockfiles. Fixed; standardized on npm (`npm ci`).
+- **Lint** backlog (~89 `no-explicit-any`-dominated errors). Cleared; CI now
+  gates on lint. ~32 `react-hooks/exhaustive-deps` / `react-refresh` warnings
+  remain (non-blocking).
+- **Bundle / code-split.** `ElevenAgentsEngine` is dynamic-import-only again
+  (duck-typed telemetry check in `useConversationEngine.ts`) and vendor chunks
+  are split (`vite.config.ts`), so the main app chunk is ~159 kB.
 
-Resolved: the Vitest suite previously hung (missing `jsdom` dependency + a
-non-constructable WebSocket mock) and the `package-lock.json` drift / dual
-lockfiles — both fixed; tests run via `npm test` and CI gates on them.
+Two general gotchas worth keeping in mind:
+- Don't statically import a concrete engine class from UI/hooks — it defeats the
+  factory's lazy-load. Detect engine capabilities by duck typing instead.
+- `import.meta.env.VITE_SUPABASE_*` overrides in `integrations/supabase/client.ts`
+  apply only as a pair; a partial override is ignored to avoid crossing envs.
 
 ### Testing notes
 

@@ -10,7 +10,7 @@ interface Script {
   id: string;
   title: string;
   content: string;
-  characters: any;
+  characters: unknown;
   created_at: string;
   updated_at: string;
   user_id: string;

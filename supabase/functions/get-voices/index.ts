@@ -43,7 +43,12 @@ const isRateLimited = (clientId: string): boolean => {
   return false;
 };
 
-const sanitizeVoiceData = (voice: any) => {
+const sanitizeVoiceData = (voice: {
+  voice_id?: unknown;
+  name?: unknown;
+  category?: unknown;
+  labels?: { gender?: unknown; accent?: unknown };
+} | null | undefined) => {
   // Validate and sanitize voice data
   if (!voice || typeof voice !== 'object') return null;
 
