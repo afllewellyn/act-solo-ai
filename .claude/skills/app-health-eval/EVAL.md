@@ -54,13 +54,19 @@ npm run lint 2>&1 | tail -5
 ## B. Conversation engine (correctness)
 
 ### B1 — Engine unit tests (guarded against the known hang)
+Capture the **real** exit status — do not `| tail` and read `$?` (that's tail's
+status, ~always 0, so a failing run would record as PASS).
 ```bash
-GUARD 120 npx vitest run src/services/conversation/__tests__/ElevenAgentsEngine.test.ts --no-watch 2>&1 | tail -20
+GUARD 120 npx vitest run src/services/conversation/__tests__/ElevenAgentsEngine.test.ts > /tmp/vitest.log 2>&1
+STATUS=$?               # vitest's status (0=pass), or 142 when GUARD's alarm fires
+tail -20 /tmp/vitest.log
+echo "vitest exit status: $STATUS"
 ```
-- **PASS:** completes, all 23 tests pass.
-- **FAIL:** completes with any failing test — a real engine regression.
-- **KNOWN-ISSUE:** killed by GUARD at 120s — a known `vitest` 4 + jsdom startup
-  hang. Record it, fall through to B2, do not block.
+- **PASS:** `STATUS` = 0 — all 23 tests pass.
+- **FAIL:** `STATUS` non-zero **and** ≠ 142 — a real test failure/regression
+  (read `/tmp/vitest.log` for which test).
+- **KNOWN-ISSUE:** `STATUS` = 142 (GUARD's `alarm` killed it at 120s — the known
+  `vitest` 4 + jsdom startup hang). Record it, fall through to B2, do not block.
 
 ### B2 — Engine contract intact (static, always runs)
 Cheap regression signal that survives even if B1 hangs. The ElevenLabs engine
@@ -105,13 +111,17 @@ grep -o '"signed_url":"wss[^"]*' /tmp/tok.json | cut -c1-45
 - Baseline: 200, ~0.67s ✅.
 
 ### C2 — ElevenLabs voice list
+Send `Origin` — `get-voices` returns **403 for disallowed origins**, and a
+no-Origin request skips that check entirely. Without the header a CORS allow-list
+regression would still 200 here while the browser UI is blocked.
 ```bash
 curl -s -o /tmp/gv.json -w "HTTP %{http_code} total=%{time_total}s\n" \
-  "$BASE/get-voices" --max-time 20
+  -H "Origin: $ORIGIN" "$BASE/get-voices" --max-time 20
 grep -c '"id"' /tmp/gv.json
 ```
 - **PASS:** HTTP 200, non-empty `voices[]` (id/name present), `total` < **1.5s**.
-- **FAIL:** non-200, empty list, or slow. Voice assignment UI breaks.
+- **FAIL:** non-200 (incl. 403 if the allow-list dropped `$ORIGIN`), empty list,
+  or slow. Voice assignment UI breaks.
 - Baseline: 200, ~0.5s ✅.
 
 ### C3 — Text-to-speech (ElevenLabs audio quality path)
@@ -162,9 +172,13 @@ any C-check FAIL, quote the response body — it usually names the cause.
 
 ### D2 — Deep logs via Management API (when a token is available)
 If `SUPABASE_ACCESS_TOKEN` is exported (a Supabase Personal Access Token), pull
-recent Edge Function logs to see `console.log`/`console.error` boot diagnostics:
+recent logs. The `console.log`/`console.error` boot/error diagnostics live in
+**`function_logs`** — `function_edge_logs` only holds invocation/network/status
+metadata, so querying it will miss the very error lines you need.
 ```bash
-SQL='select event_message, timestamp from function_edge_logs order by timestamp desc limit 50'
+# Function-internal console output (the diagnostics): function_logs
+SQL='select event_message, timestamp from function_logs order by timestamp desc limit 50'
+# (For request-level status/latency metadata instead, swap in function_edge_logs.)
 curl -s -G "https://api.supabase.com/v1/projects/$REF/analytics/endpoints/logs.all" \
   -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
   --data-urlencode "sql=$SQL" --max-time 30 | head -c 2000
