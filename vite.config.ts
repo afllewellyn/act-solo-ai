@@ -19,4 +19,20 @@ export default defineConfig(({ mode }) => ({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // Split large third-party libraries into their own chunks so the main
+        // app bundle stays small and vendor code can be cached independently.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (/[\\/]react(-dom|-router-dom)?[\\/]/.test(id)) return "react-vendor";
+          if (id.includes("@radix-ui")) return "radix-vendor";
+          if (id.includes("@tiptap") || id.includes("prosemirror")) return "editor-vendor";
+          if (id.includes("recharts") || id.includes("d3-")) return "charts-vendor";
+          return "vendor";
+        },
+      },
+    },
+  },
 }));

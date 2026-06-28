@@ -14,7 +14,27 @@ import type {
 } from '@/services/conversation/types';
 import type { ConversationEngineConfig, ScriptContext } from '@/services/conversation/domain';
 import { isFeatureEnabled } from '@/lib/featureFlags';
-import { ElevenAgentsEngine } from '@/services/conversation/ElevenAgentsEngine';
+
+/**
+ * Engines that expose reconnection/error telemetry (e.g. ElevenAgentsEngine).
+ * Detected by duck typing so this hook does not statically import a concrete
+ * engine class — a static import would defeat the factory's dynamic import and
+ * pull the engine into the main bundle (see engineFactory.ts).
+ */
+interface TelemetryCapableEngine {
+  getReconnectCount(): number;
+  getLastError(): Error | null;
+}
+
+function hasTelemetry(
+  engine: ConversationEngine
+): engine is ConversationEngine & TelemetryCapableEngine {
+  const candidate = engine as Partial<TelemetryCapableEngine>;
+  return (
+    typeof candidate.getReconnectCount === 'function' &&
+    typeof candidate.getLastError === 'function'
+  );
+}
 
 interface UseConversationEngineOptions {
   /** Called when user speech is detected */
@@ -91,8 +111,8 @@ export function useConversationEngine(
 
   // Poll engine for telemetry state (reconnectCount, lastError)
   const updateTelemetryState = useCallback(() => {
-    if (engineRef.current && engineRef.current instanceof ElevenAgentsEngine) {
-      const engine = engineRef.current as ElevenAgentsEngine;
+    const engine = engineRef.current;
+    if (engine && hasTelemetry(engine)) {
       setReconnectCount(engine.getReconnectCount());
       setLastError(engine.getLastError());
     }
