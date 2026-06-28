@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+# Cancel superseded runs on the same ref to save CI minutes.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # Blocking gate: typecheck + production build must pass for a PR to merge.
+  build:
+    name: Typecheck & build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      # NOTE: using `npm install` rather than `npm ci` because package-lock.json
+      # is currently out of sync with package.json (tracked in repo issues).
+      # Switch to `npm ci` once the lockfile is regenerated.
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Typecheck
+        run: npx tsc --noEmit -p tsconfig.app.json
+
+      - name: Build
+        run: npm run build
+
+  # Non-blocking: surfaces the existing lint debt (~89 errors) without blocking
+  # merges. Flip `continue-on-error` to false once the backlog is cleared.
+  lint:
+    name: Lint (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npm run lint
+
+  # Non-blocking: the Vitest suite currently hangs on startup (vitest 4 + jsdom).
+  # Wired up and capped at 5 min so it's ready the moment the hang is fixed.
+  test:
+    name: Unit tests (non-blocking)
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm install --no-audit --no-fund
+      - run: npx vitest run --no-coverage
