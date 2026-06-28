@@ -2,8 +2,14 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://uomdyqdvorusucuudwnz.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvbWR5cWR2b3J1c3VjdXVkd256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1OTQ4NDcsImV4cCI6MjA2NzE3MDg0N30.Xsc3aLEFxY-5NoiUkGXWqWMkwyWK142fVbps6SGBhHc";
+// Prefer values from the environment (see .env.example) so the project can be
+// pointed at a different Supabase project per environment; fall back to the
+// project defaults so the app still runs without a local .env.
+const SUPABASE_URL =
+  import.meta.env.VITE_SUPABASE_URL ?? "https://uomdyqdvorusucuudwnz.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ??
+  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvbWR5cWR2b3J1c3VjdXVkd256Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTE1OTQ4NDcsImV4cCI6MjA2NzE3MDg0N30.Xsc3aLEFxY-5NoiUkGXWqWMkwyWK142fVbps6SGBhHc";
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
