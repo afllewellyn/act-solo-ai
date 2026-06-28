@@ -48,7 +48,7 @@ function getOpenAIKey() {
   return { name: null as string | null, value: undefined as string | undefined } as const;
 }
 
-// @ts-expect-error - Deno global is provided by the Supabase Edge runtime
+// @ts-ignore Deno.serve is provided by the Supabase Edge (Deno) runtime
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
         const port = 443;
         const path = `/v1/realtime?model=${OPENAI_REALTIME_MODEL}`;
 
-// @ts-expect-error - Deno global is provided by the Supabase Edge runtime
+// @ts-ignore Deno.connectTls is provided by the Supabase Edge (Deno) runtime
         const conn = await Deno.connectTls({ hostname, port });
         const enc = new TextEncoder();
         const dec = new TextDecoder();
