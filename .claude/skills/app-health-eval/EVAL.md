@@ -7,7 +7,11 @@ an objective bar. Return the report in the contract at the bottom — nothing el
 Set these once at the top of the run:
 
 ```bash
-cd act-solo-ai
+# Be at the act-solo-ai/ repo root (where supabase/ + package.json live). The
+# documented invocation already starts here; this only steps in if you launched
+# from the parent ActSolo.AI/ folder. Never blindly `cd act-solo-ai` — in a CI
+# checkout the repo root *is* act-solo-ai and that subdir doesn't exist.
+[ -f supabase/config.toml ] || cd act-solo-ai
 REF=$(grep -oE 'project_id *= *"[^"]+"' supabase/config.toml | cut -d'"' -f2)   # uomdyqdvorusucuudwnz
 BASE="https://$REF.supabase.co/functions/v1"
 ORIGIN="https://actsolo.ai"   # an allowed CORS origin (token & TTS gate on this)
