@@ -58,15 +58,19 @@ Capture the **real** exit status — do not `| tail` and read `$?` (that's tail'
 status, ~always 0, so a failing run would record as PASS).
 ```bash
 GUARD 120 npx vitest run src/services/conversation/__tests__/ElevenAgentsEngine.test.ts > /tmp/vitest.log 2>&1
-STATUS=$?               # vitest's status (0=pass), or 142 when GUARD's alarm fires
+STATUS=$?               # 0 = all pass; 142 = GUARD's alarm fired (hang)
 tail -20 /tmp/vitest.log
-echo "vitest exit status: $STATUS"
+# Did vitest REPORT failing tests (independent of a later hang)? "0 failed" => no.
+grep -qiE '[1-9][0-9]* failed|Failed Tests' /tmp/vitest.log && FAILED=yes || FAILED=no
+echo "vitest exit status: $STATUS   failures-reported: $FAILED"
 ```
-- **PASS:** `STATUS` = 0 — all 23 tests pass.
-- **FAIL:** `STATUS` non-zero **and** ≠ 142 — a real test failure/regression
-  (read `/tmp/vitest.log` for which test).
-- **KNOWN-ISSUE:** `STATUS` = 142 (GUARD's `alarm` killed it at 120s — the known
-  `vitest` 4 + jsdom startup hang). Record it, fall through to B2, do not block.
+- **PASS:** `STATUS` = 0 **and** `FAILED` = no — all 23 tests pass.
+- **FAIL:** `FAILED` = yes (vitest reported failing tests — a real regression,
+  **even if it then hung to 142**), or `STATUS` non-zero and ≠ 142. Read
+  `/tmp/vitest.log` for which test.
+- **KNOWN-ISSUE:** `STATUS` = 142 **and** `FAILED` = no — GUARD killed a clean
+  startup hang (the known `vitest` 4 + jsdom issue), no failures were reported.
+  Record it, fall through to B2, do not block.
 
 ### B2 — Engine contract intact (static, always runs)
 Cheap regression signal that survives even if B1 hangs. The ElevenLabs engine
