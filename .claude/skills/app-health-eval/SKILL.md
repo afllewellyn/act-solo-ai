@@ -41,9 +41,13 @@ green. The detailed checks, commands, and pass bars live in
 
 ## Environment notes (so the eval matches reality)
 
-- Run all commands from `act-solo-ai/` (the git repo root) with **npm** — see
-  `CLAUDE.md` "Known issues" for why (lockfile drift, hanging `vitest`, red
-  `eslint`). EVAL.md guards or downgrades each so they don't mask a regression.
+- Run all commands from the `act-solo-ai/` repo root with **npm** (two lockfiles
+  coexist; npm is the one that currently resolves). Three known issues this eval
+  deliberately tolerates so they don't mask a real regression: `vitest run` hangs
+  on startup (B1 is time-guarded), `eslint` is red with a large `no-explicit-any`
+  backlog (A3 is informational), and the committed lockfile drifts from
+  `package.json`. (If the repo has a `CLAUDE.md`, its "Known issues" is the
+  source of record — but this skill doesn't depend on it.)
 - Supabase CLI is authenticated and the project is linked; edge functions are
   public (`verify_jwt = false`). EVAL.md's setup block is the single source of
   truth for the exact commands, the `Origin` gate, and the current measured

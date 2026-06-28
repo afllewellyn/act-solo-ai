@@ -12,7 +12,8 @@ skill reads like a runbook a new agent can follow on the first try.
 
 - Creating a new skill, or revising an existing one.
 - Reviewing the whole `.claude/skills/` tree for drift.
-- A skill is bloated, vague, duplicates `CLAUDE.md`, or buries the action.
+- A skill is bloated, vague, duplicates the repo's own docs (README / CLAUDE.md
+  if present), or buries the action.
 
 Do **not** use this skill to verify the app still works — that is
 [`app-health-eval`](../app-health-eval/SKILL.md). This skill only edits skill

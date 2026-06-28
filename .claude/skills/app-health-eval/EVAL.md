@@ -45,8 +45,9 @@ npm run lint 2>&1 | tail -5
 ```
 - **PASS:** clean.
 - **KNOWN-ISSUE:** non-zero with `no-explicit-any`-dominated errors — record the
-  error/warning counts; do **not** block on it (CLAUDE.md issue #2). FAIL only if
-  the count grew versus the noted baseline (~89 errors / 32 warnings).
+  error/warning counts; do **not** block on it. This is known debt (~89 errors /
+  32 warnings, mostly `no-explicit-any` in the conversation engine + edge
+  functions). FAIL only if the count grew versus that baseline.
 
 ---
 
@@ -58,8 +59,8 @@ GUARD 120 npx vitest run src/services/conversation/__tests__/ElevenAgentsEngine.
 ```
 - **PASS:** completes, all 23 tests pass.
 - **FAIL:** completes with any failing test — a real engine regression.
-- **KNOWN-ISSUE:** killed by GUARD at 120s (vitest 4 + jsdom startup hang,
-  CLAUDE.md issue #1). Record it, fall through to B2, do not block.
+- **KNOWN-ISSUE:** killed by GUARD at 120s — a known `vitest` 4 + jsdom startup
+  hang. Record it, fall through to B2, do not block.
 
 ### B2 — Engine contract intact (static, always runs)
 Cheap regression signal that survives even if B1 hangs. The ElevenLabs engine
@@ -115,17 +116,23 @@ grep -c '"id"' /tmp/gv.json
 
 ### C3 — Text-to-speech (ElevenLabs audio quality path)
 Spends a tiny amount of ElevenLabs credit — keep the text short, run sparingly.
+The function returns `200 application/json` with the audio as **base64 in
+`audioContent`** (not a raw `audio/*` body), so verify the *decoded audio bytes*,
+never the response size — a large JSON error body must not pass.
 ```bash
-curl -s -o /tmp/tts.bin -D /tmp/tts.hdr -w "HTTP %{http_code} total=%{time_total}s ttfb=%{time_starttransfer}s\n" \
+curl -s -o /tmp/tts.json -w "HTTP %{http_code} total=%{time_total}s ttfb=%{time_starttransfer}s\n" \
   -X POST -H "Origin: $ORIGIN" -H "Content-Type: application/json" \
   -d '{"text":"Line check, one two three.","voice_id":"9BWtsMINqrJLrRacOk9x"}' \
   "$BASE/text-to-speech" --max-time 30
-grep -i 'content-type' /tmp/tts.hdr; wc -c < /tmp/tts.bin
+# Assert audioContent exists and base64-decodes to non-trivial audio bytes:
+AUDIO_BYTES=$(python3 -c "import json,base64,sys; d=json.load(open('/tmp/tts.json')); print(len(base64.b64decode(d['audioContent'])))" 2>/dev/null || echo 0)
+echo "decoded audio bytes: $AUDIO_BYTES"
 ```
-- **PASS:** HTTP 200, audio content-type (`audio/*`) or a non-trivial audio
-  payload (> ~2 KB), `ttfb` < **2.0s**.
-- **FAIL:** non-200, JSON error body, empty/tiny payload, or `ttfb` ≥ 2.0s —
-  ElevenLabs TTS quality/latency regressed.
+- **PASS:** HTTP 200, body has `audioContent`, and it base64-decodes to a
+  non-trivial payload (`AUDIO_BYTES` > ~2000), `ttfb` < **2.0s**.
+- **FAIL:** non-200, missing/empty `audioContent`, `AUDIO_BYTES` ≤ ~2000 (decode
+  failed or not real audio), or `ttfb` ≥ 2.0s — ElevenLabs TTS quality/latency
+  regressed. A large 200 JSON body alone is **not** a pass.
 
 ### C4 — Realtime health (LEGACY — do not fix)
 `health-realtime` is an OpenAI realtime ephemeral-token check. It is **not used

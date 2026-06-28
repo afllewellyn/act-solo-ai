@@ -44,7 +44,7 @@ the clean context. The primary agent applies fixes and re-spawns until green.
 | Q2 | Progressive disclosure | Entry point stays short; rubrics/long command sets are in `EVAL.md` / `references/`. | A 300-line `SKILL.md` with everything inline. |
 | Q3 | Actionable | Instructions are imperative with concrete commands/paths. | "Be aware of…", "Consider…" with no action. |
 | Q4 | Focused | One responsibility. | Skill audits skills *and* deploys functions. |
-| Q5 | No repo duplication | Does not restate `CLAUDE.md`, code, or git history; references them instead. | Pastes architecture already in `CLAUDE.md`. |
+| Q5 | No repo duplication | Does not restate the repo's own docs (README / CLAUDE.md if present), code, or git history; references them instead. | Pastes architecture already in the repo's docs. |
 | Q6 | Clear over complete | A new agent could follow it without guessing. | Key step assumed; ambiguous ordering. |
 
 ## C. Practical value (must PASS)
