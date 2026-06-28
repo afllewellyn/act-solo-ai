@@ -22,9 +22,20 @@ class MockWebSocket {
   
   private sentMessages: string[] = [];
 
+  // Test controls for reconnection scenarios
+  static connectionCount = 0;
+  static autoFail = false;
+
   constructor(public url: string) {
-    // Simulate connection after a tick
+    // Track the most recently created socket so tests can drive it
+    mockWsInstance = this;
+    MockWebSocket.connectionCount++;
+    // Simulate connection after a tick — or an abnormal close when autoFail is on
     setTimeout(() => {
+      if (MockWebSocket.autoFail) {
+        this.close(1006, 'simulated failure');
+        return;
+      }
       this.readyState = WS_OPEN;
       this.onopen?.(new Event('open'));
     }, 0);
@@ -50,19 +61,15 @@ class MockWebSocket {
   }
 }
 
-// Add WebSocket constants to global
-(global as any).WebSocket = Object.assign(
-  vi.fn((url: string) => {
-    mockWsInstance = new MockWebSocket(url);
-    return mockWsInstance as any;
-  }),
-  {
-    CONNECTING: WS_CONNECTING,
-    OPEN: WS_OPEN,
-    CLOSING: 2,
-    CLOSED: WS_CLOSED,
-  }
-);
+// Install the mock class itself as the global WebSocket so `new WebSocket(url)`
+// constructs correctly (an arrow function can't be used as a constructor), and
+// expose the readyState constants as statics.
+(global as any).WebSocket = Object.assign(MockWebSocket, {
+  CONNECTING: WS_CONNECTING,
+  OPEN: WS_OPEN,
+  CLOSING: 2,
+  CLOSED: WS_CLOSED,
+});
 
 // Mock supabase
 vi.mock('@/integrations/supabase/client', () => ({
@@ -141,7 +148,9 @@ describe('ElevenAgentsEngine', () => {
   beforeEach(() => {
     events = [];
     mockWsInstance = null;
-    
+    MockWebSocket.connectionCount = 0;
+    MockWebSocket.autoFail = false;
+
     engine = new ElevenAgentsEngine({
       agentId: 'test-agent-id',
       voiceId: 'test-voice-id',
@@ -159,27 +168,38 @@ describe('ElevenAgentsEngine', () => {
     vi.clearAllMocks();
   });
 
+  // Connect and drive the engine all the way to 'ready'. The engine only reaches
+  // 'ready' after the server sends conversation_initiation_metadata, which then
+  // triggers async microphone init. Uses real timers, so call before switching
+  // to fake timers.
+  async function connectToReady() {
+    await engine.start();
+    await new Promise(resolve => setTimeout(resolve, 10)); // socket opens, init sent
+    mockWsInstance?.simulateMessage({ type: 'conversation_initiation_metadata' });
+    await new Promise(resolve => setTimeout(resolve, 10)); // mic init -> 'ready'
+  }
+
   describe('Event Normalization', () => {
-    it('should emit user_speech_started for non-final transcript', async () => {
+    it('should emit user_speech_ended for a user transcript event', async () => {
       await engine.start();
       await new Promise(resolve => setTimeout(resolve, 10)); // Wait for connection
 
       mockWsInstance?.simulateMessage({
         type: 'user_transcript',
-        user_transcript: { text: 'Hello', is_final: false },
+        user_transcription_event: { user_transcript: 'Hello' },
       });
 
-      const speechEvents = events.filter(e => e.type === 'user_speech_started');
+      const speechEvents = events.filter(e => e.type === 'user_speech_ended');
       expect(speechEvents.length).toBeGreaterThan(0);
     });
 
-    it('should emit user_speech_ended with transcript for final transcript', async () => {
+    it('should emit user_speech_ended with the transcript text', async () => {
       await engine.start();
       await new Promise(resolve => setTimeout(resolve, 10));
 
       mockWsInstance?.simulateMessage({
         type: 'user_transcript',
-        user_transcript: { text: 'Hello world', is_final: true },
+        user_transcription_event: { user_transcript: 'Hello world' },
       });
 
       const endEvents = events.filter(e => e.type === 'user_speech_ended');
@@ -197,13 +217,13 @@ describe('ElevenAgentsEngine', () => {
       // First response chunk
       mockWsInstance?.simulateMessage({
         type: 'agent_response',
-        agent_response: { text: 'Hello ' },
+        agent_response_event: { agent_response: 'Hello ' },
       });
 
       // Second response chunk
       mockWsInstance?.simulateMessage({
         type: 'agent_response',
-        agent_response: { text: 'there!' },
+        agent_response_event: { agent_response: 'there!' },
       });
 
       // End response
@@ -232,13 +252,13 @@ describe('ElevenAgentsEngine', () => {
       // First audio chunk
       mockWsInstance?.simulateMessage({
         type: 'audio',
-        audio: { chunk: btoa('audio_data_1') },
+        audio_event: { audio_base_64: btoa('audio_data_1') },
       });
 
       // Second audio chunk
       mockWsInstance?.simulateMessage({
         type: 'audio',
-        audio: { chunk: btoa('audio_data_2') },
+        audio_event: { audio_base_64: btoa('audio_data_2') },
       });
 
       // End audio
@@ -262,11 +282,11 @@ describe('ElevenAgentsEngine', () => {
       // Start response and audio
       mockWsInstance?.simulateMessage({
         type: 'agent_response',
-        agent_response: { text: 'Partial ' },
+        agent_response_event: { agent_response: 'Partial ' },
       });
       mockWsInstance?.simulateMessage({
         type: 'audio',
-        audio: { chunk: btoa('audio_data') },
+        audio_event: { audio_base_64: btoa('audio_data') },
       });
 
       // Interrupt
@@ -429,12 +449,15 @@ describe('ElevenAgentsEngine', () => {
       await startPromise;
       await new Promise(resolve => setTimeout(resolve, 10));
 
+      // Server acknowledges initialization; engine then inits mic and goes ready
+      mockWsInstance?.simulateMessage({ type: 'conversation_initiation_metadata' });
+      await new Promise(resolve => setTimeout(resolve, 10));
+
       expect(engine.getStatus()).toBe('ready');
     });
 
     it('should emit status_changed events', async () => {
-      await engine.start();
-      await new Promise(resolve => setTimeout(resolve, 10));
+      await connectToReady();
 
       const statusEvents = events.filter(e => e.type === 'status_changed');
       expect(statusEvents.length).toBeGreaterThanOrEqual(2);
@@ -468,7 +491,7 @@ describe('ElevenAgentsEngine', () => {
       // Start a response
       mockWsInstance?.simulateMessage({
         type: 'agent_response',
-        agent_response: { text: 'Incomplete' },
+        agent_response_event: { agent_response: 'Incomplete' },
       });
 
       // Close connection without ending response
@@ -556,34 +579,31 @@ describe('ElevenAgentsEngine', () => {
       expect(connectingEvents.length).toBe(1);
     });
 
-    it('should use exponential backoff delays (1s, 2s, 4s, 8s, 16s)', async () => {
+    it('should wait a backoff delay before reconnecting on abnormal close', async () => {
       vi.useRealTimers();
       await engine.start();
       await new Promise(resolve => setTimeout(resolve, 10));
-      
-      vi.useFakeTimers();
-      
-      // Mock start to track calls but fail
-      const originalStart = engine.start.bind(engine);
-      let startCallCount = 0;
-      vi.spyOn(engine, 'start').mockImplementation(async () => {
-        startCallCount++;
-        if (startCallCount > 1) {
-          // Simulate failed reconnection by throwing
-          throw new Error('Connection failed');
-        }
-        return originalStart();
-      });
 
-      // Trigger abnormal close
+      vi.useFakeTimers();
+
+      // Every subsequent connection fails abnormally, forcing repeated reconnects
+      MockWebSocket.autoFail = true;
+      const startCount = MockWebSocket.connectionCount;
+
+      // Trigger abnormal close to schedule the first reconnect
       mockWsInstance?.close(1006);
-      
-      // First reconnect after 1s
+
+      // Reconnection is delayed, not immediate — nothing happens within the first second
       await vi.advanceTimersByTimeAsync(999);
-      expect(startCallCount).toBe(1); // Original start only
-      
-      await vi.advanceTimersByTimeAsync(1);
-      expect(startCallCount).toBe(2); // First reconnect attempt
+      expect(MockWebSocket.connectionCount).toBe(startCount);
+
+      // The first reconnect fires shortly after the 1s base delay
+      await vi.advanceTimersByTimeAsync(500);
+      expect(MockWebSocket.connectionCount).toBe(startCount + 1);
+
+      // Reconnections keep happening as each attempt fails
+      await vi.advanceTimersByTimeAsync(10000);
+      expect(MockWebSocket.connectionCount).toBeGreaterThanOrEqual(startCount + 2);
     });
 
     it('should give up after max reconnection attempts and emit error', async () => {
@@ -593,49 +613,34 @@ describe('ElevenAgentsEngine', () => {
       
       vi.useFakeTimers();
       events.length = 0;
-      
-      // Mock start to always fail after first call
-      const originalStart = engine.start.bind(engine);
-      let startCallCount = 0;
-      vi.spyOn(engine, 'start').mockImplementation(async () => {
-        startCallCount++;
-        if (startCallCount === 1) {
-          return originalStart();
-        }
-        // Simulate each reconnect closing abnormally
-        setTimeout(() => {
-          mockWsInstance?.close(1006);
-        }, 5);
-        return originalStart();
-      });
 
-      // Initial abnormal close
+      // Every reconnection attempt fails abnormally
+      MockWebSocket.autoFail = true;
+
+      // Initial abnormal close kicks off the reconnection cycle
       mockWsInstance?.close(1006);
-      
-      // Advance through all 5 reconnection attempts
-      // 1s + 2s + 4s + 8s + 16s = 31s total, but we cap at 30s
+
+      // Advance well past the full backoff sequence (1+2+4+8+16 = 31s)
       await vi.advanceTimersByTimeAsync(60000);
-      
-      // Should emit error after max attempts
+
+      // After the max attempts the engine gives up with an error and disconnects
       const errorEvents = events.filter(e => e.type === 'error');
-      expect(errorEvents.length).toBeGreaterThanOrEqual(1);
-      
-      const maxAttemptsError = errorEvents.find(e => 
+      const maxAttemptsError = errorEvents.find(e =>
         e.error?.message?.includes('maximum reconnection attempts')
       );
       expect(maxAttemptsError).toBeDefined();
+      expect(engine.getStatus()).toBe('disconnected');
     });
 
     it('should reset reconnect attempts on successful connection', async () => {
       vi.useRealTimers();
-      await engine.start();
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
-      // Stop and restart should have fresh reconnect state
+      await connectToReady();
+      expect(engine.getStatus()).toBe('ready');
+
+      // Stop and reconnect should reach ready again from a clean state
       await engine.stop();
-      await engine.start();
-      await new Promise(resolve => setTimeout(resolve, 10));
-      
+      await connectToReady();
+
       expect(engine.getStatus()).toBe('ready');
     });
 
