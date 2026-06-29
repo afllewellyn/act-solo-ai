@@ -31,13 +31,14 @@ Refer to `Project plans/ConversationEngine Refactor PRD_Dec.md` for the full PRD
 ```bash
 git clone <repo-url>
 cd act-solo-ai
-bun install   # or npm install
-bun dev       # or npm run dev
+npm install
+cp .env.example .env   # public Supabase keys; see CLAUDE.md
+npm run dev
 ```
 
 ### Prerequisites
 
-- Node 18+ (or Bun 1.0+ if preferred)
+- Node 20+ (the project standardizes on npm; `package-lock.json` is the source of truth)
 - Supabase project with `ELEVENLABS_API_KEY` and `ELEVENLABS_AGENT_ID` configured for the `eleven-agent-token` edge function.
 - Optional: set browser feature flags via `window.__FEATURES__` to enable `conversation_engine_eleven`.
 
@@ -49,16 +50,15 @@ Edit `src/lib/featureFlags.ts` or set `window.__FEATURES__` to toggle capabiliti
 
 ## Testing
 
-- Unit tests: `bun test` (Vitest). Suite includes `src/services/conversation/__tests__/ElevenAgentsEngine.test.ts` for WebSocket event mapping, control commands, and context formatting.
+- Unit tests: `npm test` (Vitest, jsdom). Suite covers `src/services/conversation/__tests__/ElevenAgentsEngine.test.ts` — WebSocket event mapping, control commands, context formatting, and exponential-backoff reconnection.
+- CI runs typecheck + build + tests on every PR (`.github/workflows/ci.yml`).
 - Manual: RehearsalMode.tsx with `conversation_engine_eleven` enabled.
 
 ## Roadmap
 
-- **Phase 2 (done):** Engine interface, ElevenLabs edge token, ElevenAgentsEngine + tests.
-- **Phase 3 (done):** React hook integration, RehearsalMode container refactor, feature-flagged rollout.
-- **Phase 3.5 (done):** Structured telemetry, debug utilities.
 - **Phase 4 (deferred):** Clean up legacy audio managers/hooks after production stability.
 - **Phase 5 (later):** Hybrid UI polish, production hardening.
+- **Phase 6 (test):** Pricing.
 
 Track progress in:
 

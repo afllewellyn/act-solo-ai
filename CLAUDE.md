@@ -22,13 +22,12 @@ npm run build        # production build to dist/  (also the CI gate)
 npm run build:dev    # development-mode build
 npm run lint         # eslint . (currently failing — see Known issues)
 npm run preview      # preview a production build
-npx vitest run       # unit tests (currently hangs — see Known issues)
+npm test             # unit tests (Vitest, jsdom) — passing
 npx tsc --noEmit -p tsconfig.app.json   # typecheck app code (clean)
 ```
 
-The README mentions Bun (`bun dev` / `bun test`). Both a `bun.lockb` and a
-`package-lock.json` are committed; npm is what currently resolves correctly.
-Pick one package manager per the open hygiene issues before relying on the other.
+The project standardizes on **npm**; `package-lock.json` is the source of truth
+and CI uses `npm ci`. (An older `bun.lockb` was removed.)
 
 ## Environment setup
 
@@ -76,19 +75,25 @@ the browser console for debugging.
 
 These were found during a June 2026 health check and are tracked as GitHub issues:
 
-1. **Tests hang.** `npx vitest run` (vitest 4 + jsdom) hangs on startup and never
-   completes locally. CI runs tests non-blocking with a 5-minute cap.
-2. **Lint is red.** ~89 eslint errors / 32 warnings, dominated by
+1. **Lint is red.** ~89 eslint errors / 32 warnings, dominated by
    `@typescript-eslint/no-explicit-any` in the conversation engine and edge
    functions. CI runs lint non-blocking until the backlog is cleared.
-3. **Lockfile drift.** The committed `package-lock.json` is out of sync with
-   `package.json` (a fresh `npm install` rewrites it and was needed to install
-   vitest). CI uses `npm install`, not `npm ci`, until this is fixed. Two
-   lockfiles (`bun.lockb`, `package-lock.json`) also coexist — choose one PM.
-4. **Bundle/code-split.** `ElevenAgentsEngine.ts` is imported both statically
+2. **Bundle/code-split.** `ElevenAgentsEngine.ts` is imported both statically
    (`useConversationEngine.ts`) and dynamically (`engineFactory.ts`), which
    defeats the dynamic import; the main chunk is ~1.1 MB. Pick one import style
    to restore lazy-loading.
+
+Resolved: the Vitest suite previously hung (missing `jsdom` dependency + a
+non-constructable WebSocket mock) and the `package-lock.json` drift / dual
+lockfiles — both fixed; tests run via `npm test` and CI gates on them.
+
+### Testing notes
+
+The engine reaches `'ready'` only after a `conversation_initiation_metadata`
+message (which triggers async mic init), not on socket open — tests must
+simulate that message to drive the engine to `'ready'`. Incoming WebSocket
+messages use nested `*_event` shapes (e.g. `user_transcription_event`,
+`agent_response_event`, `audio_event.audio_base_64`).
 
 ## Conventions
 
