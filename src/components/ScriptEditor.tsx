@@ -11,7 +11,7 @@ interface ScriptEditorProps {
     id: string;
     title: string;
     content: string;
-    characters: any;
+    characters: unknown;
   };
   onScriptUpdate: (updatedContent: string) => void;
 }

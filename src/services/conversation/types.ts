@@ -77,7 +77,7 @@ export interface AgentResponseEvent {
 export interface ToolCallEvent {
   type: 'tool_call';
   toolName: string;
-  parameters: Record<string, any>;
+  parameters: Record<string, unknown>;
   timestamp: number;
 }
 

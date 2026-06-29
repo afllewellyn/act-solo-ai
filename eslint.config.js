@@ -25,5 +25,18 @@ export default tseslint.config(
       ],
       "@typescript-eslint/no-unused-vars": "off",
     },
+  },
+  {
+    // Supabase edge functions run on Deno, not the browser. Deno provides the
+    // `Deno` global, and `@ts-ignore` is the safe directive here — forcing
+    // `@ts-expect-error` would become an "unused directive" error once Deno's
+    // own types resolve these APIs (e.g. Deno.serve / Deno.connectTls).
+    files: ["supabase/functions/**/*.ts"],
+    languageOptions: {
+      globals: { Deno: "readonly" },
+    },
+    rules: {
+      "@typescript-eslint/ban-ts-comment": "off",
+    },
   }
 );

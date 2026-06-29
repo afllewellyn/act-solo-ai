@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { RichTextEditor } from '@/components/RichTextEditor';
 import { stripHtmlTags, CHARACTER_LINE_REGEX } from '@/components/practice/rehearsal/textUtils';
@@ -78,7 +79,7 @@ const ScriptInput = ({ onScriptSaved }: ScriptInputProps) => {
           user_id: user.id,
           title: title.trim(),
           content: content.trim(),
-          characters: characters as any
+          characters: characters as unknown as Json
         });
 
       if (error) throw error;

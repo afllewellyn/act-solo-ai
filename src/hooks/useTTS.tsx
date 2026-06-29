@@ -33,7 +33,7 @@ class AudioContextManager {
 
     try {
       if (!this.audioContext) {
-        this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        this.audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
       }
 
       if (this.audioContext.state === 'suspended') {
@@ -107,22 +107,23 @@ export const useTTS = () => {
     };
   }, [isPlaying, isPaused]);
 
-  const handleSpeechError = useCallback(async (error: any) => {
-    logTTS('error', { 
-      error: error.message, 
-      name: error.name,
-      sessionId: logger.getSessionId() 
+  const handleSpeechError = useCallback(async (error: unknown) => {
+    const err = error instanceof Error ? error : new Error(String(error));
+    logTTS('error', {
+      error: err.message,
+      name: err.name,
+      sessionId: logger.getSessionId()
     });
-    
+
     let errorMessage = 'Failed to generate speech. Please try again.';
-    
-    if (error.message?.includes('Rate limit')) {
+
+    if (err.message?.includes('Rate limit')) {
       errorMessage = 'Rate limit exceeded. Please wait a moment and try again.';
-    } else if (error.message?.includes('Invalid API key')) {
+    } else if (err.message?.includes('Invalid API key')) {
       errorMessage = 'TTS service not properly configured. Please contact support.';
-    } else if (error.message?.includes('Too long')) {
+    } else if (err.message?.includes('Too long')) {
       errorMessage = 'Text is too long for speech generation. Please shorten it.';
-    } else if (error.name === 'NotAllowedError') {
+    } else if (err.name === 'NotAllowedError') {
       // Don't show error toast for autoplay policy - we handle this above
       return;
     }
@@ -265,14 +266,15 @@ export const useTTS = () => {
         try {
           await audioRef.current.play();
           logTTS('play_succeeded', { sessionId: logger.getSessionId() });
-        } catch (playError: any) {
-          logTTS('play_failed', { 
-            error: playError.name, 
-            message: playError.message,
-            sessionId: logger.getSessionId() 
+        } catch (playError) {
+          const pe = playError instanceof Error ? playError : new Error(String(playError));
+          logTTS('play_failed', {
+            error: pe.name,
+            message: pe.message,
+            sessionId: logger.getSessionId()
           });
-          
-          if (playError.name === 'NotAllowedError') {
+
+          if (pe.name === 'NotAllowedError') {
             setNeedsUserGesture(true);
             if (isFeatureEnabled('mobile_audio_optimization')) {
               setShowTapToResume(true);
@@ -293,7 +295,7 @@ export const useTTS = () => {
       } else {
         throw new Error('No audio content received from TTS service');
       }
-    } catch (error: any) {
+    } catch (error) {
       await handleSpeechError(error);
     } finally {
       setIsLoading(false);
@@ -315,12 +317,13 @@ export const useTTS = () => {
         await audioRef.current.play();
         setNeedsUserGesture(false);
         setShowTapToResume(false);
-      } catch (error: any) {
-        logTTS('resume_failed', { 
-          error: error.name,
-          sessionId: logger.getSessionId() 
+      } catch (error) {
+        const err = error instanceof Error ? error : new Error(String(error));
+        logTTS('resume_failed', {
+          error: err.name,
+          sessionId: logger.getSessionId()
         });
-        if (error.name === 'NotAllowedError') {
+        if (err.name === 'NotAllowedError') {
           setNeedsUserGesture(true);
           if (isFeatureEnabled('mobile_audio_optimization')) {
             setShowTapToResume(true);

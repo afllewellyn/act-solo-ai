@@ -105,8 +105,8 @@ const handler = async (req: Request): Promise<Response> => {
       JSON.stringify({ success: true }),
       { status: 200, headers: { "Content-Type": "application/json", ...corsHeaders } }
     );
-  } catch (error: any) {
-    console.error("[send-contact-email] Error:", error.message);
+  } catch (error) {
+    console.error("[send-contact-email] Error:", error instanceof Error ? error.message : String(error));
     return new Response(
       JSON.stringify({ error: "Failed to send message. Please try again." }),
       { status: 500, headers: { "Content-Type": "application/json", ...corsHeaders } }

@@ -43,7 +43,7 @@ const isRateLimited = (clientId: string): boolean => {
   return false;
 };
 
-const validateInput = (text: any): { isValid: boolean; error?: string; sanitized?: string } => {
+const validateInput = (text: unknown): { isValid: boolean; error?: string; sanitized?: string } => {
   if (!text) {
     return { isValid: false, error: 'Text is required' };
   }
@@ -71,7 +71,7 @@ const validateInput = (text: any): { isValid: boolean; error?: string; sanitized
   return { isValid: true, sanitized };
 };
 
-const validateVoiceId = (voiceId: any): boolean => {
+const validateVoiceId = (voiceId: unknown): boolean => {
   if (!voiceId || typeof voiceId !== 'string') return false;
   return /^[A-Za-z0-9_-]+$/.test(voiceId);
 };

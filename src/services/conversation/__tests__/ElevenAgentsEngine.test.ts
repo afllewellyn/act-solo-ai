@@ -28,6 +28,7 @@ class MockWebSocket {
 
   constructor(public url: string) {
     // Track the most recently created socket so tests can drive it
+    // eslint-disable-next-line @typescript-eslint/no-this-alias -- publish the latest mock socket to the test module
     mockWsInstance = this;
     MockWebSocket.connectionCount++;
     // Simulate connection after a tick — or an abnormal close when autoFail is on
@@ -56,7 +57,7 @@ class MockWebSocket {
   }
 
   // Simulate receiving a message
-  simulateMessage(data: any) {
+  simulateMessage(data: unknown) {
     this.onmessage?.(new MessageEvent('message', { data: JSON.stringify(data) }));
   }
 }
@@ -64,7 +65,7 @@ class MockWebSocket {
 // Install the mock class itself as the global WebSocket so `new WebSocket(url)`
 // constructs correctly (an arrow function can't be used as a constructor), and
 // expose the readyState constants as statics.
-(global as any).WebSocket = Object.assign(MockWebSocket, {
+(global as unknown as Record<string, unknown>).WebSocket = Object.assign(MockWebSocket, {
   CONNECTING: WS_CONNECTING,
   OPEN: WS_OPEN,
   CLOSING: 2,
@@ -124,7 +125,7 @@ class MockAudioContext {
 // Mock AudioWorkletNode
 class MockAudioWorkletNode {
   public port = {
-    onmessage: null as ((event: any) => void) | null,
+    onmessage: null as ((event: MessageEvent) => void) | null,
     close: vi.fn(),
     postMessage: vi.fn(),
   };
@@ -133,9 +134,9 @@ class MockAudioWorkletNode {
   disconnect = vi.fn();
 }
 
-global.AudioWorkletNode = MockAudioWorkletNode as any;
+global.AudioWorkletNode = MockAudioWorkletNode as unknown as typeof AudioWorkletNode;
 
-global.AudioContext = MockAudioContext as any;
+global.AudioContext = MockAudioContext as unknown as typeof AudioContext;
 
 // Track mock WebSocket instance
 let mockWsInstance: MockWebSocket | null = null;

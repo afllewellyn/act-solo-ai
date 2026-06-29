@@ -15,7 +15,7 @@ const ManageScripts = () => {
   } = useAuth();
   const navigate = useNavigate();
   const [refreshScripts, setRefreshScripts] = useState(0);
-  const [selectedScript, setSelectedScript] = useState(null);
+  const [selectedScript, setSelectedScript] = useState<unknown>(null);
   useEffect(() => {
     if (!loading && !user) {
       navigate('/login');
@@ -34,7 +34,7 @@ const ManageScripts = () => {
   const handleScriptSaved = () => {
     setRefreshScripts(prev => prev + 1);
   };
-  const handleSelectScript = (script: any) => {
+  const handleSelectScript = (script: unknown) => {
     setSelectedScript(script);
     // TODO: Navigate to teleprompter view
     console.log('Selected script for practice:', script);

@@ -112,7 +112,7 @@ export function SecureRoleAssignmentDialog({ characters, onRoleUpdate, content }
     
     lines.forEach(line => {
       // Enhanced regex to handle various character name formats
-      const match = line.match(/^([A-Z][a-zA-Z\s\-\'\.]*[A-Z]?):/);
+      const match = line.match(/^([A-Z][a-zA-Z\s\-'.]*[A-Z]?):/);
       if (match) {
         const characterName = sanitizeInput(match[1].trim());
         // Validate character name format
@@ -152,7 +152,7 @@ export function SecureRoleAssignmentDialog({ characters, onRoleUpdate, content }
     }
   };
 
-  const handleCharacterUpdate = (index: number, field: string, value: any) => {
+  const handleCharacterUpdate = (index: number, field: string, value: string | boolean) => {
     if (index < 0 || index >= localCharacters.length) return;
 
     const updated = [...localCharacters];

@@ -236,7 +236,7 @@ export class ScriptRehearsalStateMachine {
   private extractCueWords(lineText: string): string[] {
     // Remove character name prefix (e.g., "ACTOR: ")
     const cleanText = lineText
-      .replace(/^[A-Z][A-Z\s\-\'\.]+:\s*/, '')  // Remove "NAME: " prefix
+      .replace(/^[A-Z][A-Z\s\-'.]+:\s*/, '')  // Remove "NAME: " prefix
       .replace(/<[^>]*>/g, ' ')                  // Remove HTML tags
       .replace(/\s+/g, ' ')                       // Normalize whitespace
       .trim();

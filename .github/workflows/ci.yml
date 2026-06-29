@@ -35,12 +35,12 @@ jobs:
       - name: Unit tests
         run: npx vitest run --no-coverage
 
-  # Non-blocking: surfaces the existing lint debt (~89 errors) without blocking
-  # merges. Flip `continue-on-error` to false once the backlog is cleared.
+  # Blocking gate: the lint backlog is cleared (0 errors), so lint failures now
+  # block merges. Warnings (react-hooks/exhaustive-deps, react-refresh) remain
+  # and do not fail the build.
   lint:
-    name: Lint (non-blocking)
+    name: Lint
     runs-on: ubuntu-latest
-    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

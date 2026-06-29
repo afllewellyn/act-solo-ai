@@ -85,9 +85,9 @@ export function useAudioManager(config: AudioManagerConfig = {}): AudioManagerRe
       console.log('🎤 AudioManager: Cue detected:', detectedCue);
       config.onCueDetected?.(detectedCue);
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error('🎤 AudioManager: Speech error:', error);
-      config.onSpeechError?.(error);
+      config.onSpeechError?.(error instanceof Error ? error.message : String(error));
     },
     onMobileListenRequest: () => {
       console.log('📱 AudioManager: Mobile listen request');

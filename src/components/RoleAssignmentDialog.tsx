@@ -59,7 +59,7 @@ export function RoleAssignmentDialog({ characters, onRoleUpdate, content }: Role
     
     lines.forEach(line => {
       // Enhanced regex to handle various character name formats
-      const match = line.match(/^([A-Z][a-zA-Z\s\-\'\.]*[A-Z]?):/);
+      const match = line.match(/^([A-Z][a-zA-Z\s\-'.]*[A-Z]?):/);
       if (match) {
         detectedCharacters.add(match[1].trim());
       }
@@ -111,9 +111,9 @@ export function RoleAssignmentDialog({ characters, onRoleUpdate, content }: Role
     }
   };
 
-  const handleCharacterUpdate = (index: number, field: string, value: any) => {
+  const handleCharacterUpdate = (index: number, field: string, value: string | boolean) => {
     const updated = [...localCharacters];
-    updated[index] = { ...updated[index], [field]: value };
+    updated[index] = { ...updated[index], [field]: value } as Character;
     setLocalCharacters(updated);
   };
 

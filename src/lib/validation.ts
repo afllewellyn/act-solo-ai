@@ -6,7 +6,7 @@ export const characterSchema = z.object({
   name: z.string()
     .min(1, 'Character name is required')
     .max(50, 'Character name must be 50 characters or less')
-    .regex(/^[A-Za-z\s\-\'\.]+$/, 'Character name can only contain letters, spaces, hyphens, apostrophes, and periods'),
+    .regex(/^[A-Za-z\s\-'.]+$/, 'Character name can only contain letters, spaces, hyphens, apostrophes, and periods'),
   voice: z.string()
     .min(1, 'Voice ID is required')
     .regex(/^[A-Za-z0-9_-]+$/, 'Invalid voice ID format'),
@@ -121,5 +121,5 @@ export const sanitizeInput = (input: string): string => {
 
 // Validate character name format (matches script parsing)
 export const validateCharacterName = (name: string): boolean => {
-  return /^[A-Za-z][A-Za-z\s\-\'\.]*[A-Za-z]?$/.test(name);
+  return /^[A-Za-z][A-Za-z\s\-'.]*[A-Za-z]?$/.test(name);
 };

@@ -48,7 +48,7 @@ interface RehearsalContextType {
   isListening: boolean;
   isTTSPlaying: boolean;
   isManualTTSPlaying: boolean;
-  audioManager: any; // AudioManagerReturn type
+  audioManager: ReturnType<typeof useAudioManager>;
   
   // Voice Settings
   selectedVoice: string;
@@ -541,7 +541,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     if (!voiceActivated || !audioManager.isSpeechSupported || audioManager.isListening) return;
     
     // Start listening for cue in the line
-    const characterMatch = line.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+    const characterMatch = line.match(/^([A-Z][A-Z\s\-'.]+):\s*(.+)$/);
     if (characterMatch) {
       const dialogue = characterMatch[2].trim();
       console.log(`Starting to listen for cue in: "${dialogue}"`);

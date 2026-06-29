@@ -99,7 +99,7 @@ export const useTTSManager = ({
     
     lines.forEach(line => {
       const cleanLine = stripHtmlTags(line);
-      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-\'\.]+):\s*(.+)$/);
+      const characterMatch = cleanLine.match(/^([A-Z][A-Z\s\-'.]+):\s*(.+)$/);
       
       if (characterMatch) {
         const characterName = characterMatch[1].trim();

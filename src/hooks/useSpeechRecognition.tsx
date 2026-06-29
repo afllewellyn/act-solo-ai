@@ -14,20 +14,25 @@ interface SpeechRecognitionOptions {
 // Extend the Window interface for TypeScript
 declare global {
   interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
+    SpeechRecognition: { new (): SpeechRecognition };
+    webkitSpeechRecognition: { new (): SpeechRecognition };
   }
   
   interface SpeechRecognitionEvent extends Event {
     readonly results: SpeechRecognitionResultList;
   }
-  
+
+  interface SpeechRecognitionErrorEvent extends Event {
+    readonly error: string;
+    readonly message?: string;
+  }
+
   interface SpeechRecognition extends EventTarget {
     continuous: boolean;
     interimResults: boolean;
     lang: string;
     onresult: (event: SpeechRecognitionEvent) => void;
-    onerror: (event: any) => void;
+    onerror: (event: SpeechRecognitionErrorEvent) => void;
     onend: () => void;
     onstart?: () => void;
     start(): void;
@@ -35,11 +40,13 @@ declare global {
     abort(): void;
   }
   
+  // eslint-disable-next-line no-var -- ambient global declarations require `var`
   var SpeechRecognition: {
     prototype: SpeechRecognition;
     new(): SpeechRecognition;
   };
-  
+
+  // eslint-disable-next-line no-var -- ambient global declarations require `var`
   var webkitSpeechRecognition: {
     prototype: SpeechRecognition;
     new(): SpeechRecognition;
@@ -89,7 +96,7 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
   }, []);
 
   // Enhanced logging utility with session tracking
-  const logEvent = useCallback((event: string, data: any) => {
+  const logEvent = useCallback((event: string, data: Record<string, unknown>) => {
     if (isFeatureEnabled('structured_logging')) {
       logSpeechRecognition(event, {
         sessionId: logger.getSessionId(),
@@ -410,7 +417,7 @@ export const useSpeechRecognition = (options: SpeechRecognitionOptions = {}) => 
     // Enhanced regex to handle mixed-case character names like "Sarah:", "MIKE:", "Dr. Smith:"
     const cleanText = text
       .replace(/<[^>]*>/g, ' ')
-      .replace(/^[A-Za-z][A-Za-z\s\-\'\.]*:\s*/, '') // Enhanced character name removal
+      .replace(/^[A-Za-z][A-Za-z\s\-'.]*:\s*/, '') // Enhanced character name removal
       .replace(/\s+/g, ' ')
       .trim();
     

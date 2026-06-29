@@ -36,13 +36,14 @@ interface Script {
   id: string;
   title: string;
   content: string;
-  characters: any;
+  characters: unknown;
   created_at: string;
   updated_at: string;
   user_id: string;
 }
 
 import type { Character } from '@/services/ScriptRehearsalStateMachine';
+import type { Json } from '@/integrations/supabase/types';
 
 // Component that contains all rehearsal logic and UI - must be inside RehearsalProvider
 const PracticeWithRehearsal = ({ script }: { script: Script }) => {
@@ -87,8 +88,9 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   // Initialize script content and characters
   useEffect(() => {
     if (script) {
-      const charactersData = Array.isArray(script.characters) ? script.characters : [];
-      const parsedCharacters: Character[] = charactersData.map((char: any) => ({
+      const charactersData: Array<{ name?: string; voice?: string; isUserRole?: boolean }> =
+        Array.isArray(script.characters) ? script.characters : [];
+      const parsedCharacters: Character[] = charactersData.map((char) => ({
         name: char?.name || '',
         voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
         isUserRole: char?.isUserRole || false
@@ -280,7 +282,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     // Update the script's characters in the database
     supabase
       .from('scripts')
-      .update({ characters: updatedCharacters as any })
+      .update({ characters: updatedCharacters as unknown as Json })
       .eq('id', script.id)
       .then(({ error }) => {
         if (error) {

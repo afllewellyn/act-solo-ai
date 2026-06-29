@@ -14,7 +14,7 @@ export interface LogContext {
   browser?: string;
   isMobile?: boolean;
   userId?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export interface StreamingTTSLogContext extends LogContext {
@@ -81,7 +81,7 @@ export interface LogEvent {
 }
 
 interface AudioEventData {
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 class Logger {
@@ -245,9 +245,9 @@ class Logger {
 export const logger = Logger.getInstance();
 
 // Convenience exports
-export const logSpeechRecognition = (event: string, data: any) => logger.speechRecognition(event, data);
-export const logTTS = (event: string, data: any) => logger.tts(event, data);
-export const logAudioManager = (event: string, data: any) => logger.audioManager(event, data);
+export const logSpeechRecognition = (event: string, data: Record<string, unknown>) => logger.speechRecognition(event, data);
+export const logTTS = (event: string, data: Record<string, unknown>) => logger.tts(event, data);
+export const logAudioManager = (event: string, data: Record<string, unknown>) => logger.audioManager(event, data);
 
 // Streaming TTS convenience exports
 export const logStreamingTTS = (event: string, context: StreamingTTSLogContext) => logger.streamingTTS(event, context);

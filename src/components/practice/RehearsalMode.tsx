@@ -54,7 +54,7 @@ export const useRehearsalMode = (props: RehearsalModeProps) => {
         handleActorCueDetected();
       }
     },
-    onError: (error: any) => {
+    onError: (error: unknown) => {
       console.error('Speech recognition error in rehearsal:', error);
     }
   });
@@ -198,7 +198,7 @@ export const useRehearsalMode = (props: RehearsalModeProps) => {
     
     // Remove character name and clean text
     const cleanText = lineText
-      .replace(/^[A-Z][A-Z\s\-\'\.]+:\s*/, '')
+      .replace(/^[A-Z][A-Z\s\-'.]+:\s*/, '')
       .replace(/<[^>]*>/g, ' ')
       .replace(/\s+/g, ' ')
       .trim();

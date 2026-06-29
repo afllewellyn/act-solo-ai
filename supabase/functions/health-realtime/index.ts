@@ -27,7 +27,7 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
 
 // Boot diagnostics: check secret presence without exposing it
 try {
-  const envKeys = Object.keys((Deno.env as any).toObject?.() || {});
+  const envKeys = Object.keys((Deno.env as { toObject?: () => Record<string, string> }).toObject?.() || {});
   const { name: keyName, value: OPENAI_API_KEY } = getOpenAIKey();
   if (OPENAI_API_KEY) {
     console.log(`[Health Realtime] Boot - Using key: ${keyName}, present: ${!!OPENAI_API_KEY}, length: ${OPENAI_API_KEY.length}`);
@@ -48,7 +48,7 @@ function getOpenAIKey() {
   return { name: null as string | null, value: undefined as string | undefined } as const;
 }
 
-// @ts-ignore - Deno-specific API
+// @ts-ignore Deno.serve is provided by the Supabase Edge (Deno) runtime
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
@@ -64,7 +64,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-// @ts-ignore - Deno-specific API
     const { value: OPENAI_API_KEY, name: keyName } = getOpenAIKey();
     if (!OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is not configured');
@@ -104,7 +103,7 @@ Deno.serve(async (req) => {
         const port = 443;
         const path = `/v1/realtime?model=${OPENAI_REALTIME_MODEL}`;
 
-// @ts-ignore - Deno-specific API
+// @ts-ignore Deno.connectTls is provided by the Supabase Edge (Deno) runtime
         const conn = await Deno.connectTls({ hostname, port });
         const enc = new TextEncoder();
         const dec = new TextDecoder();
@@ -138,7 +137,7 @@ Deno.serve(async (req) => {
           if (headerText.includes('\r\n\r\n')) break; // end of headers
         }
 
-        try { conn.close(); } catch (_) {}
+        try { conn.close(); } catch { /* connection already closing */ }
 
         const statusLine = headerText.split('\r\n')[0] || headerText;
         if (headerText.startsWith('HTTP/1.1 101')) {
