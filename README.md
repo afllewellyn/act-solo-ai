@@ -56,11 +56,9 @@ Edit `src/lib/featureFlags.ts` or set `window.__FEATURES__` to toggle capabiliti
 
 ## Roadmap
 
-- **Phase 2 (done):** Engine interface, ElevenLabs edge token, ElevenAgentsEngine + tests.
-- **Phase 3 (done):** React hook integration, RehearsalMode container refactor, feature-flagged rollout.
-- **Phase 3.5 (done):** Structured telemetry, debug utilities.
 - **Phase 4 (deferred):** Clean up legacy audio managers/hooks after production stability.
 - **Phase 5 (later):** Hybrid UI polish, production hardening.
+- **Phase 6 (test):** Pricing.
 
 Track progress in:
 
