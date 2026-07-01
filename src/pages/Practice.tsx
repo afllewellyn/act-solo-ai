@@ -302,7 +302,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                 <Breadcrumb>
                   <BreadcrumbList>
                     <BreadcrumbItem>
-                      <BreadcrumbLink href="/">Scripts</BreadcrumbLink>
+                      <BreadcrumbLink href="/manage-scripts">Scripts</BreadcrumbLink>
                     </BreadcrumbItem>
                     <BreadcrumbSeparator />
                     <BreadcrumbItem>
@@ -325,7 +325,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => navigate('/')}
+                  onClick={() => navigate('/manage-scripts')}
                   className="gap-2"
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -533,7 +533,7 @@ const Practice = () => {
 
   useEffect(() => {
     if (!authLoading && !user) {
-      navigate('/auth');
+      navigate('/login');
     }
   }, [user, authLoading, navigate]);
 
@@ -561,7 +561,7 @@ const Practice = () => {
         description: "Failed to load script",
         variant: "destructive",
       });
-      navigate('/');
+      navigate('/manage-scripts');
     } finally {
       setLoading(false);
     }
@@ -582,7 +582,7 @@ const Practice = () => {
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <p className="text-muted-foreground">Script not found</p>
-          <Button onClick={() => navigate('/')} className="mt-4">
+          <Button onClick={() => navigate('/manage-scripts')} className="mt-4">
             Go Back
           </Button>
         </div>
