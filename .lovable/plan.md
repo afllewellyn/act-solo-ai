@@ -1,23 +1,15 @@
+## QA Summary — All Verified
 
+**1. Practice route auth redirect (high)**
+- Signed-out visit to `/practice/abc-123` now redirects to `http://localhost:8080/login` (verified via headless browser).
 
-# Plan: Convert Help Center to FAQ-Only Page
+**2. Back / Scripts navigation (medium)**
+- Breadcrumb link, Back button, and fetch-error fallback in `src/pages/Practice.tsx` all point to `/manage-scripts` (verified in source).
 
-## File: `src/pages/HelpCenter.tsx`
+**3. TS build error in `useSpeechRecognition.tsx`**
+- Removed the redundant `SpeechRecognitionEvent` and `SpeechRecognitionErrorEvent` interface redeclarations that conflicted with TypeScript's built-in DOM lib types.
+- `npx tsgo --noEmit -p tsconfig.app.json` → exit 0, no errors.
 
-1. **Remove** the four quick-link cards and unused icon imports (`BookOpen`, `MessageCircle`, `Video`, `Zap`).
+## Nothing left to change
 
-2. **Update heading** to "Help & FAQ".
-
-3. **Expand FAQ** with these new items (in addition to keeping existing ones):
-
-   - **"How do I get started with ActSolo?"** — Create account, add a script, start rehearsal.
-   - **"How does Rehearsal Mode work?"** — AI reads scene partner lines aloud via TTS, user follows along and practices their own lines, play/pause controls.
-   - **"How do I manage and edit my scripts?"** — Manage Scripts page for adding, editing, deleting scripts using the rich text editor.
-   - **"What script format should I use?"** — Use the rich text editor to format your script. **Italic text** is read aloud by the AI voice (scene partner lines). **Bold text** marks your lines to practice. No special format like character names with colons is required.
-   - **"Can I choose different voices for characters?"** — Voice selection during role/rehearsal setup.
-   - **"Is ActSolo free?"** — Current availability info.
-
-4. **Update existing FAQ item-1** ("How do I upload a script?") to remove the requirement about "character names followed by colons" — replace with guidance about using bold/italic formatting.
-
-5. **Keep** the "Still need help? Contact Support" CTA at bottom.
-
+No further code edits proposed. Approve this plan to acknowledge, or tell me the next thing to tackle (e.g., publish, run an SEO/security scan, or work on another feature).
