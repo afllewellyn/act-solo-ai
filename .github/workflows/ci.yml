@@ -35,6 +35,12 @@ jobs:
       - name: Unit tests
         run: npx vitest run --no-coverage
 
+      - name: Install Playwright Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Browser smoke test
+        run: npm run test:smoke
+
   # Blocking gate: the lint backlog is cleared (0 errors), so lint failures now
   # block merges. Warnings (react-hooks/exhaustive-deps, react-refresh) remain
   # and do not fail the build.

@@ -24,7 +24,16 @@ npm run lint         # eslint . — 0 errors (CI gate); ~32 warnings remain
 npm run preview      # preview a production build
 npm test             # unit tests (Vitest, jsdom) — passing
 npx tsc --noEmit -p tsconfig.app.json   # typecheck app code (clean)
+npm run build && npm run test:smoke     # build, then boot it in real Chromium (CI gate)
 ```
+
+`test:smoke` (`scripts/smoke-test.mjs`) serves the production build with `vite
+preview` and loads it in headless Chromium (Playwright), failing on any
+uncaught page error or an empty `#root` after mount. It exists because
+`npm run build`/`npm test`/typecheck can all pass while the app is still
+blank in a real browser — see the manualChunks postmortem below. Requires
+`npx playwright install --with-deps chromium` once (CI does this
+automatically).
 
 The project standardizes on **npm**; `package-lock.json` is the source of truth
 and CI uses `npm ci`. (An older `bun.lockb` was removed.)
