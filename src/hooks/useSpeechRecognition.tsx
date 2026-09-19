@@ -12,19 +12,12 @@ interface SpeechRecognitionOptions {
 }
 
 // Extend the Window interface for TypeScript
+// Note: SpeechRecognitionEvent / SpeechRecognitionErrorEvent are provided by
+// the TypeScript DOM library — do not redeclare them here (TS2717/TS2687).
 declare global {
   interface Window {
     SpeechRecognition: { new (): SpeechRecognition };
     webkitSpeechRecognition: { new (): SpeechRecognition };
-  }
-  
-  interface SpeechRecognitionEvent extends Event {
-    readonly results: SpeechRecognitionResultList;
-  }
-
-  interface SpeechRecognitionErrorEvent extends Event {
-    readonly error: string;
-    readonly message?: string;
   }
 
   interface SpeechRecognition extends EventTarget {
