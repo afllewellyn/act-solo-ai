@@ -24,7 +24,16 @@ npm run lint         # eslint . — 0 errors (CI gate); ~32 warnings remain
 npm run preview      # preview a production build
 npm test             # unit tests (Vitest, jsdom) — passing
 npx tsc --noEmit -p tsconfig.app.json   # typecheck app code (clean)
+npm run build && npm run test:smoke     # build, then boot it in real Chromium (CI gate)
 ```
+
+`test:smoke` (`scripts/smoke-test.mjs`) serves the production build with `vite
+preview` and loads it in headless Chromium (Playwright), failing on any
+uncaught page error or an empty `#root` after mount. It exists because
+`npm run build`/`npm test`/typecheck can all pass while the app is still
+blank in a real browser — see the manualChunks postmortem below. Requires
+`npx playwright install --with-deps chromium` once (CI does this
+automatically).
 
 The project standardizes on **npm**; `package-lock.json` is the source of truth
 and CI uses `npm ci`. (An older `bun.lockb` was removed.)
@@ -82,8 +91,17 @@ The June 2026 health-check findings have all been resolved:
   gates on lint. ~32 `react-hooks/exhaustive-deps` / `react-refresh` warnings
   remain (non-blocking).
 - **Bundle / code-split.** `ElevenAgentsEngine` is dynamic-import-only again
-  (duck-typed telemetry check in `useConversationEngine.ts`) and vendor chunks
-  are split (`vite.config.ts`), so the main app chunk is ~159 kB.
+  (duck-typed telemetry check in `useConversationEngine.ts`). The manual
+  vendor-chunk split in `vite.config.ts` was removed (Sep 2026): grouping
+  chunks by package-name substring produced a genuine circular import between
+  chunks (`vendor` <-> `react-vendor`), which left `React` undefined at
+  module-init time in the browser and rendered a blank page — invisible to
+  `npm run build`/`npm test` since neither loads the real chunk graph in a
+  browser. Rollup's automatic chunking is used instead; it can't produce that
+  kind of init-order cycle. If re-adding manual chunking, verify with a real
+  browser load (not just a successful build), not string-matching on paths
+  that can false-match unrelated packages (e.g. `@tiptap/react` matching a
+  `react` path regex).
 
 Two general gotchas worth keeping in mind:
 - Don't statically import a concrete engine class from UI/hooks — it defeats the
