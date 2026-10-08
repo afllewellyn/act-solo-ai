@@ -221,7 +221,7 @@ const Coaching = () => {
             </div>
             <p className="text-sm text-muted-foreground mt-6 max-w-lg mx-auto">
               Reschedule up to 24 hours ahead. Cancellations inside 24 hours may be non-refundable. No booking is
-              guaranteed. Coaching is provided by Camera On Creative.
+              guaranteed. Coaching is provided by Cameraon Creative.
             </p>
           </div>
         </section>
