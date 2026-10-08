@@ -152,7 +152,7 @@ const BestSelfTapeApp = () => {
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-8">Side-by-side comparison</h2>
               <div className="overflow-x-auto rounded-2xl border border-gray-200">
                 <table className="w-full min-w-[560px] text-left">
-                  <thead className="bg-secondary">
+                  <thead className="bg-gray-100">
                     <tr>
                       <th scope="col" className="p-4 text-sm font-semibold text-gray-900">Feature</th>
                       <th scope="col" className="p-4 text-sm font-semibold text-gray-900 text-center">Line-learning apps</th>
