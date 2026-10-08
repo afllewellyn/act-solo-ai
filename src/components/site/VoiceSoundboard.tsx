@@ -1,10 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
+import jamesSample from "@/assets/james.mp3.asset.json";
+import liamSample from "@/assets/liam.mp3.asset.json";
+import lauraSample from "@/assets/laura.mp3.asset.json";
 
 const voices = [
-  { id: "aria", name: "Aria", tag: "Drama", src: "/voices/aria.mp3" },
-  { id: "brian", name: "Brian", tag: "Procedural", src: "/voices/brian.mp3" },
-  { id: "charlotte", name: "Charlotte", tag: "Indie romance", src: "/voices/charlotte.mp3" },
+  { id: "james", name: "James", tag: "Relaxed", src: jamesSample.url },
+  { id: "liam", name: "Liam", tag: "Energetic", src: liamSample.url },
+  { id: "laura", name: "Laura", tag: "Quirky", src: lauraSample.url },
 ];
 
 export const VoiceSoundboard = () => {
