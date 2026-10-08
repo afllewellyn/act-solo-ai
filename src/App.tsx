@@ -13,6 +13,8 @@ import Terms from "./pages/Terms";
 import Privacy from "./pages/Privacy";
 import Contact from "./pages/Contact";
 import HelpCenter from "./pages/HelpCenter";
+import Coaching from "./pages/Coaching";
+import BestSelfTapeApp from "./pages/BestSelfTapeApp";
 import { ConversationEngineTest } from "./components/ConversationEngineTest";
 
 const queryClient = new QueryClient();
@@ -33,6 +35,8 @@ const App = () => (
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/help" element={<HelpCenter />} />
+            <Route path="/coaching" element={<Coaching />} />
+            <Route path="/best-ai-self-taping-app-2026" element={<BestSelfTapeApp />} />
             <Route path="/test-engine" element={<ConversationEngineTest />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />

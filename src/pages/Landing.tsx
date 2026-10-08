@@ -2,15 +2,21 @@ import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { Check, Clock, Mic, Target, Users, Zap, ArrowRight } from "lucide-react";
+import { Check, Clock, Eye, Mic, Target, Users, Zap } from "lucide-react";
 import { setCanonical } from "@/lib/seo";
-import movieScriptImg from "@/assets/movie-script.jpg";
 import actorHeadshotImg from "@/assets/actor-headshot.jpg";
+import SiteHeader from "@/components/site/SiteHeader";
+import SiteFooter from "@/components/site/SiteFooter";
+import VoiceSoundboard from "@/components/site/VoiceSoundboard";
+
+const SELF_TAPE_FAQ_ANSWER =
+  "Yes. ActSolo acts as an on-demand self-tape reader. It listens for your lines and delivers your partner's cues with natural pacing so your scene rhythm stays intact.";
+
 const Landing = () => {
   useEffect(() => {
-    document.title = "ActSolo.AI – AI Scene Partner & Teleprompter for Self-Tapes";
+    document.title = "ActSolo.AI — AI Scene Partner & Self-Tape Reader for Actors";
     const meta = document.querySelector('meta[name="description"]');
-    if (meta) meta.setAttribute("content", "Rehearse scenes solo with an AI scene partner that reads cue lines aloud. Upload scripts, assign voices, and nail your self-tape auditions.");
+    if (meta) meta.setAttribute("content", "The AI scene partner and responsive self-tape reader for actors. Rehearse sides solo, get instant cue pickups, and record auditions without needing a human reader.");
     const restoreCanonical = setCanonical("/");
     const faq = document.createElement("script");
     faq.type = "application/ld+json";
@@ -33,31 +39,26 @@ const Landing = () => {
           "@type": "Question",
           name: "Is it a teleprompter?",
           acceptedAnswer: { "@type": "Answer", text: "Yes—ActSolo includes teleprompter support designed for actors, so you can stay present without breaking eye line." }
+        },
+        {
+          "@type": "Question",
+          name: "Can ActSolo replace a human self-tape reader?",
+          acceptedAnswer: { "@type": "Answer", text: SELF_TAPE_FAQ_ANSWER }
         }
       ]
     });
     document.head.appendChild(faq);
     return () => {
-      document.title = "ActSolo.AI";
+      document.title = "ActSolo.AI — AI Scene Partner & Self-Tape Reader for Actors";
       const meta = document.querySelector('meta[name="description"]');
-      if (meta) meta.setAttribute("content", "ActSolo.AI is the AI scene partner & teleprompter for actors who need to nail self-tapes solo");
+      if (meta) meta.setAttribute("content", "The AI scene partner and responsive self-tape reader for actors. Rehearse sides solo, get instant cue pickups, and record auditions without needing a human reader.");
       document.getElementById("faq-jsonld-landing")?.remove();
       restoreCanonical();
     };
   }, []);
 
-  return <div className="min-h-screen bg-[#FFFDF9]">
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-50 border-b border-gray-200 bg-[#FFFDF9]/80 backdrop-blur-md shadow-sm">
-        <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6 max-w-6xl">
-          <span className="text-xl sm:text-2xl font-bold text-gray-900">ActSolo.AI</span>
-          <Link to="/login">
-            <Button variant="outline" size="sm">
-              Log In
-            </Button>
-          </Link>
-        </div>
-      </header>
+  return <div className="min-h-screen bg-[#FFFDF9] overflow-x-hidden">
+      <SiteHeader showHome={false} />
 
       <main>
       {/* Hero Section - Split Layout */}
@@ -66,9 +67,9 @@ const Landing = () => {
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Text Left */}
             <div>
-              <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">AI SCENE PARTNER & TELEPROMPTER</p>
-              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">A Scene Partner for Solo Actors</h1>
-              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">When an audition comes in last-minute and you don't have a reader, ActSolo.AI helps you rehearse, react, and record with confidence. It's a performance-first teleprompter and AI reader that listens and responds in real time so your self-tapes feel alive, not mechanical.</p>
+              <p className="text-sm font-semibold uppercase tracking-wider mb-4 text-stone-950">THE AI SCENE PARTNER & SELF-TAPE READER</p>
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold tracking-tight mb-6 text-left text-gray-900">Your On-Demand AI Scene Partner & Self-Tape Reader</h1>
+              <p className="text-lg sm:text-xl text-gray-600 mb-8 text-left">Sides arrive late and you don't have a reader? ActSolo.AI listens for your cue and answers in real time, with a different AI voice for every character and a teleprompter that keeps your eyes near the lens. Rehearse and tape solo without breaking flow.</p>
               <div className="flex flex-col sm:flex-row gap-4">
                 <Link to="/login">
                   <Button size="lg" className="w-full sm:w-auto group transition-transform hover:scale-105 bg-black text-white hover:bg-gray-800">
@@ -81,6 +82,7 @@ const Landing = () => {
                   </Button>
                 </Link>
               </div>
+              <VoiceSoundboard />
             </div>
             {/* Image Right */}
             <div className="relative order-first lg:order-last">
@@ -90,7 +92,7 @@ const Landing = () => {
                 src="/lovable-uploads/3ab4d7e5-4b52-482a-befb-3ffd1a49772a.png"
                 width={900}
                 height={1200}
-                fetchPriority="high"
+                {...({ fetchpriority: "high" } as Record<string, string>)}
                 decoding="async"
               />
             </div>
@@ -98,8 +100,45 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Three Pillars */}
+      <section className="py-20 md:py-28 px-4 sm:px-6 bg-white">
+        <div className="container mx-auto max-w-6xl">
+          <p className="text-sm font-semibold uppercase tracking-wider mb-3 text-center text-gray-900">Why ActSolo</p>
+          <h2 className="text-2xl sm:text-3xl font-bold mb-12 text-center text-gray-900">
+            What Other Reader Apps Don't Do
+          </h2>
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: Mic,
+                title: "A Reader That Listens, Not Just a Timer That Waits.",
+                body: "Real-time conversational voice. ActSolo hears you finish your line and answers in character right away. No buttons, no awkward pauses.",
+              },
+              {
+                icon: Users,
+                title: "Multi-Character Casting in Seconds.",
+                body: "Give every character in your scene their own AI voice, so you always know who you're reacting to.",
+              },
+              {
+                icon: Eye,
+                title: "Stay in the Scene Without Breaking Eye Contact.",
+                body: "A teleprompter built for actors keeps your line near the lens, so you stay present instead of looking down at sides.",
+              },
+            ].map(({ icon: Icon, title, body }) => (
+              <div key={title} className="bg-[#FFFDF9] rounded-2xl p-8 shadow-sm">
+                <div className="p-3 bg-primary/10 rounded-xl w-fit mb-4">
+                  <Icon className="h-6 w-6 text-black" aria-hidden="true" />
+                </div>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">{title}</h3>
+                <p className="text-gray-600">{body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       {/* Built for the Real Problem - Image Left, Text Right */}
-      <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
+      <section className="py-20 md:py-32 px-4 sm:px-6">
         <div className="container mx-auto max-w-6xl">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
             {/* Image Left */}
@@ -110,7 +149,7 @@ const Landing = () => {
             <div>
               <p className="text-sm font-semibold uppercase tracking-wider mb-3 text-gray-900">The Problem</p>
               <h2 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-900">
-                Built for the Real Problem - Urgent Auditions and No Reader
+                The Self-Tape Reader That Never Cancels on You
               </h2>
               <p className="text-lg text-gray-600 mb-6">You know the moment:</p>
               <ul className="text-lg text-gray-600 space-y-3 mb-6">
@@ -302,6 +341,17 @@ const Landing = () => {
         </div>
       </section>
 
+      {/* Coaching Banner */}
+      <section className="py-14 md:py-16 px-4 sm:px-6 bg-black">
+        <div className="container mx-auto max-w-4xl text-center">
+          <p className="text-sm font-semibold text-white uppercase tracking-wider mb-3">COACHING</p>
+          <p className="text-2xl sm:text-3xl font-bold text-white mb-6">Want a human eye on your self-tape?</p>
+          <Button asChild size="lg" className="bg-white text-black hover:bg-gray-100 transition-transform hover:scale-105">
+            <Link to="/coaching">Explore coaching →</Link>
+          </Button>
+        </div>
+      </section>
+
       {/* FAQ Section */}
       <section className="py-20 md:py-32 px-4 sm:px-6 bg-white">
         <div className="container mx-auto max-w-3xl">
@@ -333,6 +383,14 @@ const Landing = () => {
               <AccordionContent className="text-gray-600">
                 Yes—ActSolo includes teleprompter support designed for actors, so you can stay present without breaking
                 eye line.
+              </AccordionContent>
+            </AccordionItem>
+            <AccordionItem value="item-4">
+              <AccordionTrigger className="text-left text-lg font-medium text-gray-900">
+                Can ActSolo replace a human self-tape reader?
+              </AccordionTrigger>
+              <AccordionContent className="text-gray-600">
+                {SELF_TAPE_FAQ_ANSWER}
               </AccordionContent>
             </AccordionItem>
           </Accordion>
@@ -367,34 +425,7 @@ const Landing = () => {
 
       </main>
 
-      {/* Footer */}
-      <footer className="border-t py-10 px-4 sm:px-6 bg-white dark:bg-background">
-        <div className="container mx-auto max-w-6xl">
-          <div className="flex justify-center mb-6">
-            <img src="/actsolo-logo-bw.png" alt="ActSolo.AI" className="h-6 opacity-60" />
-          </div>
-          <div className="flex justify-center gap-6 text-sm text-muted-foreground mb-6">
-            <Link to="/terms" className="hover:text-foreground transition-colors">
-              Terms
-            </Link>
-            <Link to="/privacy" className="hover:text-foreground transition-colors">
-              Privacy
-            </Link>
-            <Link to="/contact" className="hover:text-foreground transition-colors">
-              Contact
-            </Link>
-            <Link to="/help" className="hover:text-foreground transition-colors">
-              Help
-            </Link>
-          </div>
-          <p className="text-sm text-muted-foreground text-center max-w-2xl mx-auto">
-            ActSolo.AI is an AI teleprompter and AI scene partner for actors who want to rehearse and record self-tape
-            auditions without needing a reader. Designed for urgent auditions, ActSolo helps actors run lines, maintain
-            timing, and deliver more confident performances with responsive AI voices and real-time turn-taking.
-          </p>
-          <p className="text-sm text-muted-foreground text-center mt-4">© 2025 ActSolo.AI. All rights reserved.</p>
-        </div>
-      </footer>
+      <SiteFooter />
     </div>;
 };
 export default Landing;
