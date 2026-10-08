@@ -172,7 +172,7 @@ const BestSelfTapeApp = () => {
                   </tbody>
                 </table>
               </div>
-              <p className="text-sm text-muted-foreground mt-4">
+              <p className="text-sm text-gray-500 mt-4">
                 Comparison reflects typical features of each category. Individual apps and services vary.
               </p>
             </div>
