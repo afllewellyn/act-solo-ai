@@ -92,7 +92,7 @@ const Landing = () => {
                 src="/lovable-uploads/3ab4d7e5-4b52-482a-befb-3ffd1a49772a.png"
                 width={900}
                 height={1200}
-                fetchPriority="high"
+                {...({ fetchpriority: "high" } as Record<string, string>)}
                 decoding="async"
               />
             </div>
