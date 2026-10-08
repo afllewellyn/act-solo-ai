@@ -85,6 +85,7 @@ const Terms = () => {
       <footer className="border-t border-gray-200 bg-white py-8 mt-16">
         <div className="container mx-auto px-4 text-center">
           <div className="flex justify-center gap-6 text-sm text-gray-500 mb-4">
+            <Link to="/coaching" className="hover:text-gray-900">Coaching</Link>
             <Link to="/terms" className="hover:text-gray-900">Terms</Link>
             <Link to="/privacy" className="hover:text-gray-900">Privacy</Link>
             <Link to="/contact" className="hover:text-gray-900">Contact</Link>
