@@ -94,27 +94,69 @@ const BestSelfTapeApp = () => {
           </section>
 
           <section className="py-16 md:py-20 px-4 sm:px-6">
-            <div className="container mx-auto max-w-3xl space-y-8">
+            <div className="container mx-auto max-w-3xl space-y-12">
               <h2 className="text-2xl sm:text-3xl font-bold text-gray-900">The three kinds of reader tools</h2>
-              {[
-                {
-                  title: "1. Line-learning apps",
-                  body: "Great for memorizing. You usually record your partner's lines yourself or hear one flat voice, and you tap to move to the next line. Fine for getting off-book, but the timing never feels like a real scene.",
-                },
-                {
-                  title: "2. Human reader services",
-                  body: "A real person reads with you over video. The connection can be great, but you pay per session, you book ahead, and availability is thin when an audition drops at night.",
-                },
-                {
-                  title: "3. Conversational AI scene partners",
-                  body: "The newest option. The AI listens for you to finish your line and answers in character, out loud, right away. No buttons, no booking, no recording your own cues.",
-                },
-              ].map((t) => (
-                <div key={t.title} className="bg-white rounded-2xl p-8 shadow-sm">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-3">{t.title}</h3>
-                  <p className="text-gray-600">{t.body}</p>
-                </div>
-              ))}
+
+              <div className="space-y-5">
+                <h3 className="text-xl font-semibold text-gray-900">1. Line-learning apps</h3>
+                <p className="text-lg text-gray-600">
+                  Line-learning apps are built around a single question: can you say your next line without looking?
+                  Most of them slice your script into individual cues, hide your partner's text, and quiz you until
+                  the words stick. For pure memorization, they work — actors have used flashcard-style drill apps
+                  for years, and there's real value in being off-book early.
+                </p>
+                <p className="text-lg text-gray-600">
+                  Where they fall short is the scene itself. Because the app can't listen, it can't react: you
+                  typically tap a button (or wait out a fixed timer) to trigger the next line, and your partner's
+                  lines are either read by one flat synthetic voice or recorded by you in advance. Either way, the
+                  rhythm you rehearse is a rhythm you created, not one you'd get from a living scene partner. Actors
+                  often describe the experience as practicing <em>recall</em> rather than practicing <em>listening</em>
+                  {" "}— and on a self-tape, casting can tell the difference. If your only goal this week is to get
+                  lines into your head, these apps are a reasonable fit. If your goal is to feel the scene, they're
+                  only half the rehearsal.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <h3 className="text-xl font-semibold text-gray-900">2. Human reader services</h3>
+                <p className="text-lg text-gray-600">
+                  The traditional option, and still a good one: a real person — a coach, a fellow actor, or a
+                  dedicated reader service — joins you over video call and reads the other roles opposite you. A
+                  skilled human reader gives you something no app fully replicates: genuine responsiveness. They
+                  pick up on your pacing, adjust when you try a line differently, and bring a spark of spontaneity
+                  to the exchange.
+                </p>
+                <p className="text-lg text-gray-600">
+                  The trade-offs are practical. You pay per session, usually by the half hour, and you book in
+                  advance — which means the quality of your rehearsal depends on the reader's calendar, not on when
+                  your sides actually arrive. And in television and film, sides routinely land at 9pm with a 10am
+                  deadline. When that happens, a reader who's asleep isn't a reader at all. There's also a session
+                  dynamic to manage: some actors love the outside eye, while others find it hard to take genuine
+                  risks — the messy first attempts where discovery happens — in front of someone they're paying.
+                  Human readers are best treated as a premium option for the takes that matter most, not a daily
+                  rehearsal habit.
+                </p>
+              </div>
+
+              <div className="space-y-5">
+                <h3 className="text-xl font-semibold text-gray-900">3. Conversational AI scene partners</h3>
+                <p className="text-lg text-gray-600">
+                  The newest category, and the one this guide focuses on. A conversational AI scene partner listens
+                  while you speak, recognizes when you've finished your line, and answers in character — out loud,
+                  immediately, with no button to press. It behaves less like a playback device and more like the
+                  other actor in the room: it waits for you, responds to your choices, and keeps the exchange moving
+                  at the speed of an actual scene.
+                </p>
+                <p className="text-lg text-gray-600">
+                  Because it's software rather than a person, it changes the economics of rehearsal. It's available
+                  the moment the sides arrive — 3pm or 3am — and a run-through costs nothing extra, so you can do
+                  twenty takes instead of three without watching a meter. The stronger tools in this category add
+                  capabilities that matter specifically for self-taping: a distinct voice for each character in
+                  multi-person scenes, so your reactions are honest rather than habitual, and a built-in teleprompter
+                  that keeps your lines near the camera lens, protecting your eye-line on tape. The category is young
+                  and quality varies — which is exactly why the criteria in the next section are worth reading.
+                </p>
+              </div>
             </div>
           </section>
 
