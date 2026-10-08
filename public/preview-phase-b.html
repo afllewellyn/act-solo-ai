@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>ActSolo.AI – Phase B Mockup</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  body { background:#FFFDF9; font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+  .drawer { transition: transform .3s ease; }
+  .line { transition: opacity .35s, transform .35s, font-size .35s, background-color .35s; }
+  #prompter { scroll-behavior: smooth; }
+  .eyeline { top: 28%; }
+  @keyframes pulse-ring { 0%{box-shadow:0 0 0 0 rgba(34,197,94,.6)} 100%{box-shadow:0 0 0 14px rgba(34,197,94,0)} }
+  .listening-dot { animation: pulse-ring 1.2s infinite; }
+  @keyframes bars { 0%,100%{height:6px} 50%{height:20px} }
+  .bar { animation: bars .8s infinite ease-in-out; }
+</style>
+</head>
+<body class="text-gray-900">
+
+<!-- Mockup banner + view switcher -->
+<div class="sticky top-0 z-40 bg-black text-white">
+  <div class="max-w-6xl mx-auto px-4 py-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+    <span class="font-semibold tracking-wide">MOCKUP · Phase B preview (no real data)</span>
+    <div class="flex bg-white/10 rounded-full p-1">
+      <button data-view="desk" class="view-btn px-4 py-1.5 rounded-full bg-white text-black font-medium">A · Studio Desk</button>
+      <button data-view="prompter" class="view-btn px-4 py-1.5 rounded-full font-medium">B · Eye-Line Teleprompter</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= VIEW A: STUDIO DESK ================= -->
+<section id="view-desk">
+  <header class="border-b border-gray-200 bg-white/70">
+    <div class="max-w-6xl mx-auto px-4 py-4 flex items-center justify-between">
+      <span class="text-xl font-bold">ActSolo.AI</span>
+      <div class="flex items-center gap-3 text-sm text-gray-600">
+        <span class="hidden sm:inline">andrew@example.com</span>
+        <button class="border border-gray-300 rounded-full px-4 py-1.5 hover:bg-gray-50">Sign out</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="max-w-6xl mx-auto px-4 py-10">
+    <div class="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+      <div>
+        <p class="text-xs font-semibold tracking-widest text-gray-500 mb-1">YOUR STUDIO DESK</p>
+        <h1 class="text-3xl sm:text-4xl font-bold">My Scripts <span id="count" class="text-gray-400 font-normal">(3)</span></h1>
+      </div>
+      <div class="flex gap-3">
+        <input id="search" placeholder="Search scripts…" class="bg-white border border-gray-200 rounded-full px-4 py-2 text-sm w-48 focus:outline-none focus:ring-2 focus:ring-black" />
+        <button id="openDrawer" class="bg-black text-white rounded-full px-5 py-2 text-sm font-semibold hover:bg-gray-800">+ New Script</button>
+      </div>
+    </div>
+
+    <div id="grid" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3"></div>
+  </main>
+
+  <!-- Slide-over creator -->
+  <div id="overlay" class="fixed inset-0 bg-black/40 z-40 hidden"></div>
+  <aside id="drawer" class="drawer fixed top-0 right-0 h-full w-full sm:w-[560px] bg-[#FFFDF9] z-50 shadow-2xl translate-x-full flex flex-col">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-200">
+      <span class="text-xs font-semibold tracking-widest text-gray-500">NEW SCRIPT</span>
+      <button id="closeDrawer" class="text-2xl leading-none text-gray-500 hover:text-black" aria-label="Close">×</button>
+    </div>
+    <div class="flex-1 overflow-y-auto px-6 py-6 space-y-5">
+      <input id="newTitle" placeholder="Untitled scene" class="w-full bg-transparent text-3xl font-bold placeholder-gray-300 focus:outline-none" />
+      <div class="flex flex-wrap gap-2 text-xs">
+        <span class="bg-white border border-gray-200 rounded-full px-3 py-1"><b>Bold</b> = You</span>
+        <span class="bg-white border border-gray-200 rounded-full px-3 py-1"><i>Italic</i> = AI scene partner</span>
+      </div>
+      <div>
+        <p class="text-xs font-semibold tracking-widest text-gray-500 mb-2">CHARACTERS DETECTED</p>
+        <div id="chips" class="flex flex-wrap gap-2 min-h-[28px]"><span class="text-sm text-gray-400">Paste a script to detect characters…</span></div>
+      </div>
+      <textarea id="newBody" rows="14" placeholder="Paste your sides here…&#10;&#10;SARAH: Where were you last night?&#10;MIKE: Out. Does it matter?" class="w-full bg-white rounded-2xl p-5 text-base leading-relaxed shadow-sm focus:outline-none focus:ring-2 focus:ring-black resize-none"></textarea>
+      <button id="sample" class="text-sm underline text-gray-500 hover:text-black">Paste sample scene</button>
+    </div>
+    <div class="px-6 py-4 border-t border-gray-200 flex gap-3 justify-end">
+      <button id="saveOnly" class="border border-gray-300 rounded-full px-5 py-2.5 text-sm font-medium hover:bg-white">Save</button>
+      <button id="saveRehearse" class="bg-black text-white rounded-full px-5 py-2.5 text-sm font-semibold hover:bg-gray-800">Save &amp; Start Rehearsal →</button>
+    </div>
+  </aside>
+</section>
+
+<!-- ================= VIEW B: TELEPROMPTER ================= -->
+<section id="view-prompter" class="hidden">
+  <div class="bg-[#0d0d0d] text-white min-h-[calc(100vh-44px)] flex flex-col">
+    <!-- Slim HUD -->
+    <div class="flex items-center justify-between px-4 sm:px-8 py-3 border-b border-white/10 text-sm">
+      <div class="flex items-center gap-4">
+        <button data-view="desk" class="view-btn text-white/60 hover:text-white">← Scripts</button>
+        <span id="sceneTitle" class="font-semibold">The Kitchen Scene</span>
+      </div>
+      <div class="flex items-center gap-4">
+        <span class="text-white/50 hidden sm:inline">Take <b id="take" class="text-white">1</b></span>
+        <span id="timer" class="font-mono text-white/80">00:00</span>
+        <div class="flex border border-white/20 rounded-full overflow-hidden">
+          <button id="fontDown" class="px-3 py-1 hover:bg-white/10">A−</button>
+          <button id="fontUp" class="px-3 py-1 hover:bg-white/10 border-l border-white/20">A+</button>
+        </div>
+        <button id="settings" class="text-white/60 hover:text-white" title="Settings drawer">⚙</button>
+        <button id="stop" class="bg-red-600 hover:bg-red-500 rounded-full px-4 py-1 font-semibold">Stop</button>
+      </div>
+    </div>
+
+    <!-- Camera hint -->
+    <div class="text-center text-[11px] tracking-widest text-white/30 pt-2">● CAMERA / WEBCAM ABOVE</div>
+
+    <!-- Prompter -->
+    <div class="relative flex-1">
+      <!-- Eye-line guide -->
+      <div class="eyeline absolute left-0 right-0 pointer-events-none z-10 flex items-center">
+        <div class="w-3 h-3 border-t-[6px] border-b-[6px] border-l-[10px] border-t-transparent border-b-transparent border-l-amber-400 ml-2"></div>
+        <div class="flex-1 border-t border-dashed border-amber-400/30"></div>
+        <span class="text-[10px] tracking-widest text-amber-400/60 mr-3 ml-2">EYE-LINE</span>
+      </div>
+      <div id="prompter" class="absolute inset-0 overflow-y-auto px-6 sm:px-0">
+        <div id="lines" class="max-w-3xl mx-auto"></div>
+      </div>
+    </div>
+
+    <!-- Status + controls -->
+    <div class="border-t border-white/10 px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div id="status" class="flex items-center gap-3 text-lg font-bold tracking-wide"></div>
+      <div class="flex gap-3">
+        <button id="restart" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">Restart</button>
+        <button id="auto" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">▶ Auto-play</button>
+        <button id="next" class="bg-white text-black rounded-full px-5 py-2 text-sm font-semibold hover:bg-gray-200">Next cue →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Settings drawer -->
+  <aside id="sDrawer" class="drawer fixed top-0 right-0 h-full w-80 bg-[#161616] text-white z-50 translate-x-full p-6 space-y-6 shadow-2xl">
+    <div class="flex justify-between items-center"><span class="font-semibold">Rehearsal settings</span><button id="sClose" class="text-2xl">×</button></div>
+    <div><p class="text-xs text-white/50 mb-2">YOUR ROLE</p><div class="bg-white/10 rounded-xl px-4 py-2">MAYA</div></div>
+    <div><p class="text-xs text-white/50 mb-2">AI VOICES</p>
+      <div class="space-y-2 text-sm"><div class="flex justify-between bg-white/10 rounded-xl px-4 py-2"><span>DANIEL</span><span class="text-white/60">James</span></div></div>
+    </div>
+    <div><p class="text-xs text-white/50 mb-2">SPEED</p><input type="range" class="w-full accent-white" /></div>
+    <p class="text-xs text-white/40">In the real build, all existing voice and script controls move here so the reading view stays clean.</p>
+  </aside>
+</section>
+
+<script>
+/* ---------- view switching ---------- */
+const views = { desk: document.getElementById('view-desk'), prompter: document.getElementById('view-prompter') };
+function show(v){
+  Object.entries(views).forEach(([k,el])=>el.classList.toggle('hidden',k!==v));
+  document.querySelectorAll('.sticky .view-btn').forEach(b=>{
+    const on=b.dataset.view===v; b.classList.toggle('bg-white',on); b.classList.toggle('text-black',on);
+  });
+  if(v==='prompter'){ setTimeout(()=>render(true),50); }
+  window.scrollTo(0,0);
+}
+document.querySelectorAll('.view-btn').forEach(b=>b.onclick=()=>show(b.dataset.view));
+
+/* ---------- Studio Desk ---------- */
+let scripts = [
+  {title:'The Kitchen Scene', chars:['MAYA','DANIEL'], mins:3, last:'Rehearsed 2 days ago', preview:'MAYA: You said you\'d be home by eight. DANIEL: I know what I said…'},
+  {title:'Law & Order – Detective Sides', chars:['DET. REYES','SUSPECT','LAWYER'], mins:5, last:'Rehearsed yesterday', preview:'REYES: Walk me through it again. Slowly this time…'},
+  {title:'Commercial – Coffee Spot', chars:['ACTOR','BARISTA'], mins:1, last:'Never rehearsed', preview:'BARISTA: The usual? ACTOR: Surprise me today.'},
+];
+const grid=document.getElementById('grid');
+function renderGrid(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const list=scripts.filter(s=>s.title.toLowerCase().includes(q));
+  document.getElementById('count').textContent=`(${scripts.length})`;
+  grid.innerHTML=list.map((s,i)=>`
+    <article class="group bg-white rounded-2xl p-6 shadow-sm hover:shadow-lg transition flex flex-col">
+      <div class="flex justify-between items-start mb-3">
+        <h3 class="text-lg font-bold leading-snug pr-4">${s.title}</h3>
+        <button class="text-gray-300 hover:text-gray-700 text-xl leading-none" title="Edit · Duplicate · Delete">⋯</button>
+      </div>
+      <div class="flex flex-wrap gap-1.5 mb-4">${s.chars.map(c=>`<span class="text-[11px] font-semibold bg-gray-100 rounded-full px-2.5 py-0.5">${c}</span>`).join('')}</div>
+      <p class="text-sm text-gray-500 line-clamp-2 mb-6 flex-1">${s.preview}</p>
+      <div class="flex items-center justify-between">
+        <span class="text-xs text-gray-400">~${s.mins} min · ${s.last}</span>
+        <button data-i="${scripts.indexOf(s)}" class="rehearse bg-black text-white rounded-full px-4 py-2 text-sm font-semibold hover:bg-gray-800">Rehearse ▶</button>
+      </div>
+    </article>`).join('') || '<p class="text-gray-400">No scripts match.</p>';
+  grid.querySelectorAll('.rehearse').forEach(b=>b.onclick=()=>{document.getElementById('sceneTitle').textContent=scripts[b.dataset.i].title;show('prompter');});
+}
+document.getElementById('search').oninput=renderGrid;
+renderGrid();
+
+const drawer=document.getElementById('drawer'), overlay=document.getElementById('overlay');
+const openD=()=>{drawer.classList.remove('translate-x-full');overlay.classList.remove('hidden');};
+const closeD=()=>{drawer.classList.add('translate-x-full');overlay.classList.add('hidden');};
+document.getElementById('openDrawer').onclick=openD;
+document.getElementById('closeDrawer').onclick=closeD; overlay.onclick=closeD;
+
+const body=document.getElementById('newBody'), chips=document.getElementById('chips');
+function detect(){
+  const names=[...new Set([...body.value.matchAll(/^\s*([A-Z][A-Z .'-]{1,24}):/gm)].map(m=>m[1].trim()))];
+  chips.innerHTML=names.length?names.map((n,i)=>`<span class="text-xs font-semibold rounded-full px-3 py-1 ${i===0?'bg-black text-white':'bg-white border border-gray-300'}">${n}${i===0?' · You':' · AI'}</span>`).join(''):'<span class="text-sm text-gray-400">Paste a script to detect characters…</span>';
+  return names;
+}
+body.oninput=detect;
+document.getElementById('sample').onclick=()=>{body.value="MAYA: You said you'd be home by eight.\nDANIEL: I know what I said.\nMAYA: Then where were you?\nDANIEL: Driving. Just… driving.\nMAYA: For three hours?\nDANIEL: I needed to think, Maya.";if(!newTitle.value)newTitle.value='The Kitchen Scene (copy)';detect();};
+function save(go){
+  const t=newTitle.value.trim()||'Untitled scene', names=detect();
+  scripts.unshift({title:t,chars:names.length?names:['—'],mins:Math.max(1,Math.round(body.value.split(/\s+/).length/130)),last:'Just created',preview:body.value.slice(0,110)||'Empty script'});
+  renderGrid(); closeD(); newTitle.value=''; body.value=''; detect();
+  if(go){document.getElementById('sceneTitle').textContent=t;show('prompter');}
+}
+document.getElementById('saveOnly').onclick=()=>save(false);
+document.getElementById('saveRehearse').onclick=()=>save(true);
+
+/* ---------- Teleprompter ---------- */
+const scene=[
+  {c:'DANIEL',t:"You're still up.",ai:true},
+  {c:'MAYA',t:"You said you'd be home by eight.",ai:false},
+  {c:'DANIEL',t:"I know what I said.",ai:true},
+  {c:'MAYA',t:"Then where were you? I called four times.",ai:false},
+  {c:'DANIEL',t:"Driving. Just… driving.",ai:true},
+  {c:'MAYA',t:"For three hours? Daniel, look at me.",ai:false},
+  {c:'DANIEL',t:"I needed to think, Maya. About us. About all of it.",ai:true},
+  {c:'MAYA',t:"And? What did you decide?",ai:false},
+  {c:'DANIEL',t:"That I don't want to keep pretending we're fine.",ai:true},
+  {c:'MAYA',t:"(beat) Neither do I.",ai:false},
+];
+let idx=0, size=34, autoT=null, secs=0, take=1;
+const linesEl=document.getElementById('lines'), prompter=document.getElementById('prompter'), statusEl=document.getElementById('status');
+function render(jump){
+  linesEl.innerHTML=`<div style="height:28vh"></div>`+scene.map((l,i)=>{
+    const st=i<idx?'past':i===idx?'active':'next';
+    const op=st==='past'?'opacity-30':st==='next'?'opacity-55':'opacity-100';
+    const fs=st==='active'?size*1.15:size*0.8;
+    const box=st==='active'?(l.ai?'bg-sky-500/10 border-l-4 border-sky-400':'bg-amber-400/10 border-l-4 border-amber-400'):'border-l-4 border-transparent';
+    return `<div id="l${i}" class="line ${op} ${box} rounded-r-xl px-5 py-4 my-2">
+      <div class="text-xs font-bold tracking-widest mb-1 ${l.ai?'text-sky-300':'text-amber-300'}">${l.c} ${l.ai?'· AI PARTNER':'· YOU'}</div>
+      <div style="font-size:${fs}px;line-height:1.3" class="${l.ai?'italic text-white/90':'font-semibold text-white'}">${l.t}</div>
+    </div>`;}).join('')+`<div style="height:70vh"></div>`;
+  const el=document.getElementById('l'+idx);
+  if(el){ const target=el.offsetTop-prompter.clientHeight*0.28+8; prompter.scrollTo({top:target,behavior:jump?'auto':'smooth'}); }
+  const cur=scene[idx];
+  if(!cur){statusEl.innerHTML='<span class="text-white/70">✓ SCENE COMPLETE — nice take</span>';return;}
+  statusEl.innerHTML=cur.ai
+    ?`<span class="flex items-end gap-1 h-6">${[0,1,2,3].map(n=>`<span class="bar w-1.5 bg-sky-400 rounded" style="animation-delay:${n*.15}s"></span>`).join('')}</span><span class="text-sky-300">AI SPEAKING</span>`
+    :`<span class="listening-dot w-4 h-4 rounded-full bg-green-500"></span><span class="text-green-400">LISTENING — YOUR LINE</span>`;
+}
+function next(){ if(idx<scene.length){idx++;render();} else stopAuto(); }
+function stopAuto(){clearInterval(autoT);autoT=null;document.getElementById('auto').textContent='▶ Auto-play';}
+document.getElementById('next').onclick=next;
+document.getElementById('restart').onclick=()=>{idx=0;secs=0;take++;document.getElementById('take').textContent=take;stopAuto();render();};
+document.getElementById('auto').onclick=e=>{ if(autoT){stopAuto();return;} e.target.textContent='❚❚ Pause'; autoT=setInterval(()=>{ if(idx>=scene.length)stopAuto(); else next(); },2200); };
+document.getElementById('stop').onclick=()=>{stopAuto();show('desk');};
+document.getElementById('fontUp').onclick=()=>{size=Math.min(56,size+4);render(true);};
+document.getElementById('fontDown').onclick=()=>{size=Math.max(22,size-4);render(true);};
+const sD=document.getElementById('sDrawer');
+document.getElementById('settings').onclick=()=>sD.classList.remove('translate-x-full');
+document.getElementById('sClose').onclick=()=>sD.classList.add('translate-x-full');
+setInterval(()=>{ if(!views.prompter.classList.contains('hidden')&&idx<scene.length){secs++;document.getElementById('timer').textContent=String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0');}},1000);
+document.addEventListener('keydown',e=>{ if(!views.prompter.classList.contains('hidden')&&(e.code==='Space'||e.code==='ArrowDown')){e.preventDefault();next();}});
+render(true);
+</script>
+</body>
+</html>
