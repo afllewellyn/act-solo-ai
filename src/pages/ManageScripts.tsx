@@ -22,6 +22,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import type { Json } from '@/integrations/supabase/types';
 import ScriptCreatorDrawer, { EditableScript } from '@/components/scripts/ScriptCreatorDrawer';
 import { LogOut, MoreVertical, Pencil, Copy, Trash2, Play, Plus } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
