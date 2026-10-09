@@ -1,188 +1,151 @@
 import { useState } from 'react';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Slider } from '@/components/ui/slider';
 import { useRehearsal } from '@/contexts/RehearsalContext';
 import { useTTS } from '@/hooks/useTTS';
 import type { Character } from '@/services/ScriptRehearsalStateMachine';
-import { Play, Loader2, Volume2 } from 'lucide-react';
+import { detectCharacterRoles } from '@/lib/scriptMeta';
+import { cn } from '@/lib/utils';
+import { Play, Loader2, Square, Volume2 } from 'lucide-react';
 
 interface RehearsalSettingsDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Persists character voice changes (updates DB) */
   onCharactersChange: (characters: Character[]) => void;
+  onReadScript: () => void;
 }
 
-const RehearsalSettingsDrawer = ({
-  open,
-  onOpenChange,
-  onCharactersChange,
-}: RehearsalSettingsDrawerProps) => {
-  const {
-    textFilter,
-    setTextFilter,
-    characters,
-    voices,
-    playbackSpeed,
-    rehearsalState,
-  } = useRehearsal();
+const label = 'text-xs font-semibold tracking-[0.15em] uppercase text-studio-muted';
 
+const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onReadScript }: RehearsalSettingsDrawerProps) => {
+  const {
+    textFilter, setTextFilter, characters, voices, playbackSpeed, setPlaybackSpeed,
+    rehearsalState, scriptContent, isManualTTSPlaying,
+  } = useRehearsal();
   const { speak, stop, isPlaying, isLoading } = useTTS();
   const [testingVoice, setTestingVoice] = useState<string | null>(null);
 
-  const handleCharacterVoiceChange = (index: number, voiceId: string) => {
-    const updated = characters.map((c, i) =>
-      i === index ? { ...c, voice: voiceId } : c
-    );
-    onCharactersChange(updated);
-  };
+  const roles = detectCharacterRoles(scriptContent);
+  const userNames = roles.filter((r) => r.role === 'you').map((r) => r.name);
+  const fallbackUser = characters.filter((c) => c.isUserRole).map((c) => c.name.toUpperCase());
+  const yourRole = userNames.length ? userNames : fallbackUser;
+  const aiChars = characters
+    .map((c, index) => ({ c, index }))
+    .filter(({ c }) => textFilter === 'all' || !yourRole.includes(c.name.toUpperCase()));
 
-  const handleTestVoice = async (voiceId: string, characterName: string) => {
-    if (isPlaying) {
-      stop();
-      setTestingVoice(null);
-      return;
-    }
+  const changeVoice = (index: number, voiceId: string) =>
+    onCharactersChange(characters.map((c, i) => (i === index ? { ...c, voice: voiceId } : c)));
+
+  const testVoice = async (voiceId: string, name: string) => {
+    if (isPlaying) { stop(); setTestingVoice(null); return; }
     setTestingVoice(voiceId);
-    await speak(`Hi, I'm ${characterName}. This is how I'll sound in your scene.`, {
-      voiceId,
-      playbackSpeed,
-      onComplete: () => setTestingVoice(null),
+    await speak(`Hi, I'm ${name}. This is how I'll sound in your scene.`, {
+      voiceId, playbackSpeed, onComplete: () => setTestingVoice(null),
     });
     setTestingVoice(null);
   };
 
+  const locked = rehearsalState !== 'IDLE';
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto">
-        <SheetHeader>
-          <SheetTitle>Rehearsal Settings</SheetTitle>
-          <SheetDescription>
-            Choose what the AI reads and assign a voice to each character.
-          </SheetDescription>
-        </SheetHeader>
+      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto bg-studio text-studio-fg border-studio-border [&>button]:text-studio-fg">
+        <SheetTitle className="text-2xl font-bold text-studio-fg">Rehearsal settings</SheetTitle>
+        <SheetDescription className="sr-only">Choose what the AI reads, voices and speed.</SheetDescription>
 
-        <div className="space-y-6 py-6">
-          {/* AI reads filter */}
-          <div className="space-y-2">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              AI reads
-            </Label>
-            <div className="grid grid-cols-2 gap-2">
-              <Button
-                variant={textFilter === 'italic' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTextFilter('italic')}
-                disabled={rehearsalState !== 'IDLE'}
-                className="h-auto py-2 flex-col items-start"
-              >
-                <span className="font-medium">Italic only</span>
-                <span className="text-xs opacity-80 font-normal">
-                  Scene partner mode
-                </span>
-              </Button>
-              <Button
-                variant={textFilter === 'all' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setTextFilter('all')}
-                disabled={rehearsalState !== 'IDLE'}
-                className="h-auto py-2 flex-col items-start"
-              >
-                <span className="font-medium">Full script</span>
-                <span className="text-xs opacity-80 font-normal">
-                  Listen &amp; learn
-                </span>
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {textFilter === 'italic'
-                ? 'The AI reads the italic lines and waits for you to say your bold lines.'
-                : 'The AI reads every line aloud so you can listen to the whole scene.'}
-            </p>
-          </div>
-
-          {/* Per-character voices */}
-          <div className="space-y-3">
-            <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-              Character voices
-            </Label>
-            {characters.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
-                No characters detected yet. Add lines like{' '}
-                <span className="font-mono text-xs">NAME: dialogue</span> to your
-                script.
-              </p>
-            ) : (
-              characters.map((character, index) => (
-                <div
-                  key={`${character.name}-${index}`}
-                  className="flex items-center gap-2"
+        <div className="space-y-8 py-6">
+          <section className="space-y-3">
+            <p className={label}>AI reads</p>
+            <div className="grid grid-cols-2 gap-1 rounded-2xl bg-studio-surface p-1.5">
+              {([
+                ['italic', 'Italic only', 'Scene partner'],
+                ['all', 'Full script', 'Listen & learn'],
+              ] as const).map(([value, title, sub]) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={locked}
+                  onClick={() => setTextFilter(value)}
+                  aria-pressed={textFilter === value}
+                  className={cn(
+                    'rounded-xl py-3 px-2 text-center transition-colors disabled:opacity-60',
+                    textFilter === value ? 'bg-studio-fg text-studio' : 'text-studio-fg hover:bg-studio-border',
+                  )}
                 >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate mb-1">
-                      {character.name}
-                    </p>
-                    <Select
-                      value={character.voice}
-                      onValueChange={(v) => handleCharacterVoiceChange(index, v)}
-                    >
-                      <SelectTrigger
-                        className="w-full"
-                        aria-label={`Voice for ${character.name}`}
-                      >
-                        <SelectValue placeholder="Select voice">
-                          <span className="truncate">
-                            {voices.find((v) => v.id === character.voice)?.name ||
-                              'Select voice'}
-                          </span>
-                        </SelectValue>
-                      </SelectTrigger>
-                      <SelectContent className="max-h-72">
-                        {voices.map((voice) => (
-                          <SelectItem key={voice.id} value={voice.id}>
-                            <span className="font-medium">{voice.name}</span>
-                            <span className="text-xs text-muted-foreground ml-2">
-                              {voice.gender} • {voice.accent}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    className="h-10 w-10 shrink-0 mt-5"
-                    onClick={() => handleTestVoice(character.voice, character.name)}
+                  <span className="block font-semibold">{title}</span>
+                  <span className="block text-xs opacity-70">{sub}</span>
+                </button>
+              ))}
+            </div>
+            <p className="text-sm text-studio-muted">
+              {textFilter === 'italic'
+                ? 'AI reads the italic lines and listens for you on bold lines.'
+                : 'AI reads every line aloud so you can hear the whole scene.'}
+              {locked && ' Stop the rehearsal to change this.'}
+            </p>
+          </section>
+
+          <section className="space-y-3">
+            <p className={label}>Your role</p>
+            <div className="rounded-2xl bg-studio-surface px-5 py-4 text-lg font-semibold">
+              {yourRole.length ? yourRole.join(', ') : <span className="text-studio-muted text-sm font-normal">Make your lines bold to set your role</span>}
+            </div>
+          </section>
+
+          <section className="space-y-3">
+            <p className={label}>AI voices</p>
+            {aiChars.length === 0 ? (
+              <p className="text-sm text-studio-muted">No AI characters found. Start lines with <span className="font-mono">NAME:</span> and make them italic.</p>
+            ) : (
+              aiChars.map(({ c, index }) => (
+                <div key={`${c.name}-${index}`} className="flex items-center gap-2 rounded-2xl bg-studio-surface pl-5 pr-2 py-2">
+                  <span className="flex-1 min-w-0 truncate font-semibold">{c.name.toUpperCase()}</span>
+                  <Select value={c.voice} onValueChange={(v) => changeVoice(index, v)}>
+                    <SelectTrigger aria-label={`Voice for ${c.name}`} className="w-32 border-0 bg-transparent text-studio-fg focus:ring-0">
+                      <SelectValue placeholder="Voice">{voices.find((v) => v.id === c.voice)?.name || 'Voice'}</SelectValue>
+                    </SelectTrigger>
+                    <SelectContent className="max-h-72">
+                      {voices.map((v) => (
+                        <SelectItem key={v.id} value={v.id}>
+                          <span className="font-medium">{v.name}</span>
+                          <span className="text-xs text-muted-foreground ml-2">{v.gender} • {v.accent}</span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <button
+                    type="button"
+                    onClick={() => testVoice(c.voice, c.name)}
                     disabled={isLoading}
-                    aria-label={`Test voice for ${character.name}`}
+                    aria-label={`Test voice for ${c.name}`}
+                    className="h-10 rounded-full border border-studio-border px-4 text-sm font-medium inline-flex items-center gap-1.5 hover:bg-studio-border disabled:opacity-60"
                   >
-                    {isLoading && testingVoice === character.voice ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : isPlaying && testingVoice === character.voice ? (
-                      <Volume2 className="h-4 w-4" />
-                    ) : (
-                      <Play className="h-4 w-4" />
-                    )}
-                  </Button>
+                    {isLoading && testingVoice === c.voice ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      : isPlaying && testingVoice === c.voice ? <Volume2 className="h-3.5 w-3.5" />
+                      : <Play className="h-3.5 w-3.5 fill-current" />}
+                    Test
+                  </button>
                 </div>
               ))
             )}
-          </div>
+          </section>
+
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <p className={label}>Speed</p>
+              <span className="text-sm font-mono text-studio-muted">{playbackSpeed.toFixed(1)}x</span>
+            </div>
+            <Slider value={[playbackSpeed]} min={0.7} max={1.2} step={0.05} onValueChange={([v]) => setPlaybackSpeed(v)} aria-label="AI speaking speed" />
+          </section>
+
+          <button
+            type="button"
+            onClick={() => { onReadScript(); onOpenChange(false); }}
+            className="w-full h-14 rounded-full border border-studio-border text-lg font-medium inline-flex items-center justify-center gap-2 hover:bg-studio-surface"
+          >
+            {isManualTTSPlaying ? <><Square className="h-4 w-4 fill-current" /> Stop reading</> : <><Volume2 className="h-5 w-5" /> Read script aloud (no mic)</>}
+          </button>
         </div>
       </SheetContent>
     </Sheet>

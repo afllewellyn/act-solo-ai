@@ -37,14 +37,6 @@ interface Script {
   user_id: string;
 }
 
-const stripHtmlTags = (html: string): string =>
-  html.replace(/<[^>]*>/g, '').replace(/&[^;]+;/g, ' ').trim();
-
-const getPreviewText = (content: string): string => {
-  const plainText = stripHtmlTags(content);
-  return plainText.length > 140 ? `${plainText.substring(0, 140)}…` : plainText;
-};
-
 const ManageScripts = () => {
   const { user, loading, signOut } = useAuth();
   const navigate = useNavigate();
