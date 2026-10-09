@@ -457,6 +457,15 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                       onFontSizeChange={setFontSize}
                       onToggleFullscreen={toggleFullscreen}
                     />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setSettingsOpen(true)}
+                      className="h-10 w-10 rounded-full shrink-0"
+                      aria-label="Rehearsal settings"
+                    >
+                      <Settings className="h-5 w-5" />
+                    </Button>
                   </div>
                 ) : (
                   /* Full Desktop Controls */
