@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,7 +23,8 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import ScriptCreatorDrawer, { EditableScript } from '@/components/scripts/ScriptCreatorDrawer';
-import { LogOut, MoreVertical, Pencil, Copy, Trash2, Play, Plus } from 'lucide-react';
+import { detectCharacterRoles, getPreviewLines, estimateMinutes } from '@/lib/scriptMeta';
+import { LogOut, MoreHorizontal, Pencil, Copy, Trash2, Play, Plus } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface Script {
@@ -159,123 +159,109 @@ const ManageScripts = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="border-b">
-        <div className="container mx-auto grid grid-cols-3 items-center py-4 px-4 sm:px-6">
-          <div className="justify-self-start">
-            <h1 className="text-xl sm:text-2xl font-semibold">ActSolo.AI</h1>
-          </div>
-
-          <span className="text-sm text-muted-foreground hidden sm:block text-center">
-            Welcome, {user.email}
-          </span>
-
-          <div className="flex items-center gap-2 sm:gap-4 justify-self-end">
+    <div className="min-h-screen bg-desk">
+      <header className="border-b bg-desk/90 backdrop-blur sticky top-0 z-30">
+        <div className="container mx-auto flex items-center justify-between py-4 px-4 sm:px-6">
+          <span className="text-xl sm:text-2xl font-bold tracking-tight text-foreground">ActSolo.AI</span>
+          <div className="flex items-center gap-2 sm:gap-4">
+            <span className="text-sm text-muted-foreground hidden md:block">{user.email}</span>
             <ThemeToggle />
-            <Button variant="outline" size="sm" onClick={signOut}>
-              <LogOut className="h-4 w-4 mr-2" />
-              <span className="hidden sm:inline">Sign Out</span>
-              <span className="sm:hidden">Exit</span>
+            <Button variant="outline" size="sm" onClick={signOut} className="rounded-full">
+              <LogOut className="h-4 w-4 sm:mr-2" />
+              <span className="hidden sm:inline">Sign out</span>
             </Button>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 py-6 sm:py-10">
-        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+      <main className="container mx-auto px-4 sm:px-6 py-8 sm:py-12">
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-8">
           <div>
-            <h2 className="text-2xl sm:text-3xl font-semibold">Studio Desk</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              {scripts.length} script{scripts.length === 1 ? '' : 's'} in your library
-            </p>
+            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted-foreground">Your studio desk</p>
+            <h1 className="text-4xl sm:text-5xl font-bold tracking-tight text-foreground mt-1">
+              My Scripts <span className="text-muted-foreground font-semibold">({scripts.length})</span>
+            </h1>
           </div>
-          <Button onClick={handleNewScript} className="sm:w-auto w-full">
-            <Plus className="h-4 w-4 mr-2" />
-            New Script
-          </Button>
+          <button
+            onClick={handleNewScript}
+            className="h-12 rounded-full bg-foreground px-6 font-semibold text-background inline-flex items-center justify-center gap-2 hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> New Script
+          </button>
         </div>
 
         {scriptsLoading ? (
           <div className="text-center text-muted-foreground py-12">Loading scripts...</div>
         ) : scripts.length === 0 ? (
-          <Card>
-            <CardContent className="text-center py-12 space-y-4">
-              <p className="text-muted-foreground">
-                No scripts yet. Create your first script to start rehearsing.
-              </p>
-              <Button onClick={handleNewScript}>
-                <Plus className="h-4 w-4 mr-2" />
-                Create your first script
-              </Button>
-            </CardContent>
-          </Card>
+          <div className="rounded-3xl bg-desk-surface shadow-sm text-center py-16 px-6 space-y-4">
+            <p className="text-lg text-foreground font-semibold">Your desk is empty</p>
+            <p className="text-muted-foreground">Paste your first scene to start rehearsing.</p>
+            <button onClick={handleNewScript} className="h-11 rounded-full bg-foreground px-6 font-semibold text-background inline-flex items-center gap-2">
+              <Plus className="h-4 w-4" /> Create your first script
+            </button>
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {scripts.map((script) => (
-              <Card
-                key={script.id}
-                className="flex flex-col border-t-4 border-t-primary/20 hover:border-t-primary/50 transition-colors"
-              >
-                <CardHeader className="pb-2">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {scripts.map((script) => {
+              const saved = Array.isArray(script.characters)
+                ? (script.characters as Array<{ name?: string }>).map((c) => (c?.name || '').toUpperCase()).filter(Boolean)
+                : [];
+              const names = saved.length ? saved : detectCharacterRoles(script.content).map((c) => c.name);
+              const preview = getPreviewLines(script.content, 2);
+              return (
+                <article key={script.id} className="flex flex-col rounded-3xl bg-desk-surface p-6 shadow-sm hover:shadow-md transition-shadow">
                   <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <CardTitle className="text-base sm:text-lg truncate">
-                        {script.title}
-                      </CardTitle>
-                      <CardDescription className="text-xs mt-1">
-                        {Array.isArray(script.characters) ? script.characters.length : 0}{' '}
-                        character{Array.isArray(script.characters) && script.characters.length === 1 ? '' : 's'} •{' '}
-                        {new Date(script.created_at).toLocaleDateString()}
-                      </CardDescription>
-                    </div>
+                    <h2 className="text-lg font-bold text-foreground leading-snug line-clamp-2">{script.title}</h2>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 shrink-0"
-                          aria-label={`Actions for ${script.title}`}
-                        >
-                          <MoreVertical className="h-4 w-4" />
+                        <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2 -mt-1 shrink-0 rounded-full" aria-label={`Actions for ${script.title}`}>
+                          <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem onClick={() => handleEdit(script)}>
-                          <Pencil className="h-4 w-4 mr-2" />
-                          Edit
+                        <DropdownMenuItem className="py-2.5" onClick={() => handleEdit(script)}>
+                          <Pencil className="h-4 w-4 mr-2" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => handleDuplicate(script)}>
-                          <Copy className="h-4 w-4 mr-2" />
-                          Duplicate
+                        <DropdownMenuItem className="py-2.5" onClick={() => handleDuplicate(script)}>
+                          <Copy className="h-4 w-4 mr-2" /> Duplicate
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem
-                          onClick={() => setDeletingScript(script)}
-                          className="text-destructive focus:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Delete
+                        <DropdownMenuItem onClick={() => setDeletingScript(script)} className="py-2.5 text-destructive focus:text-destructive">
+                          <Trash2 className="h-4 w-4 mr-2" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
-                </CardHeader>
-                <CardContent className="flex-1 flex flex-col justify-between gap-4 pt-0">
-                  <p className="text-sm text-muted-foreground line-clamp-3">
-                    {getPreviewText(script.content)}
-                  </p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => navigate(`/practice/${script.id}`)}
-                    className="w-full"
-                  >
-                    <Play className="h-4 w-4 mr-2" />
-                    Practice
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
+
+                  {names.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 mt-3">
+                      {names.slice(0, 4).map((n) => (
+                        <span key={n} className="rounded-full bg-desk-chip px-3 py-1 text-xs font-semibold tracking-wide text-foreground/80">{n}</span>
+                      ))}
+                      {names.length > 4 && <span className="text-xs text-muted-foreground self-center">+{names.length - 4}</span>}
+                    </div>
+                  )}
+
+                  <div className="mt-4 flex-1 text-sm text-muted-foreground space-y-0.5">
+                    {preview.map((line, i) => (
+                      <p key={i} className="line-clamp-1">{line}{i === preview.length - 1 ? '…' : ''}</p>
+                    ))}
+                  </div>
+
+                  <div className="mt-6 flex items-center justify-between gap-3">
+                    <span className="text-xs text-muted-foreground">
+                      ~{estimateMinutes(script.content)} min · {new Date(script.updated_at).toLocaleDateString()}
+                    </span>
+                    <button
+                      onClick={() => navigate(`/practice/${script.id}`)}
+                      className="h-11 rounded-full bg-foreground px-5 font-semibold text-background inline-flex items-center gap-1.5 hover:opacity-90"
+                    >
+                      Rehearse <Play className="h-3.5 w-3.5 fill-current" />
+                    </button>
+                  </div>
+                </article>
+              );
+            })}
           </div>
         )}
       </main>
