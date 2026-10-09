@@ -127,22 +127,49 @@
     <!-- Status + controls -->
     <div class="border-t border-white/10 px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
       <div id="status" class="flex items-center gap-3 text-lg font-bold tracking-wide"></div>
-      <div class="flex gap-3">
-        <button id="restart" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">Restart</button>
-        <button id="auto" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">▶ Auto-play</button>
-        <button id="next" class="bg-white text-black rounded-full px-5 py-2 text-sm font-semibold hover:bg-gray-200">Next cue →</button>
+      <div class="flex flex-wrap gap-3">
+        <button id="restart" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">↺ Restart</button>
+        <button id="edit" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">✎ Edit script</button>
+        <button id="readScript" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">🔊 Read script</button>
+        <button id="next" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">Next cue →</button>
+        <button id="play" class="bg-green-500 text-black rounded-full px-6 py-2 text-sm font-bold hover:bg-green-400 min-w-[150px]">▶ Start rehearsal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inline editor overlay -->
+  <div id="editor" class="hidden fixed inset-0 z-40 bg-black/80 flex items-center justify-center p-4">
+    <div class="bg-[#161616] text-white rounded-2xl w-full max-w-3xl p-6 space-y-4">
+      <div class="flex justify-between items-center">
+        <span class="font-semibold">Edit script <span class="text-white/40 text-sm font-normal">· rehearsal paused</span></span>
+        <span class="text-xs text-white/40">One line per cue · NAME: dialogue</span>
+      </div>
+      <textarea id="editText" class="w-full h-80 bg-black/40 border border-white/15 rounded-xl p-4 font-mono text-sm leading-relaxed outline-none focus:border-white/40"></textarea>
+      <div class="flex justify-end gap-3">
+        <button id="editCancel" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">Cancel</button>
+        <button id="editSave" class="bg-white text-black rounded-full px-5 py-2 text-sm font-semibold">Save &amp; back to rehearsal</button>
       </div>
     </div>
   </div>
 
   <!-- Settings drawer -->
-  <aside id="sDrawer" class="drawer fixed top-0 right-0 h-full w-80 bg-[#161616] text-white z-50 translate-x-full p-6 space-y-6 shadow-2xl">
+  <aside id="sDrawer" class="drawer fixed top-0 right-0 h-full w-80 bg-[#161616] text-white z-50 translate-x-full p-6 space-y-6 shadow-2xl overflow-y-auto">
     <div class="flex justify-between items-center"><span class="font-semibold">Rehearsal settings</span><button id="sClose" class="text-2xl">×</button></div>
+    <div><p class="text-xs text-white/50 mb-2">AI READS</p>
+      <div class="grid grid-cols-2 bg-white/10 rounded-xl p-1 text-sm">
+        <button data-f="italic" class="filt rounded-lg py-2 font-semibold">Italic only<br><span class="text-[10px] font-normal opacity-70">Scene partner</span></button>
+        <button data-f="all" class="filt rounded-lg py-2 font-semibold">Full script<br><span class="text-[10px] font-normal opacity-70">Listen &amp; learn</span></button>
+      </div>
+      <p id="filtHint" class="text-xs text-white/40 mt-2"></p>
+    </div>
     <div><p class="text-xs text-white/50 mb-2">YOUR ROLE</p><div class="bg-white/10 rounded-xl px-4 py-2">MAYA</div></div>
     <div><p class="text-xs text-white/50 mb-2">AI VOICES</p>
-      <div class="space-y-2 text-sm"><div class="flex justify-between bg-white/10 rounded-xl px-4 py-2"><span>DANIEL</span><span class="text-white/60">James</span></div></div>
+      <div class="space-y-2 text-sm"><div class="flex items-center justify-between bg-white/10 rounded-xl px-4 py-2"><span>DANIEL</span>
+        <span class="flex items-center gap-2"><select class="bg-transparent text-white/80 outline-none"><option class="text-black">James</option><option class="text-black">Liam</option><option class="text-black">Laura</option></select>
+        <button class="testVoice border border-white/20 rounded-full px-2 py-0.5 text-xs hover:bg-white/10">▶ Test</button></span></div></div>
     </div>
     <div><p class="text-xs text-white/50 mb-2">SPEED</p><input type="range" class="w-full accent-white" /></div>
+    <button id="readScript2" class="w-full border border-white/20 rounded-full py-2 text-sm hover:bg-white/10">🔊 Read script aloud (no mic)</button>
     <p class="text-xs text-white/40">In the real build, all existing voice and script controls move here so the reading view stays clean.</p>
   </aside>
 </section>
@@ -213,7 +240,7 @@ document.getElementById('saveOnly').onclick=()=>save(false);
 document.getElementById('saveRehearse').onclick=()=>save(true);
 
 /* ---------- Teleprompter ---------- */
-const scene=[
+let scene=[
   {c:'DANIEL',t:"You're still up.",ai:true},
   {c:'MAYA',t:"You said you'd be home by eight.",ai:false},
   {c:'DANIEL',t:"I know what I said.",ai:true},
@@ -225,39 +252,81 @@ const scene=[
   {c:'DANIEL',t:"That I don't want to keep pretending we're fine.",ai:true},
   {c:'MAYA',t:"(beat) Neither do I.",ai:false},
 ];
-let idx=0, size=34, autoT=null, secs=0, take=1;
+let idx=0, size=34, secs=0, take=1, filter='italic', mode='idle', timer=null; // mode: idle | rehearsing | paused | reading
 const linesEl=document.getElementById('lines'), prompter=document.getElementById('prompter'), statusEl=document.getElementById('status');
+const playBtn=document.getElementById('play'), readBtn=document.getElementById('readScript');
+const isAI=l=>filter==='all'||l.ai;
 function render(jump){
   linesEl.innerHTML=`<div style="height:28vh"></div>`+scene.map((l,i)=>{
+    const ai=isAI(l);
     const st=i<idx?'past':i===idx?'active':'next';
     const op=st==='past'?'opacity-30':st==='next'?'opacity-55':'opacity-100';
     const fs=st==='active'?size*1.15:size*0.8;
-    const box=st==='active'?(l.ai?'bg-sky-500/10 border-l-4 border-sky-400':'bg-amber-400/10 border-l-4 border-amber-400'):'border-l-4 border-transparent';
+    const box=st==='active'?(ai?'bg-sky-500/10 border-l-4 border-sky-400':'bg-amber-400/10 border-l-4 border-amber-400'):'border-l-4 border-transparent';
     return `<div id="l${i}" class="line ${op} ${box} rounded-r-xl px-5 py-4 my-2">
-      <div class="text-xs font-bold tracking-widest mb-1 ${l.ai?'text-sky-300':'text-amber-300'}">${l.c} ${l.ai?'· AI PARTNER':'· YOU'}</div>
+      <div class="text-xs font-bold tracking-widest mb-1 ${ai?'text-sky-300':'text-amber-300'}">${l.c} ${ai?'· AI READS':'· YOU'}</div>
       <div style="font-size:${fs}px;line-height:1.3" class="${l.ai?'italic text-white/90':'font-semibold text-white'}">${l.t}</div>
     </div>`;}).join('')+`<div style="height:70vh"></div>`;
   const el=document.getElementById('l'+idx);
   if(el){ const target=el.offsetTop-prompter.clientHeight*0.28+8; prompter.scrollTo({top:target,behavior:jump?'auto':'smooth'}); }
+  renderStatus();
+}
+function renderStatus(){
   const cur=scene[idx];
+  playBtn.textContent = mode==='rehearsing'?'❚❚ Pause':mode==='paused'?'▶ Resume':'▶ Start rehearsal';
+  playBtn.className = (mode==='rehearsing'?'bg-amber-400 hover:bg-amber-300':'bg-green-500 hover:bg-green-400')+' text-black rounded-full px-6 py-2 text-sm font-bold min-w-[150px]';
+  readBtn.textContent = mode==='reading'?'■ Stop reading':'🔊 Read script';
   if(!cur){statusEl.innerHTML='<span class="text-white/70">✓ SCENE COMPLETE — nice take</span>';return;}
-  statusEl.innerHTML=cur.ai
-    ?`<span class="flex items-end gap-1 h-6">${[0,1,2,3].map(n=>`<span class="bar w-1.5 bg-sky-400 rounded" style="animation-delay:${n*.15}s"></span>`).join('')}</span><span class="text-sky-300">AI SPEAKING</span>`
+  if(mode==='idle'){statusEl.innerHTML='<span class="w-4 h-4 rounded-full bg-white/30"></span><span class="text-white/60">READY — press Start (or Space)</span>';return;}
+  if(mode==='paused'){statusEl.innerHTML='<span class="text-amber-300">❚❚ PAUSED — mic off</span>';return;}
+  statusEl.innerHTML=isAI(cur)||mode==='reading'
+    ?`<span class="flex items-end gap-1 h-6">${[0,1,2,3].map(n=>`<span class="bar w-1.5 bg-sky-400 rounded" style="animation-delay:${n*.15}s"></span>`).join('')}</span><span class="text-sky-300">${mode==='reading'?'READING SCRIPT':'AI SPEAKING'}</span>`
     :`<span class="listening-dot w-4 h-4 rounded-full bg-green-500"></span><span class="text-green-400">LISTENING — YOUR LINE</span>`;
 }
-function next(){ if(idx<scene.length){idx++;render();} else stopAuto(); }
-function stopAuto(){clearInterval(autoT);autoT=null;document.getElementById('auto').textContent='▶ Auto-play';}
-document.getElementById('next').onclick=next;
-document.getElementById('restart').onclick=()=>{idx=0;secs=0;take++;document.getElementById('take').textContent=take;stopAuto();render();};
-document.getElementById('auto').onclick=e=>{ if(autoT){stopAuto();return;} e.target.textContent='❚❚ Pause'; autoT=setInterval(()=>{ if(idx>=scene.length)stopAuto(); else next(); },2200); };
-document.getElementById('stop').onclick=()=>{stopAuto();show('desk');};
+function clearT(){clearTimeout(timer);timer=null;speechSynthesis.cancel();}
+function say(text,cb){ try{ const u=new SpeechSynthesisUtterance(text); u.onend=cb; u.onerror=cb; speechSynthesis.speak(u);}catch(e){setTimeout(cb,1800);} }
+// Simulated engine: AI lines are spoken, your lines wait ~2.5s (simulating you speaking) then advance
+function step(){
+  clearT();
+  if(mode!=='rehearsing'&&mode!=='reading') return;
+  const cur=scene[idx];
+  if(!cur){mode='idle';renderStatus();return;}
+  const go=()=>{ if(mode==='rehearsing'||mode==='reading'){idx++;render();step();} };
+  if(mode==='reading'||isAI(cur)) say(cur.t.replace(/\(.*?\)/g,''),go);
+  else timer=setTimeout(go,2500);
+}
+function setMode(m){clearT();mode=m;renderStatus();step();}
+playBtn.onclick=()=>{ if(idx>=scene.length) idx=0; setMode(mode==='rehearsing'?'paused':'rehearsing'); render(); };
+const readToggle=()=>{ if(mode==='reading'){setMode('paused');return;} if(idx>=scene.length) idx=0; setMode('reading'); render(); };
+readBtn.onclick=readToggle; document.getElementById('readScript2').onclick=()=>{sD.classList.add('translate-x-full');readToggle();};
+document.getElementById('next').onclick=()=>{ if(idx<scene.length){clearT();idx++;render();step();} };
+document.getElementById('restart').onclick=()=>{idx=0;secs=0;take++;document.getElementById('take').textContent=take;setMode('idle');render();};
+document.getElementById('stop').onclick=()=>{setMode('idle');show('desk');};
 document.getElementById('fontUp').onclick=()=>{size=Math.min(56,size+4);render(true);};
 document.getElementById('fontDown').onclick=()=>{size=Math.max(22,size-4);render(true);};
 const sD=document.getElementById('sDrawer');
 document.getElementById('settings').onclick=()=>sD.classList.remove('translate-x-full');
 document.getElementById('sClose').onclick=()=>sD.classList.add('translate-x-full');
-setInterval(()=>{ if(!views.prompter.classList.contains('hidden')&&idx<scene.length){secs++;document.getElementById('timer').textContent=String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0');}},1000);
-document.addEventListener('keydown',e=>{ if(!views.prompter.classList.contains('hidden')&&(e.code==='Space'||e.code==='ArrowDown')){e.preventDefault();next();}});
+// Italic vs full script
+function renderFilter(){
+  document.querySelectorAll('.filt').forEach(b=>{const on=b.dataset.f===filter;b.classList.toggle('bg-white',on);b.classList.toggle('text-black',on);});
+  document.getElementById('filtHint').textContent=filter==='italic'?'AI reads the italic lines and listens for you on bold lines.':'AI reads every line — no mic needed. Great for memorizing.';
+}
+document.querySelectorAll('.filt').forEach(b=>b.onclick=()=>{filter=b.dataset.f;renderFilter();render(true);if(mode==='rehearsing')step();});
+renderFilter();
+document.querySelectorAll('.testVoice').forEach(b=>b.onclick=()=>{speechSynthesis.cancel();say("Hi, I'll be reading Daniel for you today.",()=>{});});
+// Inline editor
+const ed=document.getElementById('editor'), edT=document.getElementById('editText');
+let resumeAfter=false;
+document.getElementById('edit').onclick=()=>{ resumeAfter=mode==='rehearsing'; if(mode!=='idle') setMode('paused'); edT.value=scene.map(l=>`${l.c}: ${l.t}`).join('\n'); ed.classList.remove('hidden'); edT.focus(); };
+document.getElementById('editCancel').onclick=()=>ed.classList.add('hidden');
+document.getElementById('editSave').onclick=()=>{
+  const parsed=edT.value.split('\n').map(s=>s.match(/^\s*([^:]{1,30}):\s*(.+)$/)).filter(Boolean).map(m=>({c:m[1].trim().toUpperCase(),t:m[2].trim(),ai:m[1].trim().toUpperCase()!=='MAYA'}));
+  if(parsed.length){scene=parsed; idx=Math.min(idx,scene.length-1);}
+  ed.classList.add('hidden'); render(true); if(resumeAfter) setMode('rehearsing');
+};
+setInterval(()=>{ if(!views.prompter.classList.contains('hidden')&&(mode==='rehearsing'||mode==='reading')&&idx<scene.length){secs++;document.getElementById('timer').textContent=String(Math.floor(secs/60)).padStart(2,'0')+':'+String(secs%60).padStart(2,'0');}},1000);
+document.addEventListener('keydown',e=>{ if(views.prompter.classList.contains('hidden')||!ed.classList.contains('hidden'))return; if(e.code==='Space'){e.preventDefault();playBtn.click();} else if(e.code==='ArrowDown'){e.preventDefault();document.getElementById('next').click();} else if(e.code==='KeyE'){e.preventDefault();document.getElementById('edit').click();} });
 render(true);
 </script>
 </body>
