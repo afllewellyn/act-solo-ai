@@ -10,6 +10,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { useRehearsal } from '@/contexts/RehearsalContext';
+import { VoicePicker } from '@/components/practice/VoicePicker';
+import { ScriptViewOptions } from '@/components/practice/ScriptViewOptions';
 import { 
   Settings,
   Play,
@@ -224,42 +226,14 @@ export function MobileControlsDrawer({
                 AI Voice Controls
               </Label>
               
-              {/* Voice Selection */}
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Voice Selection</Label>
-                <Select value={selectedVoice} onValueChange={onVoiceChange}>
-                  <SelectTrigger className="bg-background border-border">
-                    <div className="flex items-center">
-                      <Volume2 className="h-4 w-4" />
-                      <SelectValue placeholder="Select Voice" className="ml-1">
-                        <span className="ml-1 truncate">
-                          {voices.find(v => v.id === selectedVoice)?.name || 'Voice'}
-                        </span>
-                      </SelectValue>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="max-h-48 bg-background border-border shadow-lg">
-                    {voices.length > 0 ? (
-                      voices.map((voice) => (
-                        <SelectItem 
-                          key={voice.id}
-                          value={voice.id}
-                          className="cursor-pointer p-2"
-                        >
-                          <div className="flex flex-col">
-                            <span className="font-medium text-sm">{voice.name}</span>
-                            <span className="text-xs text-muted-foreground">{voice.gender} • {voice.accent}</span>
-                          </div>
-                        </SelectItem>
-                      ))
-                    ) : (
-                      <SelectItem value="no-voices" disabled>
-                        No voices available
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-              </div>
+              {/* AI voice: dropdown, Test and Browse voices */}
+              <VoicePicker
+                voices={voices}
+                selectedVoice={selectedVoice}
+                onVoiceChange={onVoiceChange}
+                previewDisabled={rehearsalState !== 'IDLE' || isManualTTSPlaying}
+                compact
+              />
 
               {/* Text Filter and TTS Button */}
               <div className="grid grid-cols-2 gap-2">
@@ -332,6 +306,10 @@ export function MobileControlsDrawer({
                 </div>
               </div>
             </div>
+
+            <Separator />
+
+            <ScriptViewOptions />
 
             <Separator />
 

@@ -49,3 +49,50 @@ export const extractFormattedText = (content: string, format: 'bold' | 'italic')
 
   return texts.join(' ').trim();
 };
+
+export type LineRole = 'ai' | 'actor' | 'note';
+
+/**
+ * Role of one script paragraph by formatting:
+ * italic = AI reads it, bold = the user reads it, unformatted = stage note.
+ * Italic wins when a line is both.
+ */
+export const getLineRole = (lineHtml: string): LineRole => {
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = lineHtml;
+  const hasText = (selector: string) =>
+    Array.from(tempDiv.querySelectorAll(selector)).some(el => (el.textContent || '').trim().length > 0);
+  if (hasText('i, em')) return 'ai';
+  if (hasText('b, strong')) return 'actor';
+  return 'note';
+};
+
+/**
+ * Count script lines per role, one per non-empty paragraph.
+ */
+export const countLineRoles = (html: string): { actor: number; ai: number; note: number } => {
+  const counts = { actor: 0, ai: 0, note: 0 };
+  if (!html) return counts;
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  tempDiv.querySelectorAll('p').forEach(p => {
+    if ((p.textContent || '').trim().length === 0) return;
+    counts[getLineRole(p.innerHTML)]++;
+  });
+  return counts;
+};
+
+/**
+ * Unique character names from `NAME: dialogue` paragraphs (optional feature), one match per paragraph.
+ */
+export const detectCharacterNames = (html: string): string[] => {
+  const names = new Set<string>();
+  if (!html) return [];
+  const tempDiv = document.createElement('div');
+  tempDiv.innerHTML = html;
+  tempDiv.querySelectorAll('p').forEach(p => {
+    const m = matchCharacterLine((p.textContent || '').trim());
+    if (m) names.add(m[1].trim());
+  });
+  return Array.from(names);
+};

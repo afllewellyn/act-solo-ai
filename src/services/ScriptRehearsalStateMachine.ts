@@ -12,11 +12,8 @@ export interface Character {
 export type TextFilter = 'all' | 'italic';
 export type RehearsalState = 'IDLE' | 'WAITING_FOR_ACTOR_CUE' | 'AI_SPEAKING' | 'TRANSITIONING' | 'COMPLETE';
 
-export interface ScriptLine {
-  type: 'actor' | 'ai';
-  content: string;
-  dialogue: string;
-}
+export type { ScriptLine } from '@/components/practice/rehearsal/types';
+import type { ScriptLine } from '@/components/practice/rehearsal/types';
 
 export interface RehearsalStateMachineConfig {
   scriptContent: string;
@@ -59,10 +56,11 @@ export class ScriptRehearsalStateMachine {
 
   private parseScript() {
     // Use simplified text-based parsing
+    // Unformatted stage notes are neither spoken nor waited on
     this.scriptLines = getScriptLines(
       this.config.scriptContent,
       this.textFilter
-    );
+    ).filter(line => line.type !== 'note');
     
     console.log(`🎭 State Machine: Parsed ${this.scriptLines.length} lines for rehearsal (filter: ${this.textFilter})`);
     

@@ -9,6 +9,7 @@ import { isFeatureEnabled } from '@/lib/featureFlags';
 import type { ScriptContext } from '@/services/conversation/domain';
 import { getScriptLines } from '@/components/practice/rehearsal/scriptParser';
 import { buildScriptContext, buildCuesFromLines, getCueContext } from '@/utils/scriptCueBuilder';
+import { findSpokenAiLine } from '@/utils/lineMatching';
 
 interface Voice {
   id: string;
@@ -58,6 +59,11 @@ interface RehearsalContextType {
   
   // Banner State
   noMatchesBanner: { show: boolean; filter: TextFilter } | null;
+
+  // Current position (drives highlight + eye-line scrolling)
+  /** Source paragraph (among non-empty <p>) of the current line, or null when idle */
+  currentParagraphIndex: number | null;
+  showNames: boolean;
   
   // Conversation Engine (ElevenLabs AI)
   isUsingConversationEngine: boolean;
@@ -69,6 +75,11 @@ interface RehearsalContextType {
   setSelectedVoice: (voiceId: string) => void;
   setVoiceActivated: (activated: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
+  setShowNames: (show: boolean) => void;
+  /** Skip to the next cue (rehearsal only) */
+  nextCue: () => void;
+  /** Jump to the line at or after a script paragraph (tap a line) */
+  goToParagraph: (paragraphIndex: number) => void;
   handleActorLineDetected: (line: string) => void;
   handleMasterStop: () => void;
   handlePause: () => void;
@@ -163,13 +174,54 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const scriptTitleRef = useRef<string>('Untitled Script');
   const sessionStartRef = useRef<number>(Date.now());
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
+  const currentLineIndexRef = useRef(0);
+  const [currentParagraphIndex, setCurrentParagraphIndex] = useState<number | null>(null);
+  // Engine lines: stage notes are excluded, so they are never read or waited on
   const parsedLinesRef = useRef<ScriptLine[]>([]);
 
-  // Helper to advance to next line and update context
-  const advanceToNextLine = useCallback(() => {
-    const nextIndex = currentLineIndex + 1;
+  // Show/hide "NAME:" prefixes in the script view (remembered per browser)
+  const [showNames, setShowNamesState] = useState(() => {
+    try {
+      return localStorage.getItem('rehearsal_show_names') !== 'false';
+    } catch {
+      return true;
+    }
+  });
+  const setShowNames = useCallback((show: boolean) => {
+    setShowNamesState(show);
+    try {
+      localStorage.setItem('rehearsal_show_names', String(show));
+    } catch {
+      /* storage unavailable */
+    }
+  }, []);
+
+  // Single place that moves the current line, so state, ref and highlight stay in sync
+  const setLine = useCallback((index: number) => {
+    currentLineIndexRef.current = index;
+    setCurrentLineIndex(index);
+    setCurrentParagraphIndex(parsedLinesRef.current[index]?.paragraphIndex ?? null);
+  }, []);
+
+  // Not memoized on purpose: it reads the current engine state each render
+  const syncEngineContext = (index: number) => {
+    if (!conversationEngine.isActive) return;
+    const context = buildScriptContext(
+      scriptTitleRef.current,
+      parsedLinesRef.current,
+      index,
+      textFilter,
+      sessionStartRef.current
+    );
+    console.log('📝 [ConversationEngine] Updating context to line', index);
+    conversationEngine.updateContext(context);
+  };
+
+  // Move to the line after `fromIndex` (reads refs, so it is safe from long-lived event handlers)
+  const advanceFrom = (fromIndex: number) => {
+    const nextIndex = fromIndex + 1;
     const lines = parsedLinesRef.current;
-    
+
     if (nextIndex >= lines.length) {
       console.log('🎯 [ConversationEngine] Script complete!');
       setRehearsalModeState(false);
@@ -179,47 +231,36 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       });
       return;
     }
-    
-    setCurrentLineIndex(nextIndex);
-    
-    // Update conversation engine with new context
-    if (conversationEngine.isActive) {
-      const context = buildScriptContext(
-        scriptTitleRef.current,
-        lines,
-        nextIndex,
-        textFilter,
-        sessionStartRef.current
-      );
-      console.log('📝 [ConversationEngine] Updating context to line', nextIndex);
-      conversationEngine.updateContext(context);
-    }
-  }, [currentLineIndex, textFilter, toast]);
+
+    setLine(nextIndex);
+    syncEngineContext(nextIndex);
+  };
+
+  const advanceToNextLine = () => {
+    advanceFrom(currentLineIndexRef.current);
+  };
 
   const conversationEngine = useConversationEngine({
     onUserSpeechStarted: () => {
-      console.log('🎤 [ConversationEngine] User speech started');
       setRehearsalState('WAITING_FOR_ACTOR_CUE');
     },
-    onUserSpeechEnded: (transcript) => {
-      console.log('🎤 [ConversationEngine] User speech ended:', transcript);
+    onUserSpeechEnded: () => {
       // When user finishes speaking, advance if current line is an actor line
-      const lines = parsedLinesRef.current;
-      if (lines[currentLineIndex]?.type === 'actor') {
-        console.log('🎤 [ConversationEngine] User finished actor line, advancing');
+      if (parsedLinesRef.current[currentLineIndexRef.current]?.type === 'actor') {
         advanceToNextLine();
       }
     },
     onAgentResponseStarted: () => {
-      console.log('🤖 [ConversationEngine] Agent response started');
       setRehearsalState('AI_SPEAKING');
     },
     onAgentResponseEnded: (fullText) => {
-      console.log('🤖 [ConversationEngine] Agent response ended:', fullText);
-      // When agent finishes speaking, advance if current line is an AI line
+      // Match what was actually said to an upcoming AI line, so we catch up if a turn was missed
       const lines = parsedLinesRef.current;
-      if (lines[currentLineIndex]?.type === 'ai') {
-        console.log('🤖 [ConversationEngine] Agent finished AI line, advancing');
+      const current = currentLineIndexRef.current;
+      const spokenIndex = findSpokenAiLine(lines, current, fullText);
+      if (spokenIndex !== -1) {
+        advanceFrom(spokenIndex);
+      } else if (lines[current]?.type === 'ai') {
         advanceToNextLine();
       }
       setRehearsalState('WAITING_FOR_ACTOR_CUE');
@@ -262,18 +303,9 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       sessionStartRef.current = Date.now();
       
       // Parse script lines based on text filter
-      const lines = getScriptLines(scriptContent, textFilter);
+      const lines = getScriptLines(scriptContent, textFilter).filter(l => l.type !== 'note');
       parsedLinesRef.current = lines;
-      setCurrentLineIndex(0);
-      
-      console.log('📝 [ConversationEngine] Parsed', lines.length, 'lines with filter:', textFilter);
-      console.log('📝 [ConversationEngine] AI lines:', lines.filter(l => l.type === 'ai').length);
-      console.log('📝 [ConversationEngine] Actor lines:', lines.filter(l => l.type === 'actor').length);
-      
-      // Log each parsed line for debugging
-      lines.forEach((line, i) => {
-        console.log(`📝 Line ${i}: [${line.type}] "${line.dialogue.substring(0, 60)}..."`);
-      });
+      setLine(0);
       
       // Build initial context with actual script content
       const initialContext = buildScriptContext(
@@ -304,8 +336,9 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       console.log('🛑 [ConversationEngine] Stopping');
       conversationEngine.stop();
       setRehearsalState('IDLE');
-      setCurrentLineIndex(0);
       parsedLinesRef.current = [];
+      setLine(0);
+      setCurrentParagraphIndex(null);
     }
   }, [useElevenEngine, rehearsalMode, scriptContent, textFilter]);
 
@@ -314,13 +347,13 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     if (!useElevenEngine || !conversationEngine.isActive || !scriptContent) return;
 
     // Re-parse lines if script changes during rehearsal
-    const lines = getScriptLines(scriptContent, textFilter);
+    const lines = getScriptLines(scriptContent, textFilter).filter(l => l.type !== 'note');
     parsedLinesRef.current = lines;
     
     const context = buildScriptContext(
       scriptTitleRef.current,
       lines,
-      currentLineIndex,
+      currentLineIndexRef.current,
       textFilter,
       sessionStartRef.current
     );
@@ -537,6 +570,22 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     }
   };
 
+  const nextCue = () => {
+    if (!rehearsalMode) return;
+    advanceToNextLine();
+  };
+
+  const goToParagraph = (paragraphIndex: number) => {
+    const lines = parsedLinesRef.current;
+    const target = lines.findIndex(l => l.paragraphIndex >= paragraphIndex);
+    if (rehearsalMode && target !== -1) {
+      setLine(target);
+      syncEngineContext(target);
+    } else {
+      setCurrentParagraphIndex(paragraphIndex);
+    }
+  };
+
   const handleActorLineDetected = (line: string) => {
     if (!voiceActivated || !audioManager.isSpeechSupported || audioManager.isListening) return;
     
@@ -565,6 +614,38 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     }
   };
 
+  // Read-script (listen) mode plays one audio file, so line changes are estimated from word counts
+  const listenLinesRef = useRef<ScriptLine[]>([]);
+  const listenTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  const clearListenTimers = () => {
+    listenTimersRef.current.forEach(clearTimeout);
+    listenTimersRef.current = [];
+  };
+
+  useEffect(() => {
+    if (!isManualTTSPlaying) {
+      clearListenTimers();
+      return;
+    }
+    if (!audioManager.isTTSPlaying || listenTimersRef.current.length > 0) return;
+
+    const WORDS_PER_SECOND = 2.6; // typical TTS pace at 1x
+    let elapsedMs = 0;
+    listenLinesRef.current.forEach((line, i) => {
+      const startAt = elapsedMs;
+      if (i === 0) {
+        setCurrentParagraphIndex(line.paragraphIndex);
+      } else {
+        listenTimersRef.current.push(
+          setTimeout(() => setCurrentParagraphIndex(line.paragraphIndex), startAt)
+        );
+      }
+      const words = line.dialogue.split(/\s+/).filter(Boolean).length;
+      elapsedMs += (words / (WORDS_PER_SECOND * playbackSpeed)) * 1000;
+    });
+    return clearListenTimers;
+  }, [isManualTTSPlaying, audioManager.isTTSPlaying]);
+
   const handleTTSPlay = async () => {
     if (!scriptContent) return;
 
@@ -574,6 +655,10 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       setIsManualTTSPlaying(false);
       return;
     }
+
+    // Lines that will actually be spoken (italic mode: italic lines only; all: everything)
+    listenLinesRef.current = getScriptLines(scriptContent, textFilter)
+      .filter(l => l.type === 'ai');
 
     try {
       const { text, hasContent } = ScriptParserService.extractTextForTTS(
@@ -614,6 +699,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
 
   const handleTTSStop = () => {
     console.log('🛑 Manual TTS stop requested');
+    clearListenTimers();
     audioManager.stopTTS();
     setIsManualTTSPlaying(false);
   };
@@ -694,6 +780,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     playbackSpeed,
     voices,
     noMatchesBanner,
+    currentParagraphIndex,
+    showNames,
     isUsingConversationEngine: useElevenEngine && conversationEngine.isActive,
     conversationEngineStatus: conversationEngine.status,
     setTextFilter,
@@ -701,6 +789,9 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setSelectedVoice,
     setVoiceActivated,
     setPlaybackSpeed,
+    setShowNames,
+    nextCue,
+    goToParagraph,
     handleActorLineDetected,
     handleMasterStop,
     handlePause,
@@ -728,6 +819,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     playbackSpeed,
     voices,
     noMatchesBanner,
+    currentParagraphIndex,
+    showNames,
     useElevenEngine,
     conversationEngine.isActive,
     conversationEngine.status,
@@ -736,6 +829,9 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setSelectedVoice,
     setVoiceActivated,
     setPlaybackSpeed,
+    setShowNames,
+    nextCue,
+    goToParagraph,
     handleActorLineDetected,
     handleMasterStop,
     handlePause,

@@ -122,3 +122,7 @@ All colors MUST be HSL.
     @apply bg-muted text-muted-foreground;
   }
 }
+/* Optional "NAME:" prefixes hidden in the script view (see InlineScriptEditor) */
+.script-name-hidden {
+  display: none;
+}

@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -31,6 +31,7 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { RehearsalProvider, useRehearsal } from '@/contexts/RehearsalContext';
+import { getNamedCharacters, getSavedVoice, withSavedVoice } from '@/lib/scriptVoice';
 
 interface Script {
   id: string;
@@ -73,6 +74,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     setTextFilter,
     noMatchesBanner,
     selectedVoice,
+    setSelectedVoice,
     playbackSpeed,
     voiceActivated,
     setVoiceActivated,
@@ -80,6 +82,10 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     isListening,
     rehearsalState,
     handleActorLineDetected: contextHandleActorLineDetected,
+    currentParagraphIndex,
+    showNames,
+    goToParagraph,
+    isManualTTSPlaying,
     initialize,
     updateScript,
     updateCharacters
@@ -88,8 +94,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   // Initialize script content and characters
   useEffect(() => {
     if (script) {
-      const charactersData: Array<{ name?: string; voice?: string; isUserRole?: boolean }> =
-        Array.isArray(script.characters) ? script.characters : [];
+      const charactersData = getNamedCharacters(script.characters) as Array<{ name?: string; voice?: string; isUserRole?: boolean }>;
       const parsedCharacters: Character[] = charactersData.map((char) => ({
         name: char?.name || '',
         voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
@@ -98,8 +103,34 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       
       // Initialize rehearsal context with script data
       initialize(script.content, parsedCharacters);
+
+      // Restore the AI voice chosen for this script last time
+      const savedVoice = getSavedVoice(script.characters);
+      if (savedVoice) setSelectedVoice(savedVoice);
     }
   }, [script]);
+
+  // Remember the AI voice for this script (skips the initial load and unchanged values)
+  const savedVoiceRef = useRef<string | undefined>(getSavedVoice(script.characters));
+  useEffect(() => {
+    if (savedVoiceRef.current === undefined) {
+      // Nothing saved yet: only save once the user actually picks something other than the default
+      if (selectedVoice === '9BWtsMINqrJLrRacOk9x') return;
+    } else if (savedVoiceRef.current === selectedVoice) {
+      return;
+    }
+    const timer = setTimeout(() => {
+      savedVoiceRef.current = selectedVoice;
+      supabase
+        .from('scripts')
+        .update({ characters: withSavedVoice(script.characters, selectedVoice) as unknown as Json })
+        .eq('id', script.id)
+        .then(({ error }) => {
+          if (error) console.error('Error saving voice:', error);
+        });
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [selectedVoice]);
 
   // Master stop function for all AI operations
   const handleMasterStop = () => {
@@ -123,9 +154,12 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     return () => clearInterval(timer);
   }, []);
 
+  // While rehearsing or reading aloud, the current line drives scrolling instead of the timer
+  const lineDriven = rehearsalMode || isManualTTSPlaying;
+
   // Auto-scroll functionality
   useEffect(() => {
-    if (isPlaying) {
+    if (isPlaying && !lineDriven) {
       intervalRef.current = setInterval(() => {
         if (scrollContainerRef.current) {
           const container = scrollContainerRef.current;
@@ -154,7 +188,91 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
         clearInterval(intervalRef.current);
       }
     };
-  }, [isPlaying, scrollSpeed]);
+  }, [isPlaying, scrollSpeed, lineDriven]);
+
+  // --- Current line: highlight + eye-line scrolling ---------------------------------
+  const EYE_LINE_RATIO = 0.28; // current line sits 28% from the top of the script area
+  const MANUAL_SCROLL_GRACE_MS = 2500;
+  const contentRef = useRef<HTMLDivElement>(null);
+  const manualScrollUntilRef = useRef(0);
+  const [lineHighlight, setLineHighlight] = useState<{ top: number; height: number } | null>(null);
+
+  const getScriptParagraphs = useCallback((): HTMLElement[] => {
+    const container = scrollContainerRef.current;
+    if (!container) return [];
+    // Same order/filter as getScriptLines: non-empty paragraphs only
+    return Array.from(container.querySelectorAll<HTMLElement>('.ProseMirror p'))
+      .filter(p => (p.textContent || '').trim().length > 0);
+  }, []);
+
+  const syncCurrentLine = useCallback((scrollToLine: boolean) => {
+    const container = scrollContainerRef.current;
+    const content = contentRef.current;
+    if (!container || !content || !lineDriven || currentParagraphIndex === null) {
+      setLineHighlight(null);
+      return;
+    }
+    const paragraph = getScriptParagraphs()[currentParagraphIndex];
+    if (!paragraph) {
+      setLineHighlight(null);
+      return;
+    }
+
+    const rect = paragraph.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    setLineHighlight({ top: rect.top - contentRect.top, height: rect.height });
+
+    if (scrollToLine) {
+      const containerRect = container.getBoundingClientRect();
+      const lineCenter = rect.top - containerRect.top + container.scrollTop + rect.height / 2;
+      const target = Math.max(0, lineCenter - container.clientHeight * EYE_LINE_RATIO);
+      container.scrollTo({ top: target, behavior: 'smooth' });
+    }
+  }, [lineDriven, currentParagraphIndex, getScriptParagraphs]);
+
+  // New line: move highlight; scroll unless the user scrolled by hand a moment ago
+  useEffect(() => {
+    syncCurrentLine(Date.now() >= manualScrollUntilRef.current);
+  }, [syncCurrentLine, scriptContent]);
+
+  // Window resize or text size change: keep the line on the eye-line
+  const syncCurrentLineRef = useRef(syncCurrentLine);
+  syncCurrentLineRef.current = syncCurrentLine;
+  useEffect(() => {
+    syncCurrentLineRef.current(true);
+  }, [fontSize]);
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => syncCurrentLine(true));
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [syncCurrentLine]);
+
+  // Manual scrolling pauses auto-scroll briefly
+  useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
+    const markManual = () => {
+      manualScrollUntilRef.current = Date.now() + MANUAL_SCROLL_GRACE_MS;
+    };
+    container.addEventListener('wheel', markManual, { passive: true });
+    container.addEventListener('touchmove', markManual, { passive: true });
+    return () => {
+      container.removeEventListener('wheel', markManual);
+      container.removeEventListener('touchmove', markManual);
+    };
+  }, []);
+
+  // Tap a line to jump to it (rehearsal only; otherwise taps just edit text)
+  const handleScriptClick = (e: React.MouseEvent) => {
+    if (!rehearsalMode) return;
+    const paragraph = (e.target as HTMLElement).closest('.ProseMirror p');
+    if (!paragraph) return;
+    const index = getScriptParagraphs().indexOf(paragraph as HTMLElement);
+    if (index !== -1) goToParagraph(index);
+  };
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -282,7 +400,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     // Update the script's characters in the database
     supabase
       .from('scripts')
-      .update({ characters: updatedCharacters as unknown as Json })
+      .update({ characters: [...updatedCharacters, { name: '__default', voice: selectedVoice }] as unknown as Json })
       .eq('id', script.id)
       .then(({ error }) => {
         if (error) {
@@ -349,11 +467,26 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           </div>
 
           {/* Script Editor */}
+          {lineDriven && (
+            <div
+              className="absolute left-0 right-0 z-10 pointer-events-none border-t border-dashed border-primary/40"
+              style={{ top: `${EYE_LINE_RATIO * 100}%` }}
+              aria-hidden="true"
+            />
+          )}
           <div 
             ref={scrollContainerRef}
             className="h-full overflow-y-auto"
+            onClick={handleScriptClick}
           >
-            <div className="max-w-4xl mx-auto p-4">
+            <div ref={contentRef} className="relative max-w-4xl mx-auto p-4">
+              {lineHighlight && (
+                <div
+                  className="absolute left-0 right-0 rounded-md bg-primary/10 border-l-4 border-primary pointer-events-none transition-all duration-200"
+                  style={{ top: lineHighlight.top, height: lineHighlight.height }}
+                  aria-hidden="true"
+                />
+              )}
               {/* Rehearsal State Banner */}
               <div className="mb-4">
                 <RehearsalStateBanner />
@@ -367,6 +500,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                 onContentChange={handleScriptUpdate}
                 onAutoSave={handleAutoSave}
                 showToolbar={!isFullscreen}
+                hideNames={!showNames}
               />
               <div className="h-96" /> {/* Bottom padding for scrolling */}
             </div>
