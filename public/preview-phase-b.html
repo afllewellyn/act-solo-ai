@@ -127,22 +127,49 @@
     <!-- Status + controls -->
     <div class="border-t border-white/10 px-4 sm:px-8 py-4 flex flex-wrap items-center justify-between gap-4">
       <div id="status" class="flex items-center gap-3 text-lg font-bold tracking-wide"></div>
-      <div class="flex gap-3">
-        <button id="restart" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">Restart</button>
-        <button id="auto" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">▶ Auto-play</button>
-        <button id="next" class="bg-white text-black rounded-full px-5 py-2 text-sm font-semibold hover:bg-gray-200">Next cue →</button>
+      <div class="flex flex-wrap gap-3">
+        <button id="restart" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">↺ Restart</button>
+        <button id="edit" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">✎ Edit script</button>
+        <button id="readScript" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">🔊 Read script</button>
+        <button id="next" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">Next cue →</button>
+        <button id="play" class="bg-green-500 text-black rounded-full px-6 py-2 text-sm font-bold hover:bg-green-400 min-w-[150px]">▶ Start rehearsal</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Inline editor overlay -->
+  <div id="editor" class="hidden fixed inset-0 z-40 bg-black/80 flex items-center justify-center p-4">
+    <div class="bg-[#161616] text-white rounded-2xl w-full max-w-3xl p-6 space-y-4">
+      <div class="flex justify-between items-center">
+        <span class="font-semibold">Edit script <span class="text-white/40 text-sm font-normal">· rehearsal paused</span></span>
+        <span class="text-xs text-white/40">One line per cue · NAME: dialogue</span>
+      </div>
+      <textarea id="editText" class="w-full h-80 bg-black/40 border border-white/15 rounded-xl p-4 font-mono text-sm leading-relaxed outline-none focus:border-white/40"></textarea>
+      <div class="flex justify-end gap-3">
+        <button id="editCancel" class="border border-white/20 rounded-full px-4 py-2 text-sm hover:bg-white/10">Cancel</button>
+        <button id="editSave" class="bg-white text-black rounded-full px-5 py-2 text-sm font-semibold">Save &amp; back to rehearsal</button>
       </div>
     </div>
   </div>
 
   <!-- Settings drawer -->
-  <aside id="sDrawer" class="drawer fixed top-0 right-0 h-full w-80 bg-[#161616] text-white z-50 translate-x-full p-6 space-y-6 shadow-2xl">
+  <aside id="sDrawer" class="drawer fixed top-0 right-0 h-full w-80 bg-[#161616] text-white z-50 translate-x-full p-6 space-y-6 shadow-2xl overflow-y-auto">
     <div class="flex justify-between items-center"><span class="font-semibold">Rehearsal settings</span><button id="sClose" class="text-2xl">×</button></div>
+    <div><p class="text-xs text-white/50 mb-2">AI READS</p>
+      <div class="grid grid-cols-2 bg-white/10 rounded-xl p-1 text-sm">
+        <button data-f="italic" class="filt rounded-lg py-2 font-semibold">Italic only<br><span class="text-[10px] font-normal opacity-70">Scene partner</span></button>
+        <button data-f="all" class="filt rounded-lg py-2 font-semibold">Full script<br><span class="text-[10px] font-normal opacity-70">Listen &amp; learn</span></button>
+      </div>
+      <p id="filtHint" class="text-xs text-white/40 mt-2"></p>
+    </div>
     <div><p class="text-xs text-white/50 mb-2">YOUR ROLE</p><div class="bg-white/10 rounded-xl px-4 py-2">MAYA</div></div>
     <div><p class="text-xs text-white/50 mb-2">AI VOICES</p>
-      <div class="space-y-2 text-sm"><div class="flex justify-between bg-white/10 rounded-xl px-4 py-2"><span>DANIEL</span><span class="text-white/60">James</span></div></div>
+      <div class="space-y-2 text-sm"><div class="flex items-center justify-between bg-white/10 rounded-xl px-4 py-2"><span>DANIEL</span>
+        <span class="flex items-center gap-2"><select class="bg-transparent text-white/80 outline-none"><option class="text-black">James</option><option class="text-black">Liam</option><option class="text-black">Laura</option></select>
+        <button class="testVoice border border-white/20 rounded-full px-2 py-0.5 text-xs hover:bg-white/10">▶ Test</button></span></div></div>
     </div>
     <div><p class="text-xs text-white/50 mb-2">SPEED</p><input type="range" class="w-full accent-white" /></div>
+    <button id="readScript2" class="w-full border border-white/20 rounded-full py-2 text-sm hover:bg-white/10">🔊 Read script aloud (no mic)</button>
     <p class="text-xs text-white/40">In the real build, all existing voice and script controls move here so the reading view stays clean.</p>
   </aside>
 </section>
