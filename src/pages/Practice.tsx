@@ -473,17 +473,28 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                     <div className="flex items-start gap-6">
                       {/* Rehearse Script Section */}
                       <div className="flex flex-col gap-3 min-w-[200px]">
-                        <ScriptControls
-                          isRehearsalActive={rehearsalMode}
-                          scrollSpeed={scrollSpeed}
-                          fontSize={fontSize}
-                          isFullscreen={isFullscreen}
-                          onStartStopRehearsal={handleStartStopRehearsal}
-                          onReset={handleReset}
-                          onScrollSpeedChange={setScrollSpeed}
-                          onFontSizeChange={setFontSize}
-                          onToggleFullscreen={toggleFullscreen}
-                        />
+                        <div className="flex items-center gap-2">
+                          <ScriptControls
+                            isRehearsalActive={rehearsalMode}
+                            scrollSpeed={scrollSpeed}
+                            fontSize={fontSize}
+                            isFullscreen={isFullscreen}
+                            onStartStopRehearsal={handleStartStopRehearsal}
+                            onReset={handleReset}
+                            onScrollSpeedChange={setScrollSpeed}
+                            onFontSizeChange={setFontSize}
+                            onToggleFullscreen={toggleFullscreen}
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setSettingsOpen(true)}
+                            className="h-10 w-10 rounded-full shrink-0"
+                            aria-label="Rehearsal settings"
+                          >
+                            <Settings className="h-5 w-5" />
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Visual Separator */}
