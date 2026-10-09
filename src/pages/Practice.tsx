@@ -194,6 +194,9 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       } else if (e.code === 'KeyF') {
         e.preventDefault();
         toggleFullscreen();
+      } else if (e.code === 'KeyE') {
+        e.preventDefault();
+        handleToggleEdit();
       } else if (e.code === 'ArrowUp') {
         e.preventDefault();
         setScrollSpeed([Math.min(5, scrollSpeed[0] + 0.5)]);
