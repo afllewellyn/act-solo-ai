@@ -17,8 +17,12 @@ import { SessionTimer } from '@/components/practice/SessionTimer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useToast } from '@/hooks/use-toast';
 import { RehearsalStateBanner } from '@/components/practice/RehearsalStateBanner';
+import RehearsalSettingsDrawer from '@/components/practice/RehearsalSettingsDrawer';
 import { 
-  ArrowLeft, 
+  ArrowLeft,
+  Settings,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -60,6 +64,8 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   const [sessionTime, setSessionTime] = useState(0);
   const [currentLine, setCurrentLine] = useState(0);
   const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isEditingScript, setIsEditingScript] = useState(false);
 
   // Get rehearsal context - this is now safely inside RehearsalProvider
   const { 
@@ -188,6 +194,9 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       } else if (e.code === 'KeyF') {
         e.preventDefault();
         toggleFullscreen();
+      } else if (e.code === 'KeyE') {
+        e.preventDefault();
+        handleToggleEdit();
       } else if (e.code === 'ArrowUp') {
         e.preventDefault();
         setScrollSpeed([Math.min(5, scrollSpeed[0] + 0.5)]);
@@ -223,6 +232,21 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     } else {
       // Toggle regular script scrolling when voice activation is disabled
       setIsPlaying(!isPlaying);
+    }
+  };
+
+  // Edit script during rehearsal: pauses the rehearsal, resumes where you left off
+  const handleToggleEdit = () => {
+    if (!isEditingScript) {
+      console.log('✏️ Entering script edit mode - pausing rehearsal');
+      if (rehearsalMode) {
+        setRehearsalMode(false);
+      }
+      setIsPlaying(false);
+      setIsEditingScript(true);
+    } else {
+      console.log('✏️ Leaving script edit mode - back to rehearsal');
+      setIsEditingScript(false);
     }
   };
 
@@ -358,7 +382,30 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
               <div className="mb-4">
                 <RehearsalStateBanner />
               </div>
-              
+
+              {/* Edit script toggle */}
+              <div className="mb-4 flex items-center justify-between gap-2">
+                {isEditingScript ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Editing — rehearsal is paused and will resume where you left off.
+                    </p>
+                    <Button size="sm" onClick={handleToggleEdit}>
+                      <X className="h-4 w-4 mr-1" />
+                      Back to rehearsal
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span />
+                    <Button variant="outline" size="sm" onClick={handleToggleEdit}>
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Edit script
+                    </Button>
+                  </>
+                )}
+              </div>
+
               <InlineScriptEditor
                 scriptId={script.id}
                 content={scriptContent}
@@ -366,10 +413,23 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                 fontSize={fontSize[0]}
                 onContentChange={handleScriptUpdate}
                 onAutoSave={handleAutoSave}
-                showToolbar={!isFullscreen}
+                showToolbar={!isFullscreen || isEditingScript}
               />
               <div className="h-96" /> {/* Bottom padding for scrolling */}
             </div>
+          </div>
+
+          {/* Mobile settings gear — floats above the controls drawer */}
+          <div className="block sm:hidden absolute bottom-20 right-4 z-20">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setSettingsOpen(true)}
+              className="h-11 w-11 rounded-full shadow-lg bg-background/95 backdrop-blur-sm"
+              aria-label="Rehearsal settings"
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
           </div>
 
           {/* Mobile Controls Drawer */}
@@ -433,6 +493,15 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                       onFontSizeChange={setFontSize}
                       onToggleFullscreen={toggleFullscreen}
                     />
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={() => setSettingsOpen(true)}
+                      className="h-10 w-10 rounded-full shrink-0"
+                      aria-label="Rehearsal settings"
+                    >
+                      <Settings className="h-5 w-5" />
+                    </Button>
                   </div>
                 ) : (
                   /* Full Desktop Controls */
@@ -440,17 +509,28 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                     <div className="flex items-start gap-6">
                       {/* Rehearse Script Section */}
                       <div className="flex flex-col gap-3 min-w-[200px]">
-                        <ScriptControls
-                          isRehearsalActive={rehearsalMode}
-                          scrollSpeed={scrollSpeed}
-                          fontSize={fontSize}
-                          isFullscreen={isFullscreen}
-                          onStartStopRehearsal={handleStartStopRehearsal}
-                          onReset={handleReset}
-                          onScrollSpeedChange={setScrollSpeed}
-                          onFontSizeChange={setFontSize}
-                          onToggleFullscreen={toggleFullscreen}
-                        />
+                        <div className="flex items-center gap-2">
+                          <ScriptControls
+                            isRehearsalActive={rehearsalMode}
+                            scrollSpeed={scrollSpeed}
+                            fontSize={fontSize}
+                            isFullscreen={isFullscreen}
+                            onStartStopRehearsal={handleStartStopRehearsal}
+                            onReset={handleReset}
+                            onScrollSpeedChange={setScrollSpeed}
+                            onFontSizeChange={setFontSize}
+                            onToggleFullscreen={toggleFullscreen}
+                          />
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            onClick={() => setSettingsOpen(true)}
+                            className="h-10 w-10 rounded-full shrink-0"
+                            aria-label="Rehearsal settings"
+                          >
+                            <Settings className="h-5 w-5" />
+                          </Button>
+                        </div>
                       </div>
 
                       {/* Visual Separator */}
@@ -508,6 +588,13 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           🔊 {rehearsalMode ? 'Rehearsal Mode' : 'AI Reading...'}
         </div>
       )}
+
+      {/* Rehearsal Settings Drawer */}
+      <RehearsalSettingsDrawer
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onCharactersChange={handleRoleUpdate}
+      />
 
       {/* Actor Line Detector for Voice Activation */}
       <ActorLineDetector
