@@ -17,8 +17,12 @@ import { SessionTimer } from '@/components/practice/SessionTimer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useToast } from '@/hooks/use-toast';
 import { RehearsalStateBanner } from '@/components/practice/RehearsalStateBanner';
+import RehearsalSettingsDrawer from '@/components/practice/RehearsalSettingsDrawer';
 import { 
-  ArrowLeft, 
+  ArrowLeft,
+  Settings,
+  Pencil,
+  X,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -60,6 +64,8 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   const [sessionTime, setSessionTime] = useState(0);
   const [currentLine, setCurrentLine] = useState(0);
   const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [isEditingScript, setIsEditingScript] = useState(false);
 
   // Get rehearsal context - this is now safely inside RehearsalProvider
   const { 
