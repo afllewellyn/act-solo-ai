@@ -8,6 +8,18 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
+    /* Studio teleprompter + desk tokens (same in light & dark) */
+    --studio-bg: 0 0% 5%;
+    --studio-fg: 0 0% 96%;
+    --studio-muted: 0 0% 55%;
+    --studio-surface: 0 0% 12%;
+    --studio-border: 0 0% 20%;
+    --studio-cue: 200 45% 10%;
+    --eyeline: 38 92% 55%;
+    --desk-bg: 40 33% 97%;
+    --desk-surface: 40 30% 99%;
+    --desk-chip: 40 15% 92%;
+
     --background: 0 0% 100%;
     --foreground: 222.2 84% 4.9%;
 
