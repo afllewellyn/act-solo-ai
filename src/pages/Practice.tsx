@@ -419,6 +419,19 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
             </div>
           </div>
 
+          {/* Mobile settings gear — floats above the controls drawer */}
+          <div className="block sm:hidden absolute bottom-20 right-4 z-20">
+            <Button
+              variant="outline"
+              size="icon"
+              onClick={() => setSettingsOpen(true)}
+              className="h-11 w-11 rounded-full shadow-lg bg-background/95 backdrop-blur-sm"
+              aria-label="Rehearsal settings"
+            >
+              <Settings className="h-5 w-5" />
+            </Button>
+          </div>
+
           {/* Mobile Controls Drawer */}
           <div className="block sm:hidden">
             <MobileControlsDrawer
@@ -575,6 +588,13 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           🔊 {rehearsalMode ? 'Rehearsal Mode' : 'AI Reading...'}
         </div>
       )}
+
+      {/* Rehearsal Settings Drawer */}
+      <RehearsalSettingsDrawer
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        onCharactersChange={handleRoleUpdate}
+      />
 
       {/* Actor Line Detector for Voice Activation */}
       <ActorLineDetector
