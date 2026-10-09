@@ -392,7 +392,10 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         },
         onLineChange: async (lineIndex: number, line: ScriptLine | null) => {
           console.log('📝 Line changed:', lineIndex, line?.content?.substring(0, 50) + '...');
-          
+
+          // Drive the highlight + eye-line scrolling on the legacy path too
+          setCurrentParagraphIndex(line?.paragraphIndex ?? null);
+
           // If this is an AI line, trigger TTS
           if (line?.type === 'ai' && line.dialogue) {
             try {
@@ -472,6 +475,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       stateMachineRef.current = null;
       setRehearsalState('IDLE');
       setCurrentCueWords([]);
+      setCurrentParagraphIndex(null);
       setNoMatchesBanner(null);
     }
   }, [rehearsalMode, scriptContent, characters, selectedVoice, playbackSpeed, voiceActivated, textFilter]);
