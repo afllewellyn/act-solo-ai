@@ -21,6 +21,20 @@ export default {
 		},
 		extend: {
 			colors: {
+				studio: {
+					DEFAULT: 'hsl(var(--studio-bg))',
+					fg: 'hsl(var(--studio-fg))',
+					muted: 'hsl(var(--studio-muted))',
+					surface: 'hsl(var(--studio-surface))',
+					border: 'hsl(var(--studio-border))',
+					cue: 'hsl(var(--studio-cue))',
+				},
+				eyeline: 'hsl(var(--eyeline))',
+				desk: {
+					DEFAULT: 'hsl(var(--desk-bg))',
+					surface: 'hsl(var(--desk-surface))',
+					chip: 'hsl(var(--desk-chip))',
+				},
 				border: 'hsl(var(--border))',
 				input: 'hsl(var(--input))',
 				ring: 'hsl(var(--ring))',

@@ -1,39 +1,20 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
-import { Label } from '@/components/ui/label';
-
-import { Slider } from '@/components/ui/slider';
 import { supabase } from '@/integrations/supabase/client';
-import { InlineScriptEditor } from '@/components/InlineScriptEditor';
 import { ActorLineDetector } from '@/components/ActorLineDetector';
-import { VoiceControls } from '@/components/practice/VoiceControls';
-import { ScriptControls } from '@/components/practice/ScriptControls';
-import { MobileControlsDrawer } from '@/components/practice/MobileControlsDrawer';
-import { ScriptDisplay } from '@/components/practice/ScriptDisplay';
-import { SessionTimer } from '@/components/practice/SessionTimer';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useToast } from '@/hooks/use-toast';
-import { RehearsalStateBanner } from '@/components/practice/RehearsalStateBanner';
 import RehearsalSettingsDrawer from '@/components/practice/RehearsalSettingsDrawer';
-import { 
-  ArrowLeft,
-  Settings,
-  Pencil,
-  X,
-} from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
-import { ThemeToggle } from '@/components/ThemeToggle';
+import { TeleprompterDisplay } from '@/components/practice/TeleprompterDisplay';
+import { StudioScriptEditor } from '@/components/scripts/StudioScriptEditor';
+import { getScriptLines } from '@/components/practice/rehearsal/scriptParser';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
+  ArrowLeft, Settings, Pencil, Play, Pause, Square, RotateCcw, Volume2,
+  ChevronRight, MoreHorizontal, Plus, Minus,
+} from 'lucide-react';
 import { RehearsalProvider, useRehearsal } from '@/contexts/RehearsalContext';
 
 interface Script {
@@ -51,47 +32,44 @@ import type { Json } from '@/integrations/supabase/types';
 
 // Component that contains all rehearsal logic and UI - must be inside RehearsalProvider
 const PracticeWithRehearsal = ({ script }: { script: Script }) => {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [scrollSpeed, setScrollSpeed] = useState([2]);
-  const [fontSize, setFontSize] = useState([18]);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [currentPosition, setCurrentPosition] = useState(0);
+  const [fontSize, setFontSize] = useState(() => {
+    const saved = Number(sessionStorage.getItem('actsolo-teleprompter-font'));
+    return saved >= 20 && saved <= 64 ? saved : 32;
+  });
   const [sessionTime, setSessionTime] = useState(0);
-  const [currentLine, setCurrentLine] = useState(0);
-  const [currentActorLine, setCurrentActorLine] = useState<string | null>(null);
+  const [take, setTake] = useState(1);
+  const [manualIndex, setManualIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isEditingScript, setIsEditingScript] = useState(false);
+  const [draft, setDraft] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
 
-  // Get rehearsal context - this is now safely inside RehearsalProvider
-  const { 
+  const {
+    stateMachine,
     scriptContent,
     characters,
-    rehearsalMode, 
-    setRehearsalMode, 
+    rehearsalMode,
+    setRehearsalMode,
     handleMasterStop: contextMasterStop,
     handleTTSPlay: contextTTSPlay,
     textFilter,
-    setTextFilter,
-    noMatchesBanner,
-    selectedVoice,
-    playbackSpeed,
-    voiceActivated,
-    setVoiceActivated,
     isTTSPlaying,
+    isManualTTSPlaying,
     isListening,
+    isPaused,
+    handlePause,
+    handleResume,
     rehearsalState,
     handleActorLineDetected: contextHandleActorLineDetected,
     initialize,
     updateScript,
-    updateCharacters
+    updateCharacters,
   } = useRehearsal();
 
-  // Initialize script content and characters
   useEffect(() => {
     if (script) {
       const charactersData: Array<{ name?: string; voice?: string; isUserRole?: boolean }> =
@@ -99,512 +77,236 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       const parsedCharacters: Character[] = charactersData.map((char) => ({
         name: char?.name || '',
         voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
-        isUserRole: char?.isUserRole || false
+        isUserRole: char?.isUserRole || false,
       }));
-      
-      // Initialize rehearsal context with script data
       initialize(script.content, parsedCharacters);
     }
   }, [script]);
 
-  // Master stop function for all AI operations
-  const handleMasterStop = () => {
-    console.log('🛑 Master stop - halting all operations');
-    setIsPlaying(false);
-    contextMasterStop();
-  };
-
-  // Handle actor line detection (for backward compatibility, but now handled by state machine)
-  const handleActorLineDetected = (line: string) => {
-    setCurrentActorLine(line);
-    contextHandleActorLineDetected(line);
-  };
-
-  // Session timer
   useEffect(() => {
-    const timer = setInterval(() => {
-      setSessionTime(prev => prev + 1);
-    }, 1000);
+    sessionStorage.setItem('actsolo-teleprompter-font', String(fontSize));
+  }, [fontSize]);
 
+  // Session timer runs while rehearsing
+  useEffect(() => {
+    if (!rehearsalMode || isPaused) return;
+    const timer = setInterval(() => setSessionTime((t) => t + 1), 1000);
     return () => clearInterval(timer);
-  }, []);
+  }, [rehearsalMode, isPaused]);
 
-  // Auto-scroll functionality
+  const lines = useMemo(() => getScriptLines(scriptContent, textFilter), [scriptContent, textFilter]);
+
+  // Follow the state machine's position while rehearsing
+  const machineIndex = rehearsalMode && stateMachine ? stateMachine.getCurrentLineIndex() : null;
   useEffect(() => {
-    if (isPlaying) {
-      intervalRef.current = setInterval(() => {
-        if (scrollContainerRef.current) {
-          const container = scrollContainerRef.current;
-          const scrollTop = container.scrollTop;
-          const scrollHeight = container.scrollHeight;
-          const clientHeight = container.clientHeight;
-          
-          if (scrollTop < scrollHeight - clientHeight) {
-            container.scrollTop += scrollSpeed[0];
-            setCurrentPosition((scrollTop / (scrollHeight - clientHeight)) * 100);
-          } else {
-            // Reached end
-            setIsPlaying(false);
-          }
-        }
-      }, 50);
-    } else {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-    }
+    if (machineIndex !== null) setManualIndex(Math.min(machineIndex, Math.max(0, lines.length - 1)));
+  }, [machineIndex, rehearsalState, lines.length]);
+  const activeIndex = Math.min(manualIndex, Math.max(0, lines.length - 1));
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-    };
-  }, [isPlaying, scrollSpeed]);
+  const status: 'idle' | 'listening' | 'ai' | 'paused' | 'complete' =
+    rehearsalState === 'COMPLETE' ? 'complete'
+      : isPaused ? 'paused'
+      : isTTSPlaying || isManualTTSPlaying || rehearsalState === 'AI_SPEAKING' ? 'ai'
+      : rehearsalMode && (isListening || rehearsalState === 'WAITING_FOR_ACTOR_CUE') ? 'listening'
+      : 'idle';
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (e: KeyboardEvent) => {
-      // Check if user is currently editing in the script editor
-      const activeElement = document.activeElement;
-      const isEditingScript = activeElement?.closest('[data-tiptap-editor]') || 
-                             activeElement?.tagName === 'INPUT' || 
-                             activeElement?.tagName === 'TEXTAREA' ||
-                             (activeElement as HTMLElement)?.contentEditable === 'true';
-      
-      // If editing, don't handle keyboard shortcuts
-      if (isEditingScript) {
-        return;
-      }
-
-      if (e.code === 'Space' && !e.shiftKey) {
-        e.preventDefault();
-        handlePlayPause();
-      } else if (e.code === 'Space' && e.shiftKey) {
-        // Shift+Space for TTS
-        e.preventDefault();
-        if (rehearsalMode) {
-          setRehearsalMode(false);
-        } else {
-          contextTTSPlay();
-        }
-      } else if (e.code === 'KeyR') {
-        e.preventDefault();
-        handleReset();
-      } else if (e.code === 'KeyF') {
-        e.preventDefault();
-        toggleFullscreen();
-      } else if (e.code === 'KeyE') {
-        e.preventDefault();
-        handleToggleEdit();
-      } else if (e.code === 'ArrowUp') {
-        e.preventDefault();
-        setScrollSpeed([Math.min(5, scrollSpeed[0] + 0.5)]);
-      } else if (e.code === 'ArrowDown') {
-        e.preventDefault();
-        setScrollSpeed([Math.max(0.5, scrollSpeed[0] - 0.5)]);
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [scrollSpeed, isPlaying, rehearsalMode, contextTTSPlay]);
-
-  // Handle script rehearsal play/pause (master control)
-  const handleStartStopRehearsal = () => {
-    if (rehearsalMode) {
-      // Stop rehearsal mode
-      console.log('🛑 User stopping rehearsal');
-      setRehearsalMode(false);
-      setIsPlaying(false);
-    } else {
-      // Start rehearsal mode
-      console.log('▶️ User starting rehearsal');
+  const handlePrimary = () => {
+    if (!rehearsalMode) {
+      if (isManualTTSPlaying) contextTTSPlay();
       setRehearsalMode(true);
-      setIsPlaying(true);
-    }
-  };
-
-  const handlePlayPause = () => {
-    if (voiceActivated) {
-      // Toggle rehearsal mode when voice activation is enabled
-      setRehearsalMode(!rehearsalMode);
+    } else if (isPaused) {
+      handleResume();
     } else {
-      // Toggle regular script scrolling when voice activation is disabled
-      setIsPlaying(!isPlaying);
+      handlePause();
     }
   };
 
-  // Edit script during rehearsal: pauses the rehearsal, resumes where you left off
-  const handleToggleEdit = () => {
-    if (!isEditingScript) {
-      console.log('✏️ Entering script edit mode - pausing rehearsal');
-      if (rehearsalMode) {
-        setRehearsalMode(false);
-      }
-      setIsPlaying(false);
-      setIsEditingScript(true);
-    } else {
-      console.log('✏️ Leaving script edit mode - back to rehearsal');
-      setIsEditingScript(false);
-    }
+  const handleRestart = () => {
+    contextMasterStop();
+    setRehearsalMode(false);
+    setManualIndex(0);
+    setSessionTime(0);
+    setTake((t) => t + 1);
   };
 
-  const handleReset = () => {
-    setIsPlaying(false);
-    setCurrentPosition(0);
-    if (scrollContainerRef.current) {
-      scrollContainerRef.current.scrollTop = 0;
+  const handleNextCue = () => {
+    if (rehearsalMode && stateMachine) {
+      if (rehearsalState === 'WAITING_FOR_ACTOR_CUE') stateMachine.handleActorCueDetected();
+      return;
     }
+    setManualIndex((i) => Math.min(i + 1, Math.max(0, lines.length - 1)));
   };
 
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, '0')}`;
+  const handleReadScript = () => {
+    if (rehearsalMode) setRehearsalMode(false);
+    contextTTSPlay();
   };
 
-  const toggleFullscreen = () => {
-    if (!document.fullscreenElement) {
-      document.documentElement.requestFullscreen();
-      setIsFullscreen(true);
-    } else {
-      document.exitFullscreen();
-      setIsFullscreen(false);
-    }
+  const openEditor = () => {
+    if (rehearsalMode && !isPaused) handlePause();
+    if (isManualTTSPlaying) contextTTSPlay();
+    setDraft(scriptContent);
+    setIsEditingScript(true);
   };
 
-  const handleScriptUpdate = (updatedContent: string) => {
-    // Auto-stop TTS when script is edited
-    if (isTTSPlaying) {
-      contextMasterStop();
+  const saveEdit = async () => {
+    setSavingEdit(true);
+    const { error } = await supabase.from('scripts').update({ content: draft }).eq('id', script.id);
+    setSavingEdit(false);
+    if (error) {
+      toast({ title: 'Could not save', description: 'Please try again.', variant: 'destructive' });
+      return;
     }
-    
-    // Stop voice recognition when editing
-    if (isListening) {
-      contextMasterStop();
-      setCurrentActorLine(null);
-    }
-    
-    updateScript(updatedContent);
-  };
-
-  const handleAutoSave = (success: boolean) => {
-    if (success) {
-      // Optionally show a subtle success indicator
-    } else {
-      toast({
-        title: "Auto-save Error",
-        description: "Failed to save changes automatically. Please try manual save.",
-        variant: "destructive",
-      });
-    }
+    updateScript(draft);
+    setIsEditingScript(false);
+    if (rehearsalMode && isPaused) handleResume();
   };
 
   const handleRoleUpdate = (updatedCharacters: Character[]) => {
     updateCharacters(updatedCharacters);
-    // Update the script's characters in the database
     supabase
       .from('scripts')
       .update({ characters: updatedCharacters as unknown as Json })
       .eq('id', script.id)
       .then(({ error }) => {
-        if (error) {
-          console.error('Error updating characters:', error);
-        }
+        if (error) console.error('Error updating characters:', error);
       });
   };
 
+  // Keyboard shortcuts: Space = start/pause, E = edit, → = next cue
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const a = document.activeElement as HTMLElement | null;
+      if (isEditingScript || settingsOpen || a?.closest('[data-tiptap-editor]') || a?.tagName === 'INPUT' || a?.tagName === 'TEXTAREA' || a?.isContentEditable) return;
+      if (e.code === 'Space') { e.preventDefault(); handlePrimary(); }
+      else if (e.code === 'KeyE') { e.preventDefault(); openEditor(); }
+      else if (e.code === 'ArrowRight') { e.preventDefault(); handleNextCue(); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  });
+
+  const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+
+  const primaryLabel = !rehearsalMode ? 'Start rehearsal' : isPaused ? 'Resume' : 'Pause';
+  const PrimaryIcon = rehearsalMode && !isPaused ? Pause : Play;
+  const pill = 'h-11 rounded-full border border-studio-border px-4 text-sm font-medium inline-flex items-center gap-2 hover:bg-studio-surface disabled:opacity-40';
+  const iconBtn = 'h-10 w-10 rounded-full border border-studio-border inline-flex items-center justify-center hover:bg-studio-surface';
+
   return (
-    <div className={`min-h-screen bg-background ${isFullscreen ? 'fixed inset-0 z-50' : ''}`}>
-      {/* Header - Hidden in fullscreen */}
-      {!isFullscreen && (
-        <header className="border-b">
-          <div className="container mx-auto px-4 py-4">
-            <div className="flex items-center justify-center gap-4 md:gap-8">
-              <div className="flex items-center gap-2">
-                <Breadcrumb>
-                  <BreadcrumbList>
-                    <BreadcrumbItem>
-                      <BreadcrumbLink href="/manage-scripts">Scripts</BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator />
-                    <BreadcrumbItem>
-                      <BreadcrumbPage className="truncate max-w-[120px] md:max-w-[200px]">
-                        {script.title}
-                      </BreadcrumbPage>
-                    </BreadcrumbItem>
-                  </BreadcrumbList>
-                </Breadcrumb>
-              </div>
-              
-              {sessionTime > 0 && (
-                <div className="text-sm text-muted-foreground font-mono hidden sm:block">
-                  Session: {formatTime(sessionTime)}
-                </div>
-              )}
-              
-              <div className="flex items-center gap-2 md:gap-4">
-                <ThemeToggle />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => navigate('/manage-scripts')}
-                  className="gap-2"
-                >
-                  <ArrowLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Back</span>
-                </Button>
-              </div>
-            </div>
-          </div>
-        </header>
-      )}
-
-      <main className={`flex ${isFullscreen ? 'h-screen' : 'h-[calc(100vh-73px)]'}`}>
-        {/* Script Content */}
-        <div className="flex-1 relative">
-          {/* Progress Bar */}
-          <div className="absolute top-0 left-0 right-0 h-1 bg-muted z-10">
-            <div 
-              className="h-full bg-primary transition-all duration-100"
-              style={{ width: `${currentPosition}%` }}
-            />
-          </div>
-
-          {/* Script Editor */}
-          <div 
-            ref={scrollContainerRef}
-            className="h-full overflow-y-auto"
-          >
-            <div className="max-w-4xl mx-auto p-4">
-              {/* Rehearsal State Banner */}
-              <div className="mb-4">
-                <RehearsalStateBanner />
-              </div>
-
-              {/* Edit script toggle */}
-              <div className="mb-4 flex items-center justify-between gap-2">
-                {isEditingScript ? (
-                  <>
-                    <p className="text-sm text-muted-foreground">
-                      Editing — rehearsal is paused and will resume where you left off.
-                    </p>
-                    <Button size="sm" onClick={handleToggleEdit}>
-                      <X className="h-4 w-4 mr-1" />
-                      Back to rehearsal
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <span />
-                    <Button variant="outline" size="sm" onClick={handleToggleEdit}>
-                      <Pencil className="h-4 w-4 mr-1" />
-                      Edit script
-                    </Button>
-                  </>
-                )}
-              </div>
-
-              <InlineScriptEditor
-                scriptId={script.id}
-                content={scriptContent}
-                characters={characters}
-                fontSize={fontSize[0]}
-                onContentChange={handleScriptUpdate}
-                onAutoSave={handleAutoSave}
-                showToolbar={!isFullscreen || isEditingScript}
-              />
-              <div className="h-96" /> {/* Bottom padding for scrolling */}
-            </div>
-          </div>
-
-          {/* Mobile settings gear — floats above the controls drawer */}
-          <div className="block sm:hidden absolute bottom-20 right-4 z-20">
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => setSettingsOpen(true)}
-              className="h-11 w-11 rounded-full shadow-lg bg-background/95 backdrop-blur-sm"
-              aria-label="Rehearsal settings"
-            >
-              <Settings className="h-5 w-5" />
-            </Button>
-          </div>
-
-          {/* Mobile Controls Drawer */}
-          <div className="block sm:hidden">
-            <MobileControlsDrawer
-              // Script controls
-              isRehearsalActive={rehearsalMode}
-              scrollSpeed={scrollSpeed}
-              fontSize={fontSize}
-              isFullscreen={isFullscreen}
-              onStartStopRehearsal={handleStartStopRehearsal}
-              onReset={handleReset}
-              onScrollSpeedChange={setScrollSpeed}
-              onFontSizeChange={setFontSize}
-              onToggleFullscreen={toggleFullscreen}
-              
-              // Voice control props from rehearsal context
-              voices={useRehearsal().voices}
-              selectedVoice={useRehearsal().selectedVoice}
-              onVoiceChange={useRehearsal().setSelectedVoice}
-              textFilter={useRehearsal().textFilter}
-              onTextFilterChange={useRehearsal().setTextFilter}
-              playbackSpeed={useRehearsal().playbackSpeed}
-              onPlaybackSpeedChange={useRehearsal().setPlaybackSpeed}
-              voiceActivated={useRehearsal().voiceActivated}
-              onVoiceActivatedChange={useRehearsal().setVoiceActivated}
-              isListening={useRehearsal().isListening}
-              isTTSPlaying={useRehearsal().isTTSPlaying}
-              isManualTTSPlaying={useRehearsal().isManualTTSPlaying}
-              rehearsalState={useRehearsal().rehearsalState}
-              onTTSPlay={useRehearsal().handleTTSPlay}
-              
-              // Audio manager props
-              isMobile={useRehearsal().audioManager?.isMobile}
-              needsUserGesture={useRehearsal().audioManager?.needsUserGesture}
-              waitingForUserTrigger={useRehearsal().audioManager?.waitingForUserTrigger}
-              onEnableAudio={useRehearsal().audioManager?.enableAudio}
-              onManualTriggerListen={useRehearsal().audioManager?.manualTriggerListen}
-            />
-          </div>
-
-          {/* Desktop Controls */}
-          <div className="hidden sm:block absolute bottom-4 left-4 right-4">
-            <Card className={`bg-background/95 backdrop-blur-sm transition-all duration-300 ${
-              isFullscreen ? 'bg-background/70 backdrop-blur-md' : ''
-            }`}>
-              <CardContent className={`transition-all duration-300 ${
-                isFullscreen ? 'p-2' : 'p-4'
-              }`}>
-                {isFullscreen ? (
-                  /* Compact Fullscreen Controls */
-                  <div className="flex items-center justify-center gap-4">
-                    <ScriptControls
-                      isRehearsalActive={rehearsalMode}
-                      scrollSpeed={scrollSpeed}
-                      fontSize={fontSize}
-                      isFullscreen={isFullscreen}
-                      onStartStopRehearsal={handleStartStopRehearsal}
-                      onReset={handleReset}
-                      onScrollSpeedChange={setScrollSpeed}
-                      onFontSizeChange={setFontSize}
-                      onToggleFullscreen={toggleFullscreen}
-                    />
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={() => setSettingsOpen(true)}
-                      className="h-10 w-10 rounded-full shrink-0"
-                      aria-label="Rehearsal settings"
-                    >
-                      <Settings className="h-5 w-5" />
-                    </Button>
-                  </div>
-                ) : (
-                  /* Full Desktop Controls */
-                  <>
-                    <div className="flex items-start gap-6">
-                      {/* Rehearse Script Section */}
-                      <div className="flex flex-col gap-3 min-w-[200px]">
-                        <div className="flex items-center gap-2">
-                          <ScriptControls
-                            isRehearsalActive={rehearsalMode}
-                            scrollSpeed={scrollSpeed}
-                            fontSize={fontSize}
-                            isFullscreen={isFullscreen}
-                            onStartStopRehearsal={handleStartStopRehearsal}
-                            onReset={handleReset}
-                            onScrollSpeedChange={setScrollSpeed}
-                            onFontSizeChange={setFontSize}
-                            onToggleFullscreen={toggleFullscreen}
-                          />
-                          <Button
-                            variant="outline"
-                            size="icon"
-                            onClick={() => setSettingsOpen(true)}
-                            className="h-10 w-10 rounded-full shrink-0"
-                            aria-label="Rehearsal settings"
-                          >
-                            <Settings className="h-5 w-5" />
-                          </Button>
-                        </div>
-                      </div>
-
-                      {/* Visual Separator */}
-                      <Separator orientation="vertical" className="h-24 mx-3" />
-
-                      {/* AI Reader Voice Selection Section */}
-                      <div className="flex flex-col gap-3 flex-1">
-                        <VoiceControls />
-
-                        {/* Voice Activation Status */}
-                        {isListening && (
-                          <div className="text-center">
-                            <span className="text-xs text-muted-foreground animate-pulse">
-                              {rehearsalState === 'WAITING_FOR_ACTOR_CUE' ? 'Still listening...' : 'Listening...'}
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Visual Separator */}
-                      <Separator orientation="vertical" className="h-24 mx-3" />
-
-                    </div>
-
-                    {/* Script Speed Control Slider - Only show when not using voice activation */}
-                    {!voiceActivated && (
-                      <div className="flex items-center gap-4 mt-4 pt-4 border-t">
-                        <Label className="text-sm whitespace-nowrap">Scroll Speed:</Label>
-                        <div className="flex-1">
-                          <Slider
-                            value={scrollSpeed}
-                            onValueChange={setScrollSpeed}
-                            max={5}
-                            min={0.5}
-                            step={0.5}
-                            className="w-full"
-                          />
-                        </div>
-                         <span className="text-sm text-muted-foreground w-12 text-center font-mono">
-                           {scrollSpeed[0]}x
-                         </span>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </div>
+    <div className="h-[100dvh] flex flex-col bg-studio text-studio-fg">
+      {/* Top HUD */}
+      <header className="flex items-center gap-2 sm:gap-4 px-3 sm:px-6 py-3 border-b border-studio-border">
+        <button onClick={() => { contextMasterStop(); navigate('/manage-scripts'); }} className={iconBtn} aria-label="Back to scripts">
+          <ArrowLeft className="h-5 w-5" />
+        </button>
+        <h1 className="flex-1 min-w-0 truncate font-semibold">{script.title}</h1>
+        <span className="font-mono text-sm text-studio-muted tabular-nums">{formatTime(sessionTime)}</span>
+        <span className="hidden sm:inline text-sm text-studio-muted">Take <strong className="text-studio-fg">{take}</strong></span>
+        <div className="hidden sm:flex items-center rounded-full border border-studio-border">
+          <button onClick={() => setFontSize((f) => Math.max(20, f - 4))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Smaller text">A−</button>
+          <button onClick={() => setFontSize((f) => Math.min(64, f + 4))} className="h-10 px-3 text-base font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Larger text">A+</button>
         </div>
+        <button onClick={() => setSettingsOpen(true)} className={iconBtn} aria-label="Rehearsal settings">
+          <Settings className="h-5 w-5" />
+        </button>
+      </header>
+
+      <main className="flex-1 min-h-0 flex flex-col">
+        <TeleprompterDisplay
+          lines={lines}
+          activeIndex={activeIndex}
+          fontSize={fontSize}
+          status={status}
+          onSelectLine={(i) => { if (!rehearsalMode) setManualIndex(i); }}
+        />
       </main>
 
-      {/* TTS Visual Indicator */}
-      {isTTSPlaying && (
-        <div className="fixed top-4 right-4 bg-primary text-primary-foreground px-3 py-2 rounded-full text-sm font-medium shadow-lg animate-pulse z-50">
-          🔊 {rehearsalMode ? 'Rehearsal Mode' : 'AI Reading...'}
+      {/* Bottom control bar */}
+      <footer className="border-t border-studio-border px-3 sm:px-6 py-3">
+        <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2">
+            <button onClick={handleRestart} className={pill} aria-label="Restart">
+              <RotateCcw className="h-4 w-4" /> <span className="hidden sm:inline">Restart</span>
+            </button>
+            <div className="hidden md:flex items-center gap-2">
+              <button onClick={openEditor} className={pill}><Pencil className="h-4 w-4" /> Edit script</button>
+              <button onClick={handleReadScript} className={pill}>
+                {isManualTTSPlaying ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}
+                {isManualTTSPlaying ? 'Stop reading' : 'Read script'}
+              </button>
+              <button onClick={handleNextCue} className={pill} disabled={rehearsalMode && rehearsalState !== 'WAITING_FOR_ACTOR_CUE'}>
+                Next cue <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="relative md:hidden">
+              <button onClick={() => setMoreOpen((o) => !o)} className={pill} aria-label="More controls" aria-expanded={moreOpen}>
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {moreOpen && (
+                <div className="absolute bottom-14 left-0 z-30 w-52 rounded-2xl border border-studio-border bg-studio-surface p-2 shadow-xl">
+                  {[
+                    { label: 'Edit script', icon: Pencil, run: openEditor },
+                    { label: isManualTTSPlaying ? 'Stop reading' : 'Read script', icon: Volume2, run: handleReadScript },
+                    { label: 'Next cue', icon: ChevronRight, run: handleNextCue },
+                    { label: 'Larger text', icon: Plus, run: () => setFontSize((f) => Math.min(64, f + 4)) },
+                    { label: 'Smaller text', icon: Minus, run: () => setFontSize((f) => Math.max(20, f - 4)) },
+                  ].map(({ label, icon: Icon, run }) => (
+                    <button key={label} onClick={() => { run(); setMoreOpen(false); }} className="w-full h-11 rounded-xl px-3 text-left text-sm inline-flex items-center gap-3 hover:bg-studio-border">
+                      <Icon className="h-4 w-4" /> {label}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {rehearsalMode && (
+              <button onClick={() => { contextMasterStop(); setRehearsalMode(false); }} className={pill} aria-label="Stop rehearsal">
+                <Square className="h-4 w-4 fill-current" /> <span className="hidden sm:inline">Stop</span>
+              </button>
+            )}
+          </div>
+          <button
+            onClick={handlePrimary}
+            className="h-12 rounded-full bg-studio-fg text-studio px-6 font-semibold inline-flex items-center gap-2 hover:opacity-90"
+          >
+            <PrimaryIcon className="h-4 w-4 fill-current" /> {primaryLabel}
+          </button>
         </div>
-      )}
+        <p className="hidden md:block text-center text-[11px] text-studio-muted mt-2">Space start / pause · E edit · → next cue</p>
+      </footer>
 
-      {/* Rehearsal Settings Drawer */}
       <RehearsalSettingsDrawer
         open={settingsOpen}
         onOpenChange={setSettingsOpen}
         onCharactersChange={handleRoleUpdate}
+        onReadScript={handleReadScript}
       />
 
-      {/* Actor Line Detector for Voice Activation */}
+      <Dialog open={isEditingScript} onOpenChange={setIsEditingScript}>
+        <DialogContent className="max-w-3xl bg-studio text-studio-fg border-studio-border max-h-[90dvh] overflow-y-auto [&>button]:text-studio-fg">
+          <DialogHeader>
+            <DialogTitle>Edit script</DialogTitle>
+            <DialogDescription className="text-studio-muted">
+              Rehearsal is paused. <strong>Bold</strong> = you, <em>italic</em> = AI. You'll pick up where you left off.
+            </DialogDescription>
+          </DialogHeader>
+          <StudioScriptEditor tone="studio" content={draft} onChange={setDraft} />
+          <div className="flex justify-end gap-2">
+            <button onClick={() => setIsEditingScript(false)} className={pill}>Cancel</button>
+            <button onClick={saveEdit} disabled={savingEdit} className="h-11 rounded-full bg-studio-fg text-studio px-5 font-semibold disabled:opacity-50">
+              {savingEdit ? 'Saving…' : 'Save & back to rehearsal'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       <ActorLineDetector
         scriptContent={scriptContent}
         characters={characters}
-        voiceActivated={voiceActivated}
+        voiceActivated={true}
         isSupported={true}
-        onActorLineDetected={handleActorLineDetected}
+        onActorLineDetected={contextHandleActorLineDetected}
       />
-
     </div>
   );
 };

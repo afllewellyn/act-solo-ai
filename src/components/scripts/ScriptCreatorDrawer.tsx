@@ -1,22 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from '@/components/ui/sheet';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
-import { RichTextEditor } from '@/components/RichTextEditor';
-import { stripHtmlTags, CHARACTER_LINE_REGEX } from '@/components/practice/rehearsal/textUtils';
-import { Bold, Italic, Play, Save } from 'lucide-react';
+import { StudioScriptEditor } from '@/components/scripts/StudioScriptEditor';
+import { detectCharacterRoles } from '@/lib/scriptMeta';
+import { cn } from '@/lib/utils';
+import { ArrowRight } from 'lucide-react';
 
 export interface EditableScript {
   id: string;
@@ -28,90 +20,68 @@ export interface EditableScript {
 interface ScriptCreatorDrawerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** When provided, the drawer edits this script instead of creating a new one */
   script?: EditableScript | null;
   onSaved: () => void;
 }
 
-const detectCharacters = (scriptContent: string): string[] => {
-  const plainText = stripHtmlTags(scriptContent);
-  const regex = new RegExp(CHARACTER_LINE_REGEX.source, 'gmi');
-  const names = new Set<string>();
-  let m: RegExpExecArray | null;
-  while ((m = regex.exec(plainText)) !== null) {
-    names.add(m[1].trim());
-  }
-  return Array.from(names);
-};
+const SAMPLE_SCENE = [
+  "<p><strong>MAYA: You said you'd be home by eight.</strong></p>",
+  '<p><em>DANIEL: I know what I said.</em></p>',
+  '<p><strong>MAYA: Then where were you?</strong></p>',
+  '<p><em>DANIEL: Driving. Just… driving.</em></p>',
+  '<p><strong>MAYA: For three hours?</strong></p>',
+  '<p><em>DANIEL: I needed to think, Maya.</em></p>',
+].join('');
+
+const DEFAULT_VOICE = '9BWtsMINqrJLrRacOk9x';
 
 const ScriptCreatorDrawer = ({ open, onOpenChange, script, onSaved }: ScriptCreatorDrawerProps) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
-  const [characters, setCharacters] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const { user } = useAuth();
   const navigate = useNavigate();
-
   const isEditing = Boolean(script);
 
-  // Load script into the drawer when editing; reset when creating
   useEffect(() => {
     if (open) {
       setTitle(script?.title ?? '');
       setContent(script?.content ?? '');
-      setCharacters(script ? detectCharacters(script.content) : []);
     }
   }, [open, script]);
 
-  const handleContentChange = (value: string) => {
-    setContent(value);
-    setCharacters(detectCharacters(value));
-  };
-
-  const validate = (): boolean => {
-    if (!title.trim() || !content.trim()) {
-      toast({
-        title: 'Missing details',
-        description: 'Please provide both a title and script content',
-        variant: 'destructive',
-      });
-      return false;
-    }
-    if (!user) {
-      toast({
-        title: 'Error',
-        description: 'You must be logged in to save scripts',
-        variant: 'destructive',
-      });
-      return false;
-    }
-    return true;
-  };
+  const detected = useMemo(() => detectCharacterRoles(content), [content]);
 
   const saveScript = async (): Promise<string | null> => {
-    if (!validate() || !user) return null;
+    if (!title.trim() || !content.trim()) {
+      toast({ title: 'Missing details', description: 'Add a title and your scene first.', variant: 'destructive' });
+      return null;
+    }
+    if (!user) {
+      toast({ title: 'Error', description: 'You must be logged in to save scripts', variant: 'destructive' });
+      return null;
+    }
     setLoading(true);
     try {
+      // Keep any voices already chosen for existing characters
+      const previous: Array<{ name?: string; voice?: string }> = Array.isArray(script?.characters)
+        ? (script?.characters as Array<{ name?: string; voice?: string }>)
+        : [];
       const payload = {
         title: title.trim(),
         content: content.trim(),
-        characters: characters.map((name) => ({
-          name,
-          voice: '9BWtsMINqrJLrRacOk9x',
-          isUserRole: false,
+        characters: detected.map((c) => ({
+          name: c.name,
+          voice: previous.find((p) => p.name?.toUpperCase() === c.name)?.voice || DEFAULT_VOICE,
+          isUserRole: c.role === 'you',
         })) as unknown as Json,
       };
-
       if (isEditing && script) {
-        const { error } = await supabase
-          .from('scripts')
-          .update(payload)
-          .eq('id', script.id);
+        const { error } = await supabase.from('scripts').update(payload).eq('id', script.id);
         if (error) throw error;
         return script.id;
       }
-
       const { data, error } = await supabase
         .from('scripts')
         .insert({ user_id: user.id, ...payload })
@@ -121,11 +91,7 @@ const ScriptCreatorDrawer = ({ open, onOpenChange, script, onSaved }: ScriptCrea
       return data?.id ?? null;
     } catch (error) {
       console.error('Error saving script:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to save script. Please try again.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to save script. Please try again.', variant: 'destructive' });
       return null;
     } finally {
       setLoading(false);
@@ -135,10 +101,7 @@ const ScriptCreatorDrawer = ({ open, onOpenChange, script, onSaved }: ScriptCrea
   const handleSave = async () => {
     const id = await saveScript();
     if (!id) return;
-    toast({
-      title: 'Success',
-      description: isEditing ? 'Script updated!' : 'Script saved successfully!',
-    });
+    toast({ title: 'Saved', description: isEditing ? 'Script updated.' : 'Script added to your desk.' });
     onOpenChange(false);
     onSaved();
   };
@@ -153,84 +116,84 @@ const ScriptCreatorDrawer = ({ open, onOpenChange, script, onSaved }: ScriptCrea
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent
-        side="right"
-        className="w-full sm:max-w-2xl overflow-y-auto flex flex-col"
-      >
-        <SheetHeader>
-          <SheetTitle>{isEditing ? 'Edit Script' : 'New Script'}</SheetTitle>
-          <SheetDescription>
-            Paste your scene below. Format each line as{' '}
-            <span className="font-mono text-xs">NAME: dialogue</span>.
+      <SheetContent side="right" className="w-full sm:max-w-2xl p-0 flex flex-col bg-desk gap-0">
+        <div className="px-6 py-4 border-b">
+          <SheetTitle className="text-xs font-semibold tracking-[0.2em] uppercase text-muted-foreground">
+            {isEditing ? 'Edit script' : 'New script'}
+          </SheetTitle>
+          <SheetDescription className="sr-only">
+            Write or paste your scene. Bold lines are yours, italic lines are read by the AI.
           </SheetDescription>
-        </SheetHeader>
+        </div>
 
-        <div className="flex-1 space-y-5 py-6">
-          <div className="space-y-2">
-            <Label htmlFor="drawer-title">Script title</Label>
-            <Input
-              id="drawer-title"
-              placeholder="e.g. Pilot — Scene 4"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-            />
+        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+          <input
+            aria-label="Script title"
+            placeholder="Untitled scene"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full bg-transparent text-3xl sm:text-4xl font-bold tracking-tight text-foreground placeholder:text-muted-foreground/50 focus:outline-none"
+          />
+
+          <div className="flex flex-wrap gap-2 text-sm">
+            <span className="rounded-full border px-3 py-1 bg-background"><strong>Bold</strong> = You</span>
+            <span className="rounded-full border px-3 py-1 bg-background"><em>Italic</em> = AI scene partner</span>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="drawer-content">Script</Label>
-            <RichTextEditor
-              content={content}
-              onChange={handleContentChange}
-              placeholder="Paste your script here...
-
-CHARACTER NAME: Dialogue goes here
-ANOTHER CHARACTER: More dialogue..."
-            />
-            <p className="text-xs text-muted-foreground flex flex-wrap items-center gap-x-4 gap-y-1">
-              <span className="inline-flex items-center gap-1">
-                <Bold className="h-3 w-3" /> Bold = your lines
-              </span>
-              <span className="inline-flex items-center gap-1">
-                <Italic className="h-3 w-3" /> Italic = AI scene partner
-              </span>
-            </p>
-          </div>
-
-          {characters.length > 0 && (
-            <div className="space-y-2">
-              <Label>Detected characters</Label>
+            <p className="text-xs font-semibold tracking-[0.2em] uppercase text-muted-foreground">Characters detected</p>
+            {detected.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Start lines with <span className="font-mono text-xs">NAME:</span> and they'll appear here.
+              </p>
+            ) : (
               <div className="flex flex-wrap gap-2">
-                {characters.map((name) => (
+                {detected.map((c) => (
                   <span
-                    key={name}
-                    className="px-3 py-1 rounded-full text-sm font-medium bg-primary/10 text-primary border border-primary/30"
+                    key={c.name}
+                    className={cn(
+                      'rounded-full px-4 py-1.5 text-sm font-semibold border',
+                      c.role === 'you'
+                        ? 'bg-foreground text-background border-foreground'
+                        : 'bg-background text-foreground',
+                    )}
                   >
-                    {name}
+                    {c.name}
+                    {c.role !== 'unset' && <span className="font-normal"> · {c.role === 'you' ? 'You' : 'AI'}</span>}
                   </span>
                 ))}
               </div>
-            </div>
+            )}
+          </div>
+
+          <StudioScriptEditor content={content} onChange={setContent} />
+
+          {!content.trim() && (
+            <button
+              type="button"
+              onClick={() => setContent(SAMPLE_SCENE)}
+              className="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground"
+            >
+              Paste sample scene
+            </button>
           )}
         </div>
 
-        <div className="flex flex-col sm:flex-row gap-2 pt-4 border-t">
-          <Button
+        <div className="sticky bottom-0 border-t bg-desk px-6 py-4 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
+          <button
             onClick={handleSave}
             disabled={loading}
-            variant="outline"
-            className="flex-1"
+            className="h-12 rounded-full border border-foreground/20 bg-background px-7 font-semibold text-foreground hover:bg-desk-chip disabled:opacity-50"
           >
-            <Save className="h-4 w-4 mr-2" />
             {loading ? 'Saving…' : 'Save'}
-          </Button>
-          <Button
+          </button>
+          <button
             onClick={handleSaveAndRehearse}
             disabled={loading}
-            className="flex-1"
+            className="h-12 rounded-full bg-foreground px-7 font-semibold text-background inline-flex items-center justify-center gap-2 hover:opacity-90 disabled:opacity-50"
           >
-            <Play className="h-4 w-4 mr-2" />
-            Save &amp; Rehearse
-          </Button>
+            Save &amp; Start Rehearsal <ArrowRight className="h-4 w-4" />
+          </button>
         </div>
       </SheetContent>
     </Sheet>
