@@ -232,6 +232,21 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     }
   };
 
+  // Edit script during rehearsal: pauses the rehearsal, resumes where you left off
+  const handleToggleEdit = () => {
+    if (!isEditingScript) {
+      console.log('✏️ Entering script edit mode - pausing rehearsal');
+      if (rehearsalMode) {
+        setRehearsalMode(false);
+      }
+      setIsPlaying(false);
+      setIsEditingScript(true);
+    } else {
+      console.log('✏️ Leaving script edit mode - back to rehearsal');
+      setIsEditingScript(false);
+    }
+  };
+
   const handleReset = () => {
     setIsPlaying(false);
     setCurrentPosition(0);
