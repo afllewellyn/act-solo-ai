@@ -45,3 +45,28 @@
 - Script with names: per-character voices, names toggle on and off.
 - Scrolling: each line lands on the eye-line through a full scene in rehearsal and in Read script mode; Next cue and line-tap jump correctly; desktop and mobile.
 - Typecheck and lint clean. You'll need to do the signed-in voice and mic checks in the preview, since automated sign-in isn't available here.
+
+## Handoff notes (for whoever picks this up)
+
+**Verified code locations behind each bug**
+- Voices: `RehearsalSettingsDrawer.tsx` lines 33–36 build the AI voice rows only from `characters` (saved from `NAME:` prefixes). If a script has no names, the list is empty and the voice picker never shows. `selectedVoice` / `setSelectedVoice` already exist in `RehearsalContext` but aren't used in the drawer.
+- Name requirement: `src/lib/scriptMeta.ts` `detectCharacterRoles` and the save step in `ScriptCreatorDrawer.tsx` only record characters from lines that match `CHARACTER_LINE_REGEX` (`textUtils.ts`). The rehearsal engine itself (`scriptParser.ts` `getScriptLines`) already works without names.
+- Scrolling: `Practice.tsx` lines 100–103 read `stateMachine.getCurrentLineIndex()`. `stateMachine` comes from `stateMachineRef.current` in the context value (`RehearsalContext.tsx` line 680), so it isn't refreshed reliably. Turn events are available at `RehearsalContext.tsx` line 204 (`onUserSpeechEnded`) and line 217 (`onAgentResponseEnded`) but nothing passes them on to the screen.
+
+**Steps, in order**
+1. Add temporary logging of `rehearsalState`, the line position and both turn events during one real rehearsal, to confirm the scrolling cause. Remove the logging afterwards.
+2. Rework the voice picker (section 1).
+3. Make names optional (section 2).
+4. Fix scrolling (section 3).
+5. Run QA.
+
+**Done when (pass/fail)**
+- [ ] A script with no names shows an AI voice dropdown with every available voice, and each voice's ▶ preview plays.
+- [ ] The chosen voice is used in rehearsal and is still selected after a page reload.
+- [ ] A script with names shows per-character overrides, and the names toggle hides or shows them on the teleprompter.
+- [ ] You can save and rehearse a script with no `NAME:` prefixes without errors. Cards and the editor show the yours / AI line counts.
+- [ ] During a full rehearsal, every new line lands on the dashed eye-line within about half a second of the previous turn ending.
+- [ ] Read script aloud scrolls line by line. Next cue and tapping a line jump correctly. Resize and A+/A− re-centre the line.
+- [ ] Typecheck has no errors, and lint has no new errors.
+
+**Out of scope:** sign-in, database structure, edge functions, the ElevenLabs engine internals.
