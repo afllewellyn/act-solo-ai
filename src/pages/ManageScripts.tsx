@@ -101,12 +101,12 @@ const ManageScripts = () => {
   const handleDuplicate = async (script: Script) => {
     if (!user) return;
     try {
-      const { error } = await supabase.from('scripts').insert({
+      const { error } = await supabase.from('scripts').insert([{
         user_id: user.id,
         title: `${script.title} (Copy)`,
         content: script.content,
-        characters: script.characters,
-      });
+        characters: script.characters as Json,
+      }]);
       if (error) throw error;
       toast({ title: 'Duplicated', description: `"${script.title}" was copied.` });
       fetchScripts();
