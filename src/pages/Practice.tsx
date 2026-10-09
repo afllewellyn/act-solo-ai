@@ -382,7 +382,30 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
               <div className="mb-4">
                 <RehearsalStateBanner />
               </div>
-              
+
+              {/* Edit script toggle */}
+              <div className="mb-4 flex items-center justify-between gap-2">
+                {isEditingScript ? (
+                  <>
+                    <p className="text-sm text-muted-foreground">
+                      Editing — rehearsal is paused and will resume where you left off.
+                    </p>
+                    <Button size="sm" onClick={handleToggleEdit}>
+                      <X className="h-4 w-4 mr-1" />
+                      Back to rehearsal
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span />
+                    <Button variant="outline" size="sm" onClick={handleToggleEdit}>
+                      <Pencil className="h-4 w-4 mr-1" />
+                      Edit script
+                    </Button>
+                  </>
+                )}
+              </div>
+
               <InlineScriptEditor
                 scriptId={script.id}
                 content={scriptContent}
@@ -390,7 +413,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                 fontSize={fontSize[0]}
                 onContentChange={handleScriptUpdate}
                 onAutoSave={handleAutoSave}
-                showToolbar={!isFullscreen}
+                showToolbar={!isFullscreen || isEditingScript}
               />
               <div className="h-96" /> {/* Bottom padding for scrolling */}
             </div>
