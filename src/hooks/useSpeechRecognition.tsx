@@ -11,9 +11,17 @@ interface SpeechRecognitionOptions {
   onMobileListenRequest?: () => void; // Called when mobile needs manual listen trigger
 }
 
+interface SpeechRecognitionResultEvent extends Event {
+  readonly results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionErrorEventLike extends Event {
+  readonly error: string;
+}
+
 // Extend the Window interface for TypeScript
-// Note: SpeechRecognitionEvent / SpeechRecognitionErrorEvent are provided by
-// the TypeScript DOM library — do not redeclare them here (TS2717/TS2687).
+// The DOM lib doesn't include the two Web Speech event types, so use local
+// structural event shapes for the properties this hook consumes.
 declare global {
   interface Window {
     SpeechRecognition: { new (): SpeechRecognition };
@@ -24,8 +32,8 @@ declare global {
     continuous: boolean;
     interimResults: boolean;
     lang: string;
-    onresult: (event: SpeechRecognitionEvent) => void;
-    onerror: (event: SpeechRecognitionErrorEvent) => void;
+    onresult: (event: SpeechRecognitionResultEvent) => void;
+    onerror: (event: SpeechRecognitionErrorEventLike) => void;
     onend: () => void;
     onstart?: () => void;
     start(): void;

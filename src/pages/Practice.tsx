@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -16,6 +16,7 @@ import {
   ChevronRight, MoreHorizontal, Plus, Minus,
 } from 'lucide-react';
 import { RehearsalProvider, useRehearsal } from '@/contexts/RehearsalContext';
+import { getNamedCharacters, getSavedVoice, withSavedVoice } from '@/lib/scriptVoice';
 
 interface Script {
   id: string;
@@ -57,6 +58,12 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     handleMasterStop: contextMasterStop,
     handleTTSPlay: contextTTSPlay,
     textFilter,
+    selectedVoice,
+    setSelectedVoice,
+    currentParagraphIndex,
+    showNames,
+    goToParagraph,
+    isUsingConversationEngine,
     isTTSPlaying,
     isManualTTSPlaying,
     isListening,
@@ -70,18 +77,44 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     updateCharacters,
   } = useRehearsal();
 
+  const savedVoiceRef = useRef<string | undefined>(getSavedVoice(script.characters));
+
   useEffect(() => {
     if (script) {
-      const charactersData: Array<{ name?: string; voice?: string; isUserRole?: boolean }> =
-        Array.isArray(script.characters) ? script.characters : [];
+      const charactersData = getNamedCharacters(script.characters) as Array<{ name?: string; voice?: string; isUserRole?: boolean }>;
       const parsedCharacters: Character[] = charactersData.map((char) => ({
         name: char?.name || '',
         voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
         isUserRole: char?.isUserRole || false,
       }));
       initialize(script.content, parsedCharacters);
+      const savedVoice = getSavedVoice(script.characters);
+      savedVoiceRef.current = savedVoice;
+      if (savedVoice) setSelectedVoice(savedVoice);
     }
-  }, [script]);
+  }, [script, initialize, setSelectedVoice]);
+
+  // Persist the selected scene-partner voice in the existing characters JSON.
+  useEffect(() => {
+    if (savedVoiceRef.current === selectedVoice) return;
+    if (savedVoiceRef.current === undefined && selectedVoice === '9BWtsMINqrJLrRacOk9x') return;
+
+    const timer = setTimeout(() => {
+      const nextCharacters = withSavedVoice(characters, selectedVoice);
+      supabase
+        .from('scripts')
+        .update({ characters: nextCharacters as unknown as Json })
+        .eq('id', script.id)
+        .then(({ error }) => {
+          if (error) {
+            console.error('Error saving scene-partner voice:', error);
+            return;
+          }
+          savedVoiceRef.current = selectedVoice;
+        });
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [characters, script.id, selectedVoice]);
 
   useEffect(() => {
     sessionStorage.setItem('actsolo-teleprompter-font', String(fontSize));
@@ -101,7 +134,13 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   useEffect(() => {
     if (machineIndex !== null) setManualIndex(Math.min(machineIndex, Math.max(0, lines.length - 1)));
   }, [machineIndex, rehearsalState, lines.length]);
-  const activeIndex = Math.min(manualIndex, Math.max(0, lines.length - 1));
+  const paragraphLineIndex = currentParagraphIndex === null
+    ? -1
+    : lines.findIndex((line) => line.paragraphIndex >= currentParagraphIndex);
+  const trackedIndex = (rehearsalMode || isManualTTSPlaying) && paragraphLineIndex !== -1
+    ? paragraphLineIndex
+    : machineIndex;
+  const activeIndex = Math.min(trackedIndex ?? manualIndex, Math.max(0, lines.length - 1));
 
   const status: 'idle' | 'listening' | 'ai' | 'paused' | 'complete' =
     rehearsalState === 'COMPLETE' ? 'complete'
@@ -164,12 +203,14 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
 
   const handleRoleUpdate = (updatedCharacters: Character[]) => {
     updateCharacters(updatedCharacters);
+    const charactersToSave = withSavedVoice(updatedCharacters, selectedVoice);
     supabase
       .from('scripts')
-      .update({ characters: updatedCharacters as unknown as Json })
+      .update({ characters: charactersToSave as unknown as Json })
       .eq('id', script.id)
       .then(({ error }) => {
         if (error) console.error('Error updating characters:', error);
+        else savedVoiceRef.current = selectedVoice;
       });
   };
 
@@ -218,7 +259,11 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           activeIndex={activeIndex}
           fontSize={fontSize}
           status={status}
-          onSelectLine={(i) => { if (!rehearsalMode) setManualIndex(i); }}
+          hideNames={!showNames}
+          onSelectLine={(i) => {
+            if (!rehearsalMode) setManualIndex(i);
+            else if (isUsingConversationEngine) goToParagraph(lines[i].paragraphIndex);
+          }}
         />
       </main>
 

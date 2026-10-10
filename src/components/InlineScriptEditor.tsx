@@ -3,13 +3,16 @@ import StarterKit from '@tiptap/starter-kit';
 import TextStyle from '@tiptap/extension-text-style';
 import FontFamily from '@tiptap/extension-font-family';
 import { Extension } from '@tiptap/core';
-import { useCallback, useEffect, useState } from 'react';
+import { Plugin, PluginKey } from '@tiptap/pm/state';
+import { Decoration, DecorationSet } from '@tiptap/pm/view';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { Bold, Italic, Undo, Redo, Type, Save } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { CHARACTER_LINE_REGEX } from '@/components/practice/rehearsal/textUtils';
 
 interface Character {
   name: string;
@@ -25,6 +28,8 @@ interface InlineScriptEditorProps {
   onContentChange: (content: string) => void;
   onAutoSave?: (success: boolean) => void;
   showToolbar?: boolean;
+  /** Visually hide optional "NAME:" prefixes (saved content is never changed) */
+  hideNames?: boolean;
 }
 
 // Custom extension for character highlighting
@@ -55,6 +60,39 @@ const CharacterHighlight = Extension.create({
   },
 });
 
+const nameVisibilityKey = new PluginKey('nameVisibility');
+
+// Hides "NAME:" prefixes with a decoration, so the document itself is untouched
+const createNameVisibility = (hiddenRef: { current: boolean }) =>
+  Extension.create({
+    name: 'nameVisibility',
+    addProseMirrorPlugins() {
+      return [
+        new Plugin({
+          key: nameVisibilityKey,
+          props: {
+            decorations(state) {
+              if (!hiddenRef.current) return DecorationSet.empty;
+              const decorations: Decoration[] = [];
+              state.doc.descendants((node, pos) => {
+                if (!node.isTextblock) return;
+                const match = node.textContent.match(CHARACTER_LINE_REGEX);
+                if (match) {
+                  const prefixLength = node.textContent.indexOf(match[2], match[1].length);
+                  decorations.push(
+                    Decoration.inline(pos + 1, pos + 1 + prefixLength, { class: 'script-name-hidden' })
+                  );
+                }
+                return false;
+              });
+              return DecorationSet.create(state.doc, decorations);
+            },
+          },
+        }),
+      ];
+    },
+  });
+
 export function InlineScriptEditor({ 
   scriptId, 
   content, 
@@ -62,11 +100,15 @@ export function InlineScriptEditor({
   fontSize, 
   onContentChange,
   onAutoSave,
-  showToolbar = true
+  showToolbar = true,
+  hideNames = false
 }: InlineScriptEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const { toast } = useToast();
+  const hideNamesRef = useRef(hideNames);
+  hideNamesRef.current = hideNames;
+  const [nameVisibility] = useState(() => createNameVisibility(hideNamesRef));
 
   const editor = useEditor({
     extensions: [
@@ -74,6 +116,7 @@ export function InlineScriptEditor({
       TextStyle,
       FontFamily,
       CharacterHighlight,
+      nameVisibility,
     ],
     content,
     onUpdate: ({ editor }) => {
@@ -120,6 +163,13 @@ export function InlineScriptEditor({
       editor.commands.setContent(content, false);
     }
   }, [content, editor]);
+
+  // Re-run decorations when the names toggle changes
+  useEffect(() => {
+    if (editor) {
+      editor.view.dispatch(editor.state.tr.setMeta(nameVisibilityKey, hideNames));
+    }
+  }, [hideNames, editor]);
 
   // Update font size
   useEffect(() => {

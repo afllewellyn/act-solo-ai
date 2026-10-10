@@ -33,7 +33,10 @@ export interface RehearsalModeProps {
  * Parsed script line object
  */
 export interface ScriptLine {
-  type: 'actor' | 'ai';
+  /** 'note' = unformatted stage direction: shown, but neither read by the AI nor waited on */
+  type: 'actor' | 'ai' | 'note';
   content: string;
   dialogue: string;
+  /** Index of the source paragraph among the non-empty <p> elements (for scrolling/highlighting) */
+  paragraphIndex: number;
 }

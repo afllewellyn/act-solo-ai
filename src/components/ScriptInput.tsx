@@ -8,7 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { RichTextEditor } from '@/components/RichTextEditor';
-import { stripHtmlTags, CHARACTER_LINE_REGEX } from '@/components/practice/rehearsal/textUtils';
+import { countLineRoles, detectCharacterNames } from '@/components/practice/rehearsal/textUtils';
 
 interface Character {
   name: string;
@@ -24,22 +24,14 @@ const ScriptInput = ({ onScriptSaved }: ScriptInputProps) => {
   const [content, setContent] = useState('');
   const [loading, setLoading] = useState(false);
   const [characters, setCharacters] = useState<Character[]>([]);
+  const lineCounts = countLineRoles(content);
   const { toast } = useToast();
   const { user } = useAuth();
 
+  // Character names are optional: only "NAME: line" paragraphs produce them
   const detectCharacters = (scriptContent: string): Character[] => {
-    const plainText = stripHtmlTags(scriptContent);
-    const regex = new RegExp(CHARACTER_LINE_REGEX.source, 'gmi');
-    const names = new Set<string>();
-    let m: RegExpExecArray | null;
-    while ((m = regex.exec(plainText)) !== null) {
-      names.add(m[1].trim());
-    }
-
-    const uniqueCharacters = Array.from(names);
     const colors = ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted))'];
-    
-    return uniqueCharacters.map((name, index) => ({
+    return detectCharacterNames(scriptContent).map((name, index) => ({
       name,
       color: colors[index % colors.length]
     }));
@@ -126,16 +118,31 @@ const ScriptInput = ({ onScriptSaved }: ScriptInputProps) => {
           <RichTextEditor
             content={content}
             onChange={handleContentChange}
-            placeholder="Paste your script here... Use format like:
-
-CHARACTER NAME: Dialogue goes here
-ANOTHER CHARACTER: More dialogue..."
+            placeholder="Paste your script here, then make your lines bold and the AI's lines italic."
           />
+          <p className="text-xs text-muted-foreground">
+            Make your lines <strong>bold</strong> and the AI's lines <em>italic</em>. Character names are optional.
+          </p>
         </div>
+
+        {lineCounts.actor + lineCounts.ai + lineCounts.note > 0 && (
+          <div className="space-y-1">
+            <Label>Lines detected</Label>
+            <p className="text-sm">
+              {lineCounts.actor} yours • {lineCounts.ai} AI
+              {lineCounts.note > 0 && <span className="text-muted-foreground"> • {lineCounts.note} stage notes</span>}
+            </p>
+            {lineCounts.note > 0 && (
+              <p className="text-xs text-muted-foreground">
+                Tip: lines that are neither bold nor italic are treated as stage notes and skipped by the AI. Make every spoken line bold or italic.
+              </p>
+            )}
+          </div>
+        )}
 
         {characters.length > 0 && (
           <div className="space-y-2">
-            <Label>Detected Characters</Label>
+            <Label>Character names (optional)</Label>
             <div className="flex flex-wrap gap-2">
               {characters.map((character, index) => (
                 <div
