@@ -7,6 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Volume2, ChevronDown, Filter, Mic, MicOff, Smartphone, Monitor } from 'lucide-react';
 import { useRehearsal } from '@/contexts/RehearsalContext';
+import { VoicePicker } from '@/components/practice/VoicePicker';
+import { ScriptViewOptions } from '@/components/practice/ScriptViewOptions';
 
 import { AudioEngine } from '@/services/EnhancedAudioManager';
 
@@ -53,44 +55,19 @@ export const VoiceControls = () => {
   return (
     <div className="space-y-3">
       <Label className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
-        AI Reader Voice Selection
+        AI Scene Partner
       </Label>
       
-      {/* Voice and Filter Controls */}
-      <div className="flex items-center gap-2">
-        <Select value={selectedVoice} onValueChange={setSelectedVoice}>
-          <SelectTrigger className="flex-1 bg-background border-border" aria-label="Select voice for text-to-speech">
-            <div className="flex items-center">
-              <Volume2 className="h-4 w-4" />
-              <SelectValue placeholder="Select Voice" className="ml-1">
-                <span className="ml-1 truncate">
-                  {voices.find(v => v.id === selectedVoice)?.name || 'Voice'}
-                </span>
-              </SelectValue>
-            </div>
-          </SelectTrigger>
-          <SelectContent className="max-h-96 bg-background border-border shadow-lg">
-            {voices.length > 0 ? (
-              voices.map((voice) => (
-                <SelectItem 
-                  key={voice.id}
-                  value={voice.id}
-                  className="cursor-pointer p-3"
-                >
-                  <div className="flex flex-col">
-                    <span className="font-medium">{voice.name}</span>
-                    <span className="text-xs text-muted-foreground">{voice.gender} • {voice.accent}</span>
-                  </div>
-                </SelectItem>
-              ))
-            ) : (
-              <SelectItem value="no-voices" disabled>
-                No voices available
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
+      {/* AI voice: dropdown, Test and Browse voices */}
+      <VoicePicker
+        voices={voices}
+        selectedVoice={selectedVoice}
+        onVoiceChange={setSelectedVoice}
+        previewDisabled={rehearsalState !== 'IDLE' || isManualTTSPlaying}
+      />
 
+      {/* Filter and Read Script controls */}
+      <div className="flex items-center gap-2">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" className="flex-1" aria-label="Filter text to read">
@@ -233,6 +210,7 @@ export const VoiceControls = () => {
           </p>
         )}
       </div>
+      <ScriptViewOptions />
       
     </div>
   );

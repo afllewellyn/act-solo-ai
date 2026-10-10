@@ -85,18 +85,12 @@ interface UseConversationEngineReturn {
 export function useConversationEngine(
   options: UseConversationEngineOptions = {}
 ): UseConversationEngineReturn {
-  const {
-    onUserSpeechStarted,
-    onUserSpeechEnded,
-    onAgentResponseStarted,
-    onAgentResponseDelta,
-    onAgentResponseEnded,
-    onAgentAudioStarted,
-    onAgentAudioDelta,
-    onAgentAudioEnded,
-    onError,
-    onStatusChange,
-  } = options;
+  // Always dispatch to the latest callbacks. The engine subscribes to
+  // handleEvent once at start(), so destructuring the options here would freeze
+  // every callback (and whatever state it closed over, e.g. the current line
+  // index) at the render in which the engine was started.
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
 
   const [status, setStatus] = useState<ConversationStatus>('idle');
   const [lastError, setLastError] = useState<Error | null>(null);
@@ -122,6 +116,19 @@ export function useConversationEngine(
   const handleEvent = useCallback((event: ConversationEvent) => {
     // Update telemetry state on relevant events
     updateTelemetryState();
+
+    const {
+      onUserSpeechStarted,
+      onUserSpeechEnded,
+      onAgentResponseStarted,
+      onAgentResponseDelta,
+      onAgentResponseEnded,
+      onAgentAudioStarted,
+      onAgentAudioDelta,
+      onAgentAudioEnded,
+      onError,
+      onStatusChange,
+    } = optionsRef.current;
 
     switch (event.type) {
       case 'user_speech_started':
@@ -174,19 +181,7 @@ export function useConversationEngine(
         onError?.(event.error);
         break;
     }
-  }, [
-    onUserSpeechStarted,
-    onUserSpeechEnded,
-    onAgentResponseStarted,
-    onAgentResponseDelta,
-    onAgentResponseEnded,
-    onAgentAudioStarted,
-    onAgentAudioDelta,
-    onAgentAudioEnded,
-    onError,
-    onStatusChange,
-    updateTelemetryState,
-  ]);
+  }, [updateTelemetryState]);
 
   // Start engine
   const start = useCallback(async (config: ConversationEngineConfig) => {
@@ -216,9 +211,9 @@ export function useConversationEngine(
       const err = error instanceof Error ? error : new Error(String(error));
       setStatus('error');
       setLastError(err);
-      onError?.(err);
+      optionsRef.current.onError?.(err);
     }
-  }, [isEnabled, handleEvent, onError]);
+  }, [isEnabled, handleEvent]);
 
   // Stop engine
   const stop = useCallback(async () => {

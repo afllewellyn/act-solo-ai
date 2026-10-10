@@ -6,6 +6,9 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Play, Trash2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { countLineRoles } from '@/components/practice/rehearsal/textUtils';
+import { getNamedCharacters } from '@/lib/scriptVoice';
 interface Script {
   id: string;
   title: string;
@@ -42,6 +45,18 @@ const ScriptList = ({
   const getPreviewText = (content: string): string => {
     const plainText = stripHtmlTags(content);
     return plainText.length > 100 ? `${plainText.substring(0, 100)}…` : plainText;
+  };
+
+  // Names are optional: show character chips when there are any, otherwise the yours / AI line counts
+  const getRoleSummary = (script: Script): { names: string[]; text: string } => {
+    const names = getNamedCharacters(script.characters)
+      .map(c => c.name || '')
+      .filter(Boolean);
+    const { actor, ai } = countLineRoles(script.content);
+    const text = actor + ai === 0
+      ? 'No bold or italic lines yet'
+      : `${actor} your line${actor === 1 ? '' : 's'} • ${ai} AI line${ai === 1 ? '' : 's'}`;
+    return { names, text };
   };
   const fetchScripts = async () => {
     if (!user) return;
@@ -114,7 +129,7 @@ const ScriptList = ({
                 <div className="flex-1 min-w-0">
                   <CardTitle className="text-base sm:text-lg truncate">{script.title}</CardTitle>
                   <CardDescription className="text-xs sm:text-sm">
-                    {Array.isArray(script.characters) ? script.characters.length : 0} character(s) • Created {new Date(script.created_at).toLocaleDateString()}
+                    {getRoleSummary(script).text} • Created {new Date(script.created_at).toLocaleDateString()}
                   </CardDescription>
                 </div>
                 <div className="flex gap-2 shrink-0">
@@ -131,6 +146,9 @@ const ScriptList = ({
               </div>
             </CardHeader>
             <CardContent className="pt-0">
+              {getRoleSummary(script).names.length > 0 && <div className="flex flex-wrap gap-1 mb-2">
+                  {getRoleSummary(script).names.map(name => <Badge key={name} variant="secondary" className="text-xs">{name}</Badge>)}
+                </div>}
               <p className="text-sm text-muted-foreground line-clamp-2">
                 {getPreviewText(script.content)}
               </p>
