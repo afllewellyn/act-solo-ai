@@ -64,6 +64,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     currentParagraphIndex,
     showNames,
     goToParagraph,
+    nextCue,
     isUsingConversationEngine,
     conversationEngineStatus,
     isTTSPlaying,
@@ -172,6 +173,10 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   };
 
   const handleNextCue = () => {
+    if (rehearsalMode && isUsingConversationEngine) {
+      nextCue();
+      return;
+    }
     if (rehearsalMode && stateMachine) {
       if (rehearsalState === 'WAITING_FOR_ACTOR_CUE') stateMachine.handleActorCueDetected();
       return;
@@ -283,7 +288,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                 {isManualTTSPlaying ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}
                 {isManualTTSPlaying ? 'Stop reading' : 'Read script'}
               </button>
-              <button onClick={handleNextCue} className={pill} disabled={rehearsalMode && rehearsalState !== 'WAITING_FOR_ACTOR_CUE'}>
+              <button onClick={handleNextCue} className={pill} disabled={rehearsalMode && !isUsingConversationEngine && rehearsalState !== 'WAITING_FOR_ACTOR_CUE'}>
                 Next cue <ChevronRight className="h-4 w-4" />
               </button>
             </div>
