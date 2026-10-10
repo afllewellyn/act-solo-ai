@@ -592,7 +592,14 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
 
   const nextCue = () => {
     if (!rehearsalMode) return;
+    const before = currentLineIndexRef.current;
     advanceToNextLine();
+    if (currentLineIndexRef.current === before) return; // end of script
+    // Updating context alone doesn't make the agent speak, so cue it when we land on an AI line
+    const landed = parsedLinesRef.current[currentLineIndexRef.current];
+    if (conversationEngine.isActive && landed?.type === 'ai') {
+      conversationEngine.sendText(`Say your next line now, exactly as written: "${landed.dialogue}"`);
+    }
   };
 
   const goToParagraph = (paragraphIndex: number) => {
