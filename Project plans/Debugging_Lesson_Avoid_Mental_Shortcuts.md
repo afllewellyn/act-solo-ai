@@ -1,3 +1,5 @@
+> **Superseded (Oct 2026):** OpenAI realtime / S2S is no longer used and its edge functions were retired. Kept for history only; do not follow the OpenAI-specific steps.
+
 \# 🧠 Debugging Lesson: How to Avoid Mental Shortcuts When Working with External APIs
 
 \#\# 1\. Why Mental Shortcuts Happen  

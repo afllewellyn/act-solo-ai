@@ -53,10 +53,7 @@ green. The detailed checks, commands, and pass bars live in
   `text-to-speech` verify a signed-in user token in-function (export
   `ACCESS_TOKEN` from a test account for C1–C3). EVAL.md's setup block is the single source of
   truth for the exact commands, the `Origin` gate, and the current measured
-  per-function baseline (sections C1–C4) — don't restate those numbers here.
-- One heads-up before you start: `health-realtime` is now a free database
-  ping (the legacy OpenAI realtime check was removed because it leaked credit).
-  It must stay free of paid-API calls.
+  per-function baseline (sections C1–C3) — don't restate those numbers here.
 
 ## Stop criteria
 

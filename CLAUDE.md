@@ -47,7 +47,7 @@ cp .env.example .env   # then run npm run dev
 `.env` is git-ignored. Only public, `VITE_`-prefixed values belong in it — Vite
 inlines them into the client bundle, so they are not secret. The Supabase key
 shipped in `.env.example` is the **anon** key (public by design, RLS-protected).
-Real server secrets (ElevenLabs API key, OpenAI key, service-role key) live in
+Real server secrets (ElevenLabs API key, service-role key) live in
 **Supabase Edge Function secrets**, never in this repo — see
 `Project plans/SUPABASE_WORKFLOW.md`.
 
@@ -71,8 +71,8 @@ Other layout:
 - `src/components/ui/` — shadcn/ui primitives. `src/components/practice/` — feature components.
 - `src/integrations/supabase/` — Supabase client + generated types.
 - `src/lib/featureFlags.ts` — feature-flag system (see below).
-- `supabase/functions/` — Deno edge functions: `eleven-agent-token`, `get-voices`, `text-to-speech`, `send-contact-email`, `health-realtime`, `env-debug`.
-- Edge functions run with `verify_jwt = false`, and the `Origin` allow-list only constrains browsers (curl can omit/forge it). Any function that spends third-party credit (`eleven-agent-token`, `text-to-speech`, `get-voices`) must call `getAuthedUser()` from `supabase/functions/_shared/auth.ts` and reject anonymous callers. `health-realtime` is a free DB ping — never add a paid-API call to it (it is unauthenticated and pollable).
+- `supabase/functions/` — Deno edge functions: `eleven-agent-token`, `get-voices`, `text-to-speech`, `send-contact-email`, `env-debug`.
+- Edge functions run with `verify_jwt = false`, and the `Origin` allow-list only constrains browsers (curl can omit/forge it). Any function that spends third-party credit (`eleven-agent-token`, `text-to-speech`, `get-voices`) must call `getAuthedUser()` from `supabase/functions/_shared/auth.ts` and reject anonymous callers. Removing a function from the repo does not undelete it from Supabase — also run `supabase functions delete <name>`. OpenAI realtime is no longer used.
 - `@` is the path alias for `src/` (configured in `vite.config.ts`, `vitest.config.ts`, and tsconfig).
 
 ## Feature flags

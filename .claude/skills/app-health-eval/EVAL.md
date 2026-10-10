@@ -106,8 +106,7 @@ grep -qE "conversation_engine_eleven" src/services/conversation/engineFactory.ts
 
 Hits the deployed functions. `time_total` / `ttfb` are the latency signal for
 "no delays." `eleven-agent-token`, `get-voices` and `text-to-speech` require a
-signed-in user's `$ACCESS_TOKEN` (and an allowed `Origin`); `health-realtime` is
-public but free (database ping only).
+signed-in user's `$ACCESS_TOKEN` (and an allowed `Origin`).
 
 ### C1 — Voice connection token (the core path)
 ```bash
@@ -155,21 +154,6 @@ echo "decoded audio bytes: $AUDIO_BYTES"
   failed or not real audio), or `ttfb` ≥ 2.0s — ElevenLabs TTS quality/latency
   regressed. A large 200 JSON body alone is **not** a pass.
 
-### C4 — Backend health (`health-realtime`)
-Despite the legacy name, `health-realtime` is now a free database ping only — it
-makes **no** OpenAI/ElevenLabs calls (an earlier version minted a live OpenAI
-realtime session on every request, which was an unauthenticated cost leak). It
-is safe for uptime monitors. Do not re-add any paid-API call to it.
-```bash
-curl -s -o /tmp/hr.json -w "HTTP %{http_code} total=%{time_total}s\n" \
-  "$BASE/health-realtime" --max-time 20
-cat /tmp/hr.json
-```
-- **PASS:** HTTP 200, `"status":"healthy"`, `checks.database` = `reachable`.
-- **FAIL:** non-200 / `unhealthy` (Supabase API or Postgres unreachable), or the
-  function references `openai`/`elevenlabs` again (`grep -ciE 'openai|elevenlabs'
-  supabase/functions/health-realtime/index.ts` must be 0).
-
 ---
 
 ## D. Supabase logs (qualify any failure)
@@ -177,7 +161,7 @@ cat /tmp/hr.json
 CLI v2.39.2 has **no `supabase functions logs`** command. Use these instead.
 
 ### D1 — Function response bodies are the first log
-Every edge function returns its error inline (e.g. C4's `"...failed: 404"`). For
+Every edge function returns its error inline. For
 any C-check FAIL, quote the response body — it usually names the cause.
 
 ### D2 — Deep logs via Management API (when a token is available)
@@ -247,7 +231,6 @@ ActSolo.AI Health Eval — <branch>
 | C1 | Voice token                   | ...         | HTTP 200, 0.67s |
 | C2 | Voice list                    | ...         | HTTP 200, 0.50s |
 | C3 | TTS audio                     | ...         | HTTP 200, ttfb 1.1s |
-| C4 | Backend health (DB ping)      | ...         | HTTP 200, database reachable |
 | D2 | Edge logs                     | ...         | retrieved / skipped (no token) |
 
 Failures to fix: <list with the cause from the evidence/logs>
