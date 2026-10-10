@@ -33,7 +33,7 @@ const SAMPLE_SCENE = [
   '<p><em>DANIEL: I needed to think, Maya.</em></p>',
 ].join('');
 
-const DEFAULT_VOICE = '9BWtsMINqrJLrRacOk9x';
+const DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL';
 
 const ScriptCreatorDrawer = ({ open, onOpenChange, script, onSaved }: ScriptCreatorDrawerProps) => {
   const [title, setTitle] = useState('');

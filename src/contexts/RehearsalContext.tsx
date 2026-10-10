@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useRef, useState, useEffect, useMemo, useCallback } from 'react';
+import { isRemovedVoice } from '@/lib/voices';
 import { ScriptRehearsalStateMachine, Character, TextFilter, RehearsalState, ScriptLine } from '@/services/ScriptRehearsalStateMachine';
 import { useAudioManager } from '@/services/EnhancedAudioManager';
 import { ScriptParserService } from '@/services/ScriptParserService';
@@ -21,7 +22,6 @@ interface Voice {
 
 // Default voices that work even if the API fails
 const defaultVoices: Voice[] = [
-  { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria', category: 'Generated', gender: 'Female', accent: 'American' },
   { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', category: 'Generated', gender: 'Male', accent: 'American' },
   { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', category: 'Generated', gender: 'Female', accent: 'American' },
   { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura', category: 'Generated', gender: 'Female', accent: 'American' },
@@ -115,7 +115,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const [noMatchesBanner, setNoMatchesBanner] = useState<{ show: boolean; filter: TextFilter } | null>(null);
   
   // Voice Settings
-  const [selectedVoice, setSelectedVoice] = useState('9BWtsMINqrJLrRacOk9x');
+  const [selectedVoice, setSelectedVoice] = useState('EXAVITQu4vr4xnSDxMaL');
   const [voiceActivated, setVoiceActivated] = useState(false);
   const [playbackSpeed, setPlaybackSpeed] = useState(1);
   const [voices, setVoices] = useState<Voice[]>(defaultVoices);
@@ -174,6 +174,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const scriptTitleRef = useRef<string>('Untitled Script');
   const sessionStartRef = useRef<number>(Date.now());
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
+  const openingCueSentRef = useRef(false);
   const currentLineIndexRef = useRef(0);
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState<number | null>(null);
   // Engine lines: stage notes are excluded, so they are never read or waited on
@@ -305,6 +306,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       // Parse script lines based on text filter
       const lines = getScriptLines(scriptContent, textFilter).filter(l => l.type !== 'note');
       parsedLinesRef.current = lines;
+      openingCueSentRef.current = false;
       setLine(0);
       
       // Build initial context with actual script content
@@ -341,6 +343,19 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       setCurrentParagraphIndex(null);
     }
   }, [useElevenEngine, rehearsalMode, scriptContent, textFilter]);
+
+  // When the scene opens on an AI line the agent would otherwise wait for the user to speak first,
+  // so cue it once as soon as the engine is ready.
+  useEffect(() => {
+    if (!useElevenEngine || !rehearsalMode || !conversationEngine.isActive) return;
+    if (openingCueSentRef.current) return;
+    openingCueSentRef.current = true;
+    const first = parsedLinesRef.current[currentLineIndexRef.current];
+    if (first?.type !== 'ai') return;
+    conversationEngine.sendText(
+      `Begin the scene now. Say your first line exactly as written: "${first.dialogue}"`
+    );
+  }, [useElevenEngine, rehearsalMode, conversationEngine.isActive]);
 
   // Update conversation engine context when script changes mid-rehearsal
   useEffect(() => {
@@ -524,6 +539,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         const mergedVoices = [...defaultVoices];
         
         apiVoices.forEach((apiVoice: Voice) => {
+          if (isRemovedVoice(apiVoice.id)) return;
           if (!defaultVoices.find(defaultVoice => defaultVoice.id === apiVoice.id)) {
             mergedVoices.push(apiVoice);
           }

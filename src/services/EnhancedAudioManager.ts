@@ -110,7 +110,7 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
       // Use ElevenLabs via useTTS
       const reqId = options.requestId || generateRequestId();
       await speak(text, {
-        voiceId: options.voiceId || config.defaultVoice || '9BWtsMINqrJLrRacOk9x',
+        voiceId: options.voiceId || config.defaultVoice || 'EXAVITQu4vr4xnSDxMaL',
         playbackSpeed: options.playbackSpeed,
         engine: currentEngineRef.current,
         lineIdx: options.lineIdx,

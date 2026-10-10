@@ -134,7 +134,7 @@ serve(async (req) => {
     }
 
     const requestData = await req.json();
-    const { text, voice_id = '9BWtsMINqrJLrRacOk9x', request_id, line_idx } = requestData;
+    const { text, voice_id = 'EXAVITQu4vr4xnSDxMaL', request_id, line_idx } = requestData;
     const requestId = request_id || (typeof crypto !== 'undefined' && 'randomUUID' in crypto ? crypto.randomUUID() : `req_${Date.now()}`);
     const lineIdx = typeof line_idx === 'number' ? line_idx : undefined;
 

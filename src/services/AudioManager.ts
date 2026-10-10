@@ -101,7 +101,7 @@ export function useAudioManager(config: AudioManagerConfig = {}): AudioManagerRe
    */
   const speakText = async (text: string, options: TTSSpeakOptions = {}): Promise<void> => {
     const {
-      voiceId = config.defaultVoiceId || '9BWtsMINqrJLrRacOk9x',
+      voiceId = config.defaultVoiceId || 'EXAVITQu4vr4xnSDxMaL',
       playbackSpeed = config.defaultPlaybackSpeed || 1,
       onComplete
     } = options;
