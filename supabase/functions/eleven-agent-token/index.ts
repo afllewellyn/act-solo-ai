@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser, unauthorizedResponse } from "../_shared/auth.ts";
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim()).filter(Boolean);
@@ -38,6 +39,11 @@ serve(async (req) => {
     return new Response(null, { headers: corsHeaders });
   }
 
+  // Minting a signed URL spends ElevenLabs conversation quota — signed-in users only.
+  if (!(await getAuthedUser(req))) {
+    return unauthorizedResponse(corsHeaders);
+  }
+
   try {
     const ELEVENLABS_API_KEY = Deno.env.get("ELEVENLABS_API_KEY")?.trim();
     const ELEVENLABS_AGENT_ID = Deno.env.get("ELEVENLABS_AGENT_ID")?.trim();
@@ -75,10 +81,7 @@ serve(async (req) => {
       const errorText = await response.text();
       console.error('[ElevenAgentToken] ElevenLabs API error:', response.status, errorText);
       return new Response(
-        JSON.stringify({ 
-          error: 'Failed to get signed URL from ElevenLabs',
-          details: errorText 
-        }),
+        JSON.stringify({ error: 'Failed to get signed URL from ElevenLabs' }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

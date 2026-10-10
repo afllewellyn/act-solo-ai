@@ -1,3 +1,5 @@
+> **Superseded (Oct 2026):** OpenAI realtime / S2S is no longer used and its edge functions were retired. Kept for history only; do not follow the OpenAI-specific steps.
+
 \# Comprehensive Debugging Manual  
    
 \#\# 1\. Core Philosophy  

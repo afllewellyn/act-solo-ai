@@ -1,3 +1,5 @@
+> **Superseded (Oct 2026):** OpenAI realtime / S2S is no longer used and its edge functions were retired. Kept for history only; do not follow the OpenAI-specific steps.
+
 ## INITIAL PROMPT TO KICK OFF ADDING OPEN AI REAL TIME API FOR S2S
 
 Review and analyze this plan before writing any code. Confirm understanding, surface assumptions, understand you follow, then work through phase-by-phase.

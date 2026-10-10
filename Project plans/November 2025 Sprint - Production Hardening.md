@@ -53,15 +53,15 @@ All production hardening objectives have been achieved. The ActSolo AI rehearsal
 | `eleven-agent-token` | ✅ Allowlisted | Primary conversation engine auth |
 | `text-to-speech` | ✅ Allowlisted | TTS generation |
 | `get-voices` | ✅ Allowlisted | Voice list fetching |
-| `health-realtime` | ✅ Allowlisted | Health checks |
+| `health-realtime` | ❌ Removed Oct 2026 | Legacy OpenAI health check — deleted from repo; delete the deployed copy too |
 | `env-debug` | ✅ Allowlisted | Debug endpoint |
 
 ### Decommissioned Functions ❌ REMOVED
 
 | Edge Function | Status | Reason |
 |---------------|--------|--------|
-| `realtime-s2s` | ❌ Deleted | Legacy OpenAI S2S bridge - unused |
-| `text-to-speech-stream` | ❌ Deleted | Streaming TTS - unused |
+| `realtime-s2s` | ⚠️ Removed from repo, **still deployed** (as of Oct 2026) | Legacy OpenAI S2S bridge - unused. Delete with `supabase functions delete realtime-s2s` |
+| `text-to-speech-stream` | ⚠️ Removed from repo, **still deployed** (as of Oct 2026) | Streaming TTS - unused. Delete with `supabase functions delete text-to-speech-stream` |
 
 ---
 
@@ -83,25 +83,16 @@ All production hardening objectives have been achieved. The ActSolo AI rehearsal
 ### 🚨 **Week 1-2: Security & Stability** (November 1-15)
 
 #### P0 Critical Fixes
-- [ ] **CORS Migration Phase 1**: Migrate `text-to-speech-stream` and `realtime-s2s`
-  - Copy `getCorsHeaders()` pattern
-  - Test with production origins
-  - Verify 403 responses work
+- [x] ~~**CORS Migration Phase 1**: Migrate `text-to-speech-stream` and `realtime-s2s`~~ — obsolete: both functions are retired (delete the deployed copies). Note: the origin allow-list only constrains browsers; credit-spending functions now also require a signed-in user.
 
 - [ ] **CORS Migration Phase 2**: Migrate `text-to-speech` and `get-voices`
   - Final production endpoint lockdown
   - Comprehensive origin testing
 
 #### P1 Stability Improvements
-- [ ] **Sample Rate Consistency Audit**
-  - Standardize on planned 16kHz for STT/VAD
-  - Update `AudioRecorder` class configuration
-  - Verify OpenAI Realtime session config
+- [x] ~~**Sample Rate Consistency Audit**~~ — obsolete: OpenAI Realtime / S2S path removed; ElevenLabs Conversational AI is the only engine.
 
-- [ ] **VAD Architecture Clarification**
-  - Confirm S2S is VAD-only (no OpenAI TTS fallback)
-  - Remove `speakWithS2S()` ambiguity if needed
-  - Document current TTS flow: ElevenLabs only
+- [x] ~~**VAD Architecture Clarification**~~ — obsolete: S2S removed. TTS/voice flow is ElevenLabs only.
 
 ### 🎨 **Week 3-4: Polish & UX** (November 15-30)
 
@@ -156,7 +147,6 @@ ELEVENLABS_API_KEY       # ElevenLabs API key
 ELEVENLABS_AGENT_ID      # ElevenLabs Conversational AI agent ID
 ALLOWED_ORIGINS          # Comma-separated allowed origins
                          # e.g., https://preview--act-solo-ai.lovable.app,https://act-solo-ai.lovable.app
-OPENAI_API_KEY           # For health-realtime checks (optional)
 ```
 
 ---

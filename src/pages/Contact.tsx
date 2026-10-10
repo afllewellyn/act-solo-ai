@@ -34,6 +34,7 @@ const Contact = () => {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState("");
+  const [website, setWebsite] = useState(""); // honeypot: hidden from people, bots fill it in
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -57,11 +58,23 @@ const Contact = () => {
 
     try {
       const { data, error } = await supabase.functions.invoke("send-contact-email", {
-        body: { name: name.trim(), email: email.trim(), message: message.trim() }
+        body: { name: name.trim(), email: email.trim(), message: message.trim(), website }
       });
 
       if (error) {
-        throw new Error(error.message || "Failed to send message");
+        // supabase-js only gives a generic message for non-2xx responses; prefer the server's own text
+        // (e.g. "Too many messages. Please try again later.") from the response body when available.
+        let message = error.message;
+        const response = (error as { context?: Response }).context;
+        if (response && typeof response.json === "function") {
+          try {
+            const body = await response.json();
+            if (typeof body?.error === "string" && body.error) message = body.error;
+          } catch {
+            /* keep the generic message */
+          }
+        }
+        throw new Error(message || "Failed to send message");
       }
 
       toast({
@@ -106,6 +119,18 @@ const Contact = () => {
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Honeypot: off-screen and skipped by keyboard/screen readers; real users never fill it in */}
+          <div aria-hidden="true" className="absolute -left-[9999px] h-0 w-0 overflow-hidden">
+            <label htmlFor="website">Leave this field empty</label>
+            <input
+              id="website"
+              name="website"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)} />
+          </div>
           <div className="space-y-2">
             <Label htmlFor="name" className="text-gray-700">Name</Label>
             <Input

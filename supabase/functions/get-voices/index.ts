@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { getAuthedUser, unauthorizedResponse } from "../_shared/auth.ts";
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim()).filter(Boolean);
@@ -85,9 +86,15 @@ serve(async (req) => {
     return new Response('ok', { headers: corsHeaders });
   }
 
+  // Voice list is an ElevenLabs API call on our key — signed-in users only.
+  const user = await getAuthedUser(req);
+  if (!user) {
+    return unauthorizedResponse(corsHeaders);
+  }
+
   try {
-    // Rate limiting check
-    const clientIp = req.headers.get('x-forwarded-for') || 'unknown';
+    // Rate limiting check (per user; the client-supplied IP header is spoofable)
+    const clientIp = user.id;
     if (isRateLimited(clientIp)) {
       console.log(`[${timestamp}] Rate limit exceeded for ${clientIp}`);
       return new Response(

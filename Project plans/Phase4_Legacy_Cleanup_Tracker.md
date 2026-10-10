@@ -31,9 +31,12 @@ Status: **READY TO SCHEDULE** — the rehearsal UI work (the hybrid UI polish) s
 5. [ ] Drop dependencies only the legacy path used.
 6. [ ] Update `README.md`, `CLAUDE.md`, and `SUPABASE_WORKFLOW.md` for the single-engine setup.
 7. [ ] Track CORS hardening and QA gates with the *November 2025 Sprint – Production Hardening* plan.
+8. [ ] Delete the retired edge functions that are still deployed in Supabase: `health-realtime`, `realtime-s2s`, `text-to-speech-stream` (`supabase functions delete <name>`), and unset `OPENAI_API_KEY` / `OPENAI_API_KEY_RELAY`. (`health-realtime` source was removed from the repo Oct 2026; the other two have no source here.)
 
 ## Not in this phase
-Coach mode, `HybridOpenAIEngine`, analytics dashboards (PRD "Phase 5 – Optional Enhancements"), and pricing (Phase 6).
+`HybridOpenAIEngine` is **dropped** (OpenAI realtime is no longer used; Oct 2026). The commented-out block in `engineFactory.ts`, the `'openai_hybrid'` logger type and OpenAI wording in `types.ts` can be removed during this phase.
+
+Coach mode, analytics dashboards (PRD "Phase 5 – Optional Enhancements"), and pricing (Phase 6).
 
 ## Planned refactor (general tech-debt pass)
 Decision: plan a broad refactor after Phase 4 as good practice, rather than letting debt accumulate. PR #19 was merged as-is with this noted here.

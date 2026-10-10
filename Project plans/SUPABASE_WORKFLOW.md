@@ -45,8 +45,8 @@ supabase login
 ## 🔹 4. Manage Secrets (Environment Variables)
 Set secrets (one at a time):
 ```bash
-supabase secrets set OPENAI_API_KEY=sk-your-real-key
-supabase secrets set OPENAI_API_KEY_RELAY=sk-your-real-key
+supabase secrets set ELEVENLABS_API_KEY=your-real-key
+supabase secrets set ELEVENLABS_AGENT_ID=your-agent-id
 ```
 
 List secrets (verify):
@@ -64,9 +64,15 @@ supabase functions deploy env-debug
 
 Deploy multiple:
 ```bash
-supabase functions deploy health-realtime
-supabase functions deploy realtime-s2s
+supabase functions deploy eleven-agent-token
+supabase functions deploy text-to-speech
+supabase functions deploy get-voices
 ```
+
+> `text-to-speech`, `get-voices` and `eleven-agent-token` verify a signed-in user
+> in-function (`supabase/functions/_shared/auth.ts`) because they spend ElevenLabs
+> credit. Anonymous curl returns 401. Deleting a function's source from the repo does
+> **not** remove it from Supabase — run `supabase functions delete <name>` too.
 
 ---
 
@@ -76,20 +82,12 @@ supabase functions deploy realtime-s2s
 curl https://<your-project-ref>.supabase.co/functions/v1/env-debug
 ```
 
-### Test health check:
+### Test an auth-gated function (needs a signed-in user's access token):
 ```bash
-curl https://<your-project-ref>.supabase.co/functions/v1/health-realtime
+curl -X POST https://<your-project-ref>.supabase.co/functions/v1/eleven-agent-token \
+  -H "Authorization: Bearer $ACCESS_TOKEN"
 ```
-
-### Connect to WebSocket (realtime-s2s) in browser console:
-```js
-const socket = new WebSocket("wss://<your-project-ref>.supabase.co/functions/v1/realtime-s2s");
-
-socket.onopen = () => console.log("✅ Connected");
-socket.onmessage = (msg) => console.log("📨", msg.data);
-socket.onclose = (e) => console.warn("🔌 Closed:", e.code, e.reason);
-socket.onerror = (err) => console.error("❌ Error:", err);
-```
+Without the header you should get `401 Authentication required`.
 
 ---
 
@@ -97,25 +95,21 @@ socket.onerror = (err) => console.error("❌ Error:", err);
 View function logs from Supabase dashboard:
 - Dashboard → Functions → Select Function → **Logs**
 
-Or tail logs locally:
-```bash
-supabase functions logs realtime-s2s
-```
+(The CLI has no `supabase functions logs` command in recent versions; use the dashboard.)
 
 ---
 
 ## 🔹 8. Debugging Pattern
 1. Check `/env-debug` → confirm secrets are visible
-2. Check `/health-realtime` → confirm OpenAI handshake works
-3. Connect WebSocket `/realtime-s2s` → confirm relay works
-4. Use logs to debug mismatches (`console.log` inside functions)
+2. Call `/eleven-agent-token` with a user token → confirm a `signed_url` comes back
+3. Use logs to debug mismatches (`console.log` inside functions)
 
 ---
 
 ## 🔹 9. Cleanup (Optional)
 Remove a secret:
 ```bash
-supabase secrets unset OPENAI_API_KEY
+supabase secrets unset SOME_OLD_SECRET
 ```
 
 Remove debug function:

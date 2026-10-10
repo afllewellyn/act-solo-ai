@@ -1,3 +1,5 @@
+> **Update (Oct 2026):** the future `HybridOpenAIEngine` / OpenAI Realtime items below are **dropped**; ElevenLabs Conversational AI is the only engine.
+
 # ConversationEngine Refactor PRD
 
 ## Overview
