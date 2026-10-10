@@ -20,6 +20,7 @@ interface VoicePickerProps {
   onVoiceChange?: (voiceId: string) => void;
   /** Disable previews (e.g. while a rehearsal is running and the AI is speaking) */
   previewDisabled?: boolean;
+  disabled?: boolean;
   compact?: boolean;
 }
 
@@ -34,6 +35,7 @@ export const VoicePicker = ({
   selectedVoice,
   onVoiceChange,
   previewDisabled = false,
+  disabled = false,
   compact = false,
 }: VoicePickerProps) => {
   // Separate TTS instance so previews never trigger rehearsal side effects
@@ -90,7 +92,7 @@ export const VoicePicker = ({
     <div className="space-y-2">
       <Label className="text-xs text-muted-foreground">AI voice</Label>
       <div className="flex items-center gap-2">
-        <Select value={selectedVoice} onValueChange={onVoiceChange}>
+        <Select value={selectedVoice} onValueChange={onVoiceChange} disabled={disabled}>
           <SelectTrigger className="flex-1 bg-background border-border" aria-label="Select the AI scene partner voice">
             <div className="flex items-center min-w-0">
               <Volume2 className="h-4 w-4 shrink-0" />
@@ -121,7 +123,7 @@ export const VoicePicker = ({
 
       <Collapsible>
         <CollapsibleTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" className="h-7 px-1 text-xs text-muted-foreground">
+          <Button type="button" variant="ghost" size="sm" className="h-7 px-1 text-xs text-muted-foreground" disabled={disabled}>
             Browse voices ({voices.length})
             <ChevronDown className="h-3 w-3 ml-1" />
           </Button>
@@ -132,23 +134,17 @@ export const VoicePicker = ({
               const selected = voice.id === selectedVoice;
               return (
                 <li key={voice.id}>
-                  <div
-                    role="button"
-                    tabIndex={0}
-                    onClick={() => onVoiceChange?.(voice.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onVoiceChange?.(voice.id);
-                      }
-                    }}
-                    aria-pressed={selected}
-                    className={`flex items-center gap-2 p-2 cursor-pointer hover:bg-accent ${selected ? 'bg-accent/60' : ''}`}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm font-medium truncate">{voice.name}</div>
-                      <div className="text-xs text-muted-foreground truncate">{voice.gender} • {voice.accent}</div>
-                    </div>
+                  <div className={`flex items-center gap-2 p-2 ${selected ? 'bg-accent/60' : ''}`}>
+                    <button
+                      type="button"
+                      onClick={() => onVoiceChange?.(voice.id)}
+                      aria-pressed={selected}
+                      disabled={disabled}
+                      className="flex-1 min-w-0 text-left cursor-pointer hover:bg-accent disabled:cursor-not-allowed"
+                    >
+                      <span className="block text-sm font-medium truncate">{voice.name}</span>
+                      <span className="block text-xs text-muted-foreground truncate">{voice.gender} • {voice.accent}</span>
+                    </button>
                     {selected && <Check className="h-4 w-4 text-primary shrink-0" aria-label="Selected" />}
                     {previewButton(voice.id, voice.name)}
                   </div>

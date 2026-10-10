@@ -26,6 +26,30 @@ export function stripCharacterNamePrefix(text: string): string {
   return match ? match[2].trim() : text.trim();
 }
 
+/** Remove a leading character label from HTML while preserving inline formatting. */
+export function hideCharacterNamePrefixHtml(html: string): string {
+  const container = document.createElement('div');
+  container.innerHTML = html;
+  const text = container.textContent || '';
+  const match = text.match(CHARACTER_LINE_REGEX);
+  if (!match) return html;
+
+  const prefixLength = match[0].length - match[2].length;
+  const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+  const textNodes: Text[] = [];
+  while (walker.nextNode()) textNodes.push(walker.currentNode as Text);
+
+  let remaining = prefixLength;
+  for (const node of textNodes) {
+    if (remaining === 0) break;
+    const removeLength = Math.min(remaining, node.data.length);
+    node.data = node.data.slice(removeLength);
+    remaining -= removeLength;
+  }
+
+  return container.innerHTML;
+}
+
 /**
  * Extract formatted text (bold or italic) and strip character names
  */

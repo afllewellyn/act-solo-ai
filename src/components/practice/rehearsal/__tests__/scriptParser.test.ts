@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { getScriptLines } from '../scriptParser';
-import { countLineRoles, detectCharacterNames } from '../textUtils';
+import { countLineRoles, detectCharacterNames, hideCharacterNamePrefixHtml } from '../textUtils';
 
 const unnamed =
   '<p><strong>I thought you were gone.</strong></p>' +
@@ -46,5 +46,22 @@ describe('countLineRoles / detectCharacterNames', () => {
   it('finds names only when present, one per paragraph', () => {
     expect(detectCharacterNames(named)).toEqual(['BEN', 'MAYA']);
     expect(detectCharacterNames(unnamed)).toEqual([]);
+  });
+});
+
+describe('hideCharacterNamePrefixHtml', () => {
+  it('hides a name prefix without changing the dialogue formatting', () => {
+    expect(hideCharacterNamePrefixHtml('<strong>BEN: Where were you?</strong>'))
+      .toBe('<strong>Where were you?</strong>');
+  });
+
+  it('hides a prefix split across inline formatting nodes', () => {
+    expect(hideCharacterNamePrefixHtml('<strong>BEN</strong>: <em>Where were you?</em>'))
+      .toBe('<strong></strong><em>Where were you?</em>');
+  });
+
+  it('leaves unnamed dialogue untouched', () => {
+    expect(hideCharacterNamePrefixHtml('<em>Where were you?</em>'))
+      .toBe('<em>Where were you?</em>');
   });
 });

@@ -1,5 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
+import { hideCharacterNamePrefixHtml } from '@/components/practice/rehearsal/textUtils';
 import { cn } from '@/lib/utils';
 
 interface TeleprompterDisplayProps {
@@ -8,14 +9,19 @@ interface TeleprompterDisplayProps {
   fontSize: number;
   status: 'idle' | 'listening' | 'ai' | 'paused' | 'complete';
   onSelectLine: (index: number) => void;
+  hideNames?: boolean;
 }
 
 const EYELINE = 0.28;
 
 /** Dark studio teleprompter: active cue pinned to the eye-line at ~28% height. */
-export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine }: TeleprompterDisplayProps) => {
+export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine, hideNames = false }: TeleprompterDisplayProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
+  const displayLines = useMemo(
+    () => hideNames ? lines.map((line) => ({ ...line, content: hideCharacterNamePrefixHtml(line.content) })) : lines,
+    [hideNames, lines],
+  );
 
   useEffect(() => {
     const container = scrollRef.current;
@@ -65,7 +71,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
           {lines.length === 0 && (
             <p className="text-studio-muted text-center text-lg">This script has no lines yet. Tap Edit script to add some.</p>
           )}
-          {lines.map((line, i) => {
+          {displayLines.map((line, i) => {
             const active = i === activeIndex;
             const past = i < activeIndex;
             const isYou = line.type === 'actor';

@@ -8,6 +8,8 @@ import type { Character } from '@/services/ScriptRehearsalStateMachine';
 import { detectCharacterRoles } from '@/lib/scriptMeta';
 import { cn } from '@/lib/utils';
 import { Play, Loader2, Square, Volume2 } from 'lucide-react';
+import { VoicePicker } from '@/components/practice/VoicePicker';
+import { ScriptViewOptions } from '@/components/practice/ScriptViewOptions';
 
 interface RehearsalSettingsDrawerProps {
   open: boolean;
@@ -21,7 +23,7 @@ const label = 'text-xs font-semibold tracking-[0.15em] uppercase text-studio-mut
 const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onReadScript }: RehearsalSettingsDrawerProps) => {
   const {
     textFilter, setTextFilter, characters, voices, playbackSpeed, setPlaybackSpeed,
-    rehearsalState, scriptContent, isManualTTSPlaying,
+    rehearsalState, rehearsalMode, scriptContent, isManualTTSPlaying, selectedVoice, setSelectedVoice,
   } = useRehearsal();
   const { speak, stop, isPlaying, isLoading } = useTTS();
   const [testingVoice, setTestingVoice] = useState<string | null>(null);
@@ -55,6 +57,22 @@ const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onRea
         <SheetDescription className="sr-only">Choose what the AI reads, voices and speed.</SheetDescription>
 
         <div className="space-y-8 py-6">
+          <section className="space-y-3">
+            <p className={label}>Scene partner voice</p>
+            <VoicePicker
+              voices={voices}
+              selectedVoice={selectedVoice}
+              onVoiceChange={setSelectedVoice}
+              previewDisabled={locked || rehearsalMode || isManualTTSPlaying}
+              disabled={locked || rehearsalMode}
+            />
+          </section>
+
+          <section className="space-y-3">
+            <p className={label}>Script view</p>
+            <ScriptViewOptions />
+          </section>
+
           <section className="space-y-3">
             <p className={label}>AI reads</p>
             <div className="grid grid-cols-2 gap-1 rounded-2xl bg-studio-surface p-1.5">
