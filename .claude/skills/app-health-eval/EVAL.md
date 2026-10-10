@@ -15,6 +15,11 @@ Set these once at the top of the run:
 REF=$(grep -oE 'project_id *= *"[^"]+"' supabase/config.toml | cut -d'"' -f2)   # uomdyqdvorusucuudwnz
 BASE="https://$REF.supabase.co/functions/v1"
 ORIGIN="https://actsolo.ai"   # an allowed CORS origin (token & TTS gate on this)
+# eleven-agent-token, get-voices and text-to-speech require a signed-in user's
+# access token (they spend ElevenLabs credit). Export one from a dedicated test
+# account before running C1-C3, e.g. ACCESS_TOKEN=$(...sign-in via /auth/v1/token...).
+# Without it those checks return 401 -> record as BLOCKED (missing credential), not FAIL.
+AUTH_HEADER="Authorization: Bearer ${ACCESS_TOKEN:-}"
 # Portable timeout (macOS has no `timeout`): GUARD <seconds> <cmd...>
 GUARD() { local s=$1; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
 ```
@@ -100,12 +105,14 @@ grep -qE "conversation_engine_eleven" src/services/conversation/engineFactory.ts
 ## C. Voice connections & edge functions (live smoke)
 
 Hits the deployed functions. `time_total` / `ttfb` are the latency signal for
-"no delays." Functions are public; token & TTS gate on an allowed `Origin`.
+"no delays." `eleven-agent-token`, `get-voices` and `text-to-speech` require a
+signed-in user's `$ACCESS_TOKEN` (and an allowed `Origin`); `health-realtime` is
+public but free (database ping only).
 
 ### C1 — Voice connection token (the core path)
 ```bash
 curl -s -o /tmp/tok.json -w "HTTP %{http_code} total=%{time_total}s ttfb=%{time_starttransfer}s\n" \
-  -X POST -H "Origin: $ORIGIN" -H "Content-Type: application/json" \
+  -X POST -H "Origin: $ORIGIN" -H "$AUTH_HEADER" -H "Content-Type: application/json" \
   "$BASE/eleven-agent-token" --max-time 20
 grep -o '"signed_url":"wss[^"]*' /tmp/tok.json | cut -c1-45
 ```
@@ -120,7 +127,7 @@ no-Origin request skips that check entirely. Without the header a CORS allow-lis
 regression would still 200 here while the browser UI is blocked.
 ```bash
 curl -s -o /tmp/gv.json -w "HTTP %{http_code} total=%{time_total}s\n" \
-  -H "Origin: $ORIGIN" "$BASE/get-voices" --max-time 20
+  -H "Origin: $ORIGIN" -H "$AUTH_HEADER" "$BASE/get-voices" --max-time 20
 grep -c '"id"' /tmp/gv.json
 ```
 - **PASS:** HTTP 200, non-empty `voices[]` (id/name present), `total` < **1.5s**.
@@ -135,7 +142,7 @@ The function returns `200 application/json` with the audio as **base64 in
 never the response size — a large JSON error body must not pass.
 ```bash
 curl -s -o /tmp/tts.json -w "HTTP %{http_code} total=%{time_total}s ttfb=%{time_starttransfer}s\n" \
-  -X POST -H "Origin: $ORIGIN" -H "Content-Type: application/json" \
+  -X POST -H "Origin: $ORIGIN" -H "$AUTH_HEADER" -H "Content-Type: application/json" \
   -d '{"text":"Line check, one two three.","voice_id":"9BWtsMINqrJLrRacOk9x"}' \
   "$BASE/text-to-speech" --max-time 30
 # Assert audioContent exists and base64-decodes to non-trivial audio bytes:
@@ -148,21 +155,20 @@ echo "decoded audio bytes: $AUDIO_BYTES"
   failed or not real audio), or `ttfb` ≥ 2.0s — ElevenLabs TTS quality/latency
   regressed. A large 200 JSON body alone is **not** a pass.
 
-### C4 — Realtime health (LEGACY — do not fix)
-`health-realtime` is an OpenAI realtime ephemeral-token check. It is **not used
-by the live ElevenLabs conversation engine** (`ElevenAgentsEngine.ts` has zero
-OpenAI references) and is confirmed legacy, slated for removal. Run it only to
-confirm nothing depends on it — do not chase the failure or loop on it.
+### C4 — Backend health (`health-realtime`)
+Despite the legacy name, `health-realtime` is now a free database ping only — it
+makes **no** OpenAI/ElevenLabs calls (an earlier version minted a live OpenAI
+realtime session on every request, which was an unauthenticated cost leak). It
+is safe for uptime monitors. Do not re-add any paid-API call to it.
 ```bash
 curl -s -o /tmp/hr.json -w "HTTP %{http_code} total=%{time_total}s\n" \
   "$BASE/health-realtime" --max-time 20
 cat /tmp/hr.json
 ```
-- **KNOWN-ISSUE (legacy):** currently 500, `"Ephemeral token request failed:
-  404"` (OpenAI realtime path). Record it; it does **not** block GREEN. When the
-  function is removed, delete this check entirely.
-- **FAIL (only this):** if some live code path still imports/depends on
-  `health-realtime` — that dependency is the real bug, not the 404.
+- **PASS:** HTTP 200, `"status":"healthy"`, `checks.database` = `reachable`.
+- **FAIL:** non-200 / `unhealthy` (Supabase API or Postgres unreachable), or the
+  function references `openai`/`elevenlabs` again (`grep -ciE 'openai|elevenlabs'
+  supabase/functions/health-realtime/index.ts` must be 0).
 
 ---
 
@@ -241,7 +247,7 @@ ActSolo.AI Health Eval — <branch>
 | C1 | Voice token                   | ...         | HTTP 200, 0.67s |
 | C2 | Voice list                    | ...         | HTTP 200, 0.50s |
 | C3 | TTS audio                     | ...         | HTTP 200, ttfb 1.1s |
-| C4 | Realtime health (legacy)      | KNOWN-ISSUE | 500 OpenAI 404 — slated for removal |
+| C4 | Backend health (DB ping)      | ...         | HTTP 200, database reachable |
 | D2 | Edge logs                     | ...         | retrieved / skipped (no token) |
 
 Failures to fix: <list with the cause from the evidence/logs>

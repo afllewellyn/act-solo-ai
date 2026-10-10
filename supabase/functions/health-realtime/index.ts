@@ -1,12 +1,12 @@
-
-
-
-// Model configuration
-const OPENAI_REALTIME_MODEL = 'gpt-4o-realtime-preview-2025-06-03';
+// Lightweight health check: confirms the Supabase backend (PostgREST -> Postgres)
+// is reachable. It deliberately does NOT call OpenAI or any other paid API —
+// this endpoint is unauthenticated and may be polled by uptime monitors, so
+// every request must cost nothing. (The name is legacy; the old OpenAI
+// realtime session/WebSocket check was removed.)
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim());
-  
+  const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') || '').split(',').map(o => o.trim()).filter(Boolean);
+
   const isAllowed = origin && (
     allowedOrigins.includes(origin) ||
     origin.endsWith('.lovableproject.com') ||
@@ -21,165 +21,56 @@ function getCorsHeaders(origin: string | null): Record<string, string> {
       'Access-Control-Allow-Methods': 'GET, OPTIONS',
     };
   }
-  
+
   return {};
-}
-
-// Boot diagnostics: check secret presence without exposing it
-try {
-  const envKeys = Object.keys((Deno.env as { toObject?: () => Record<string, string> }).toObject?.() || {});
-  const { name: keyName, value: OPENAI_API_KEY } = getOpenAIKey();
-  if (OPENAI_API_KEY) {
-    console.log(`[Health Realtime] Boot - Using key: ${keyName}, present: ${!!OPENAI_API_KEY}, length: ${OPENAI_API_KEY.length}`);
-  } else {
-    console.error('[Health Realtime] Boot - No valid OpenAI API key found. Fallback failed.');
-  }
-  console.log('[Health Realtime] Boot - env keys count:', envKeys.length);
-} catch (_) {
-  console.log('[Health Realtime] Boot - env introspection not available');
-}
-
-function getOpenAIKey() {
-  const names = ["OPENAI_API_KEY", "OPENAI_API_KEY_RELAY"] as const;
-  for (const name of names) {
-    const value = Deno.env.get(name);
-    if (value) return { name, value } as const;
-  }
-  return { name: null as string | null, value: undefined as string | undefined } as const;
 }
 
 // @ts-ignore Deno.serve is provided by the Supabase Edge (Deno) runtime
 Deno.serve(async (req) => {
   const origin = req.headers.get('origin');
   const corsHeaders = getCorsHeaders(origin);
-  
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-  
-  // Return 403 for disallowed origins
+
+  // Return 403 for disallowed browser origins
   if (origin && Object.keys(corsHeaders).length === 0) {
     return new Response('Forbidden', { status: 403 });
   }
 
+  const json = (body: Record<string, unknown>, status: number) =>
+    new Response(JSON.stringify({ ...body, timestamp: new Date().toISOString() }), {
+      status,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+    });
+
+  const supabaseUrl = Deno.env.get('SUPABASE_URL');
+  const anonKey = Deno.env.get('SUPABASE_ANON_KEY');
+  if (!supabaseUrl || !anonKey) {
+    console.error('[Health] SUPABASE_URL / SUPABASE_ANON_KEY not available in function env');
+    return json({ status: 'unhealthy', checks: { database: 'unconfigured' } }, 503);
+  }
+
   try {
-    const { value: OPENAI_API_KEY, name: keyName } = getOpenAIKey();
-    if (!OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is not configured');
+    // One-row read through PostgREST. RLS returns an empty list for the anon
+    // role, which is fine: a 2xx proves the API gateway and Postgres answered.
+    const started = performance.now();
+    const res = await fetch(`${supabaseUrl}/rest/v1/profiles?select=user_id&limit=1`, {
+      headers: { apikey: anonKey, Authorization: `Bearer ${anonKey}` },
+      signal: AbortSignal.timeout(5000),
+    });
+    const latencyMs = Math.round(performance.now() - started);
+
+    if (!res.ok) {
+      console.error('[Health] Database ping failed with status', res.status);
+      return json({ status: 'unhealthy', checks: { database: 'unreachable' }, latency_ms: latencyMs }, 503);
     }
 
-    console.log('[Health Realtime] Testing ephemeral token generation...');
-
-    // Step 1: Request ephemeral token from OpenAI REST API
-    const ephemeralResponse = await fetch("https://api.openai.com/v1/realtime/sessions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: OPENAI_REALTIME_MODEL,
-        voice: "alloy",
-        instructions: "Health check test session - you are a helpful assistant."
-      }),
-    });
-
-    if (!ephemeralResponse.ok) {
-      const errorText = await ephemeralResponse.text();
-      console.error('[Health Realtime] Ephemeral token request failed:', errorText);
-      throw new Error(`Ephemeral token request failed: ${ephemeralResponse.status}`);
-    }
-
-    const ephemeralData = await ephemeralResponse.json();
-    console.log('[Health Realtime] Ephemeral token generated successfully');
-
-    // Step 2: Test WebSocket handshake with OpenAI Realtime API (authenticated)
-    // Note: The standard WebSocket constructor in Edge Functions cannot send custom headers.
-    // We'll perform a manual TLS WebSocket handshake so we can include Authorization and OpenAI-Beta headers.
-    const testWebSocketHandshake = async (token: string): Promise<{ success: boolean; error?: string }> => {
-      try {
-        const hostname = 'api.openai.com';
-        const port = 443;
-        const path = `/v1/realtime?model=${OPENAI_REALTIME_MODEL}`;
-
-// @ts-ignore Deno.connectTls is provided by the Supabase Edge (Deno) runtime
-        const conn = await Deno.connectTls({ hostname, port });
-        const enc = new TextEncoder();
-        const dec = new TextDecoder();
-
-        // Generate Sec-WebSocket-Key
-        const keyBytes = crypto.getRandomValues(new Uint8Array(16));
-        const secKey = btoa(String.fromCharCode(...Array.from(keyBytes)));
-
-        const request =
-          `GET ${path} HTTP/1.1\r\n` +
-          `Host: ${hostname}\r\n` +
-          `Connection: Upgrade\r\n` +
-          `Upgrade: websocket\r\n` +
-          `Sec-WebSocket-Version: 13\r\n` +
-          `Sec-WebSocket-Key: ${secKey}\r\n` +
-          `Authorization: Bearer ${token}\r\n` +
-          `OpenAI-Beta: realtime=v1\r\n` +
-          `Origin: https://functions.supabase.co\r\n` +
-          `\r\n`;
-
-        await conn.write(enc.encode(request));
-
-        // Read response headers
-        let headerText = '';
-        const buf = new Uint8Array(4096);
-        const deadline = Date.now() + 5000;
-        while (Date.now() < deadline) {
-          const n = await conn.read(buf);
-          if (n === null) break;
-          headerText += dec.decode(buf.subarray(0, n));
-          if (headerText.includes('\r\n\r\n')) break; // end of headers
-        }
-
-        try { conn.close(); } catch { /* connection already closing */ }
-
-        const statusLine = headerText.split('\r\n')[0] || headerText;
-        if (headerText.startsWith('HTTP/1.1 101')) {
-          console.log('[Health Realtime] WebSocket handshake 101 Switching Protocols');
-          return { success: true };
-        } else {
-          console.error('[Health Realtime] WebSocket handshake failed:', statusLine);
-          return { success: false, error: statusLine };
-        }
-      } catch (err) {
-        console.error('[Health Realtime] WebSocket handshake exception:', err);
-        return { success: false, error: err instanceof Error ? err.message : String(err) };
-      }
-    };
-
-    const wsTestResult = await testWebSocketHandshake(ephemeralData.client_secret.value);
-
-    // Return health check results
-    return new Response(JSON.stringify({
-      status: 'healthy',
-      checks: {
-        openai_api_key: 'configured',
-        ephemeral_token_generation: 'success',
-        websocket_handshake: wsTestResult.success ? 'success' : 'failed',
-        websocket_error: !wsTestResult.success ? wsTestResult.error : undefined
-      },
-      timestamp: new Date().toISOString(),
-      environment: 'production'
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-
+    return json({ status: 'healthy', checks: { database: 'reachable' }, latency_ms: latencyMs }, 200);
   } catch (error: unknown) {
-    const err = error instanceof Error ? error : new Error(String(error));
-    console.error('[Health Realtime] Health check failed:', err.message);
-    return new Response(JSON.stringify({
-      status: 'unhealthy',
-      error: err.message,
-      timestamp: new Date().toISOString()
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
+    console.error('[Health] Database ping error:', error instanceof Error ? error.message : String(error));
+    return json({ status: 'unhealthy', checks: { database: 'unreachable' } }, 503);
   }
 });

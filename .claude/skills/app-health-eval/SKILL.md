@@ -48,13 +48,15 @@ green. The detailed checks, commands, and pass bars live in
   backlog (A3 is informational), and the committed lockfile drifts from
   `package.json`. (If the repo has a `CLAUDE.md`, its "Known issues" is the
   source of record — but this skill doesn't depend on it.)
-- Supabase CLI is authenticated and the project is linked; edge functions are
-  public (`verify_jwt = false`). EVAL.md's setup block is the single source of
+- Supabase CLI is authenticated and the project is linked; edge functions run with
+  `verify_jwt = false`, but `eleven-agent-token`, `get-voices` and
+  `text-to-speech` verify a signed-in user token in-function (export
+  `ACCESS_TOKEN` from a test account for C1–C3). EVAL.md's setup block is the single source of
   truth for the exact commands, the `Origin` gate, and the current measured
   per-function baseline (sections C1–C4) — don't restate those numbers here.
-- One heads-up before you start: `health-realtime` is **confirmed legacy** (an
-  OpenAI realtime check, not used by the ElevenLabs engine) and slated for
-  removal — expect its C4 check to be a KNOWN-ISSUE, not a bug to fix or loop on.
+- One heads-up before you start: `health-realtime` is now a free database
+  ping (the legacy OpenAI realtime check was removed because it leaked credit).
+  It must stay free of paid-API calls.
 
 ## Stop criteria
 

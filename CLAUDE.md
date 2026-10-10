@@ -72,6 +72,7 @@ Other layout:
 - `src/integrations/supabase/` — Supabase client + generated types.
 - `src/lib/featureFlags.ts` — feature-flag system (see below).
 - `supabase/functions/` — Deno edge functions: `eleven-agent-token`, `get-voices`, `text-to-speech`, `send-contact-email`, `health-realtime`, `env-debug`.
+- Edge functions run with `verify_jwt = false`, and the `Origin` allow-list only constrains browsers (curl can omit/forge it). Any function that spends third-party credit (`eleven-agent-token`, `text-to-speech`, `get-voices`) must call `getAuthedUser()` from `supabase/functions/_shared/auth.ts` and reject anonymous callers. `health-realtime` is a free DB ping — never add a paid-API call to it (it is unauthenticated and pollable).
 - `@` is the path alias for `src/` (configured in `vite.config.ts`, `vitest.config.ts`, and tsconfig).
 
 ## Feature flags
