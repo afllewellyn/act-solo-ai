@@ -8,11 +8,14 @@ ActSolo.AI ingests your script, tracks your lines, and connects a conversation e
 
 ## Key Features
 
-- Script parsing with cue metadata, teleprompter view, and rehearsal progress tracking.
+- Script parsing with cue metadata and rehearsal progress tracking. Line roles come from formatting: *italic* lines are read by the AI, **bold** lines are yours, and unformatted lines are stage notes the AI skips. Character names (`NAME:`) are optional and can be hidden in the view.
+- Dark "studio" teleprompter: the current line is pinned to a dashed eye-line at ~28% of the screen and follows the scene (AI turn end, your speech end, Next cue, or tapping a line).
+- Scene-partner voice picker with per-voice previews, remembered per script.
+- Scenes that open on an AI line start automatically once the connection is ready.
 - ConversationEngine abstraction that swaps between engine providers via feature flags.
 - ElevenAgentsEngine (Phase 2) with realtime VAD, agent text/audio responses, and normalized events.
 - Supabase backend for auth/functions, including signed ElevenLabs conversational tokens.
-- React/Tailwind UI built with Vite + Bun/Node for fast iteration.
+- React/Tailwind UI built with Vite and npm for fast iteration.
 
 ## Architecture
 
@@ -20,6 +23,9 @@ ActSolo.AI ingests your script, tracks your lines, and connects a conversation e
 - `src/services/conversation/domain.ts` – rehearsal domain objects (`Cue`, `ScriptContext`, etc.).
 - `src/services/conversation/ElevenAgentsEngine.ts` – ElevenLabs implementation (feature flagged).
 - `src/services/conversation/engineFactory.ts` – dynamic factory keyed off feature flags.
+- `src/pages/Practice.tsx`, `src/components/practice/TeleprompterDisplay.tsx`, `RehearsalSettingsDrawer.tsx` – the rehearsal screen, eye-line teleprompter, and settings (voice, script view, what the AI reads).
+- `src/contexts/RehearsalContext.tsx` – rehearsal state, current-line tracking, and engine lifecycle.
+- `src/lib/scriptVoice.ts`, `src/lib/voices.ts` – per-script voice storage and the default/removed voices.
 - Phase 3 complete: `useConversationEngine`, `RehearsalModeContainer`, and full UI hookup.
 - Phase 3.5 complete: structured telemetry + debug utilities.
 - Phase 4 deferred: legacy cleanup after production stability.
@@ -50,9 +56,10 @@ Edit `src/lib/featureFlags.ts` or set `window.__FEATURES__` to toggle capabiliti
 
 ## Testing
 
-- Unit tests: `npm test` (Vitest, jsdom). Suite covers `src/services/conversation/__tests__/ElevenAgentsEngine.test.ts` — WebSocket event mapping, control commands, context formatting, and exponential-backoff reconnection.
-- CI runs typecheck + build + tests on every PR (`.github/workflows/ci.yml`).
-- Manual: RehearsalMode.tsx with `conversation_engine_eleven` enabled.
+- Unit tests: `npm test` (Vitest, jsdom). Covers the ElevenLabs engine (WebSocket event mapping, control commands, reconnection), script parsing and line roles, line matching, the `useConversationEngine` latest-callback regression, and voice helpers.
+- Browser smoke test: `npm run build && npm run test:smoke` boots the production build in headless Chromium.
+- CI runs typecheck, build, tests, smoke test, and lint on every PR (`.github/workflows/ci.yml`).
+- Manual: sign in, open a script, and rehearse with `conversation_engine_eleven` enabled (needs a microphone).
 
 ## Roadmap
 
@@ -68,7 +75,7 @@ Track progress in:
 ## Contributing
 
 1. Branch from `main`.
-2. Run lint/tests before pushing (`bun test`).
+2. Run lint/tests before pushing (`npm test`, `npm run lint`).
 3. Document new feature flags/config in README.
 4. For Supabase functions, update `supabase/functions/*` and redeploy via Supabase CLI.
 
