@@ -95,7 +95,8 @@ Phase 5 items are nice-to-haves for later — coach mode and analytics dashboard
 | Phase 2 – ElevenAgentsEngine | ✅ COMPLETE | WebSocket, audio, reconnection |
 | Phase 3 – React Integration | ✅ COMPLETE | useConversationEngine, RehearsalMode |
 | Phase 3.5 – Monitoring | ✅ COMPLETE | Structured telemetry, debug utilities |
-| Phase 4 – Cleanup | ⏸️ DEFERRED | Awaiting stability data from production |
+| Phase 4 – Cleanup | ⏭️ NEXT | Tracked in `Phase4_Legacy_Cleanup_Tracker.md`; gated on production stability data |
+| Hybrid UI polish (rehearsal UI) | ✅ COMPLETE | Studio screen, eye-line teleprompter, voice picker, optional names (PRs #17, #19) |
 
 ## Risks & Mitigations
 

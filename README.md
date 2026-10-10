@@ -28,7 +28,7 @@ ActSolo.AI ingests your script, tracks your lines, and connects a conversation e
 - `src/lib/scriptVoice.ts`, `src/lib/voices.ts` – per-script voice storage and the default/removed voices.
 - Phase 3 complete: `useConversationEngine`, `RehearsalModeContainer`, and full UI hookup.
 - Phase 3.5 complete: structured telemetry + debug utilities.
-- Phase 4 deferred: legacy cleanup after production stability.
+- Phase 4 next: legacy cleanup (see `Project plans/Phase4_Legacy_Cleanup_Tracker.md`).
 
 Refer to `Project plans/ConversationEngine Refactor PRD_Dec.md` for the full PRD and phase roadmap.
 
@@ -63,13 +63,14 @@ Edit `src/lib/featureFlags.ts` or set `window.__FEATURES__` to toggle capabiliti
 
 ## Roadmap
 
-- **Phase 4 (deferred):** Clean up legacy audio managers/hooks after production stability.
-- **Phase 5 (later):** Hybrid UI polish, production hardening.
+- **Phase 5 (done):** Hybrid UI polish — studio rehearsal screen, eye-line teleprompter, voice picker, optional character names (PRs #17, #19).
+- **Phase 4 (next):** Clean up legacy audio managers/hooks and the state-machine fallback. Tracked in `Project plans/Phase4_Legacy_Cleanup_Tracker.md`.
 - **Phase 6 (test):** Pricing.
 
 Track progress in:
 
 - `Project plans/ConversationEngine Refactor PRD_Dec.md`
+- `Project plans/Phase4_Legacy_Cleanup_Tracker.md`
 - `Project plans/November 2025 Sprint - Production Hardening.md`
 
 ## Contributing
