@@ -32,11 +32,13 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     const el = lineRefs.current[activeIndex];
     if (!container || !el) return;
     if (!force && Date.now() < manualUntilRef.current) return;
-    const top = el.offsetTop - container.clientHeight * EYELINE + 24;
+    // Measure from bounding rects (independent of offsetParent) to get the line's position inside the scroll content
+    const lineTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
+    const top = lineTop - container.clientHeight * EYELINE + 24;
     container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, [activeIndex]);
 
-  // A new line, text size or line count always re-centres
+  // A new line, text size or line count always re-centres. Font size is not animated, so layout is final when we measure.
   useEffect(() => {
     centreActive(true);
   }, [centreActive, fontSize, lines.length]);
@@ -93,7 +95,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-studio to-transparent z-10" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-studio to-transparent z-10" />
 
-      <div ref={scrollRef} className="h-full overflow-y-auto scroll-smooth">
+      <div ref={scrollRef} className="relative h-full overflow-y-auto scroll-smooth">
         <div className="max-w-4xl mx-auto px-5 sm:px-10" style={{ paddingTop: `${EYELINE * 100}vh`, paddingBottom: '70vh' }}>
           {lines.length === 0 && (
             <p className="text-studio-muted text-center text-lg">This script has no lines yet. Tap Edit script to add some.</p>
@@ -108,7 +110,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
                 ref={(el) => (lineRefs.current[i] = el)}
                 onClick={() => onSelectLine(i)}
                 className={cn(
-                  'relative my-3 rounded-2xl px-5 py-4 cursor-pointer transition-all duration-300',
+                  'relative my-3 rounded-2xl px-5 py-4 cursor-pointer transition-[background-color,opacity] duration-300',
                   active ? 'bg-studio-cue' : 'hover:bg-studio-surface/50',
                   past && 'opacity-30',
                   !active && !past && 'opacity-60',
@@ -125,7 +127,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
                   </span>
                 )}
                 <div
-                  className={cn('leading-snug transition-all [&_strong]:font-bold [&_em]:italic', isYou ? 'font-semibold' : 'italic')}
+                  className={cn('leading-snug [&_strong]:font-bold [&_em]:italic', isYou ? 'font-semibold' : 'italic')}
                   style={{ fontSize: active ? fontSize * 1.35 : fontSize }}
                   dangerouslySetInnerHTML={{ __html: line.content }}
                 />
