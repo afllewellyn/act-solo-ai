@@ -62,7 +62,19 @@ const Contact = () => {
       });
 
       if (error) {
-        throw new Error(error.message || "Failed to send message");
+        // supabase-js only gives a generic message for non-2xx responses; prefer the server's own text
+        // (e.g. "Too many messages. Please try again later.") from the response body when available.
+        let message = error.message;
+        const response = (error as { context?: Response }).context;
+        if (response && typeof response.json === "function") {
+          try {
+            const body = await response.json();
+            if (typeof body?.error === "string" && body.error) message = body.error;
+          } catch {
+            /* keep the generic message */
+          }
+        }
+        throw new Error(message || "Failed to send message");
       }
 
       toast({
