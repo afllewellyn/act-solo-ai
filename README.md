@@ -12,6 +12,7 @@ ActSolo.AI is for actors who need someone to read against. Paste in your script,
 - **Choose your partner's voice.** Preview voices, pick one, and the app remembers your choice for that script.
 - **Run it your way.** Skip to the next cue, tap any line to jump there, or change the text size.
 - **Work on your phone, tablet, or computer.** You just need a modern browser. The built-in microphone is enough.
+- **For auditions you submit** we recommend setting the computer / teleprompter at your eyeline and using a separate camera set on a tripod directly in front of you. 
 
 ## How it works
 
