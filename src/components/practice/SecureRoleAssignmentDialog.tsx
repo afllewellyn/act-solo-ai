@@ -1,4 +1,5 @@
 
+import { isRemovedVoice } from '@/lib/voices';
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -33,7 +34,6 @@ interface SecureRoleAssignmentDialogProps {
 
 // Default fallback voices if API fails
 const defaultVoices = [
-  { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria', category: 'Generated', gender: 'Female', accent: 'American' },
   { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', category: 'Generated', gender: 'Male', accent: 'American' },
   { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', category: 'Generated', gender: 'Female', accent: 'American' },
   { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura', category: 'Generated', gender: 'Female', accent: 'American' },
@@ -139,7 +139,7 @@ export function SecureRoleAssignmentDialog({ characters, onRoleUpdate, content }
     try {
       const voicesData = await secureLoadVoices();
       if (voicesData) {
-        setVoices(voicesData);
+        setVoices(voicesData.filter((v: { id: string }) => !isRemovedVoice(v.id)));
         toast({
           title: "Voices Loaded",
           description: `Loaded ${voicesData.length} voices successfully`,

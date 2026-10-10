@@ -158,7 +158,7 @@ export const useTTS = () => {
       
       logTTS('speech_generation_started', {
         textLength: text.length,
-        voiceId: options.voiceId || '9BWtsMINqrJLrRacOk9x',
+        voiceId: options.voiceId || 'EXAVITQu4vr4xnSDxMaL',
         textPreview: text.substring(0, 100),
         hasUserGesture: audioContextManager.hasUserGesture(),
         audioUnlocked: audioContextManager.isAudioUnlocked(),
@@ -170,7 +170,7 @@ export const useTTS = () => {
       const { data, error } = await supabase.functions.invoke('text-to-speech', {
         body: {
           text: text.trim(),
-          voice_id: options.voiceId || '9BWtsMINqrJLrRacOk9x',
+          voice_id: options.voiceId || 'EXAVITQu4vr4xnSDxMaL',
           request_id: currentRequestIdRef.current,
           line_idx: currentLineIdxRef.current
         }

@@ -20,10 +20,10 @@ npm ci               # install deps (npm is canonical; lockfile is in sync)
 npm run dev          # Vite dev server on http://localhost:8080
 npm run build        # production build to dist/  (also the CI gate)
 npm run build:dev    # development-mode build
-npm run lint         # eslint . — 0 errors (CI gate); ~32 warnings remain
+npm run lint         # eslint . — 0 errors (CI gate); ~31 warnings remain
 npm run preview      # preview a production build
 npm test             # unit tests (Vitest, jsdom) — passing
-npx tsc --noEmit -p tsconfig.app.json   # typecheck app code (clean)
+npx tsc --noEmit -p tsconfig.app.json   # typecheck app code (clean; CI runs it before build/tests)
 npm run build && npm run test:smoke     # build, then boot it in real Chromium (CI gate)
 ```
 
@@ -61,7 +61,9 @@ runtime by feature flags so the UI never hard-codes a voice provider.
 - `src/services/conversation/engineFactory.ts` — `createConversationEngine()`; returns the real engine when the `conversation_engine_eleven` flag is on, otherwise a logging stub.
 - `src/services/conversation/ElevenAgentsEngine.ts` — ElevenLabs implementation (realtime VAD, agent text/audio, normalized events).
 - `src/hooks/useConversationEngine.ts` — React hook wrapping the engine lifecycle.
-- `src/components/practice/` + `src/pages/Practice.tsx` — rehearsal UI.
+- `src/components/practice/` + `src/pages/Practice.tsx` — rehearsal UI (dark "studio" screen): `TeleprompterDisplay` pins the current line to a dashed eye-line at 28% height; `RehearsalSettingsDrawer` holds voice (`VoicePicker`), script-view options and "AI reads" filter.
+- `src/contexts/RehearsalContext.tsx` — rehearsal state. Line role comes from formatting (italic = AI, bold = you, plain = stage note); character names are optional. The current line is tracked via refs (`currentLineIndexRef`) because the engine subscribes to events once at start.
+- `src/lib/scriptVoice.ts` / `src/lib/voices.ts` — per-script voice saved in the reserved `__default` entry of `scripts.characters`; removed voices (Aria) and the default voice (Sarah).
 
 Other layout:
 

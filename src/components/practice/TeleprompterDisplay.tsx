@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
 import { hideCharacterNamePrefixHtml } from '@/components/practice/rehearsal/textUtils';
 import { cn } from '@/lib/utils';
@@ -7,12 +7,14 @@ interface TeleprompterDisplayProps {
   lines: ScriptLine[];
   activeIndex: number;
   fontSize: number;
-  status: 'idle' | 'listening' | 'ai' | 'paused' | 'complete';
+  status: 'idle' | 'connecting' | 'listening' | 'ai' | 'paused' | 'complete';
   onSelectLine: (index: number) => void;
   hideNames?: boolean;
 }
 
 const EYELINE = 0.28;
+/** After a manual scroll, leave the view alone this long before re-centring. */
+const MANUAL_SCROLL_GRACE_MS = 2500;
 
 /** Dark studio teleprompter: active cue pinned to the eye-line at ~28% height. */
 export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine, hideNames = false }: TeleprompterDisplayProps) => {
@@ -23,16 +25,41 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     [hideNames, lines],
   );
 
-  useEffect(() => {
+  const manualUntilRef = useRef(0);
+
+  const centreActive = useCallback((force = false) => {
     const container = scrollRef.current;
     const el = lineRefs.current[activeIndex];
     if (!container || !el) return;
+    if (!force && Date.now() < manualUntilRef.current) return;
     const top = el.offsetTop - container.clientHeight * EYELINE + 24;
     container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-  }, [activeIndex, fontSize, lines.length]);
+  }, [activeIndex]);
+
+  // A new line, text size or line count always re-centres
+  useEffect(() => {
+    centreActive(true);
+  }, [centreActive, fontSize, lines.length]);
+
+  // Re-centre on resize / rotation, and pause auto-scroll briefly after manual scrolling
+  useEffect(() => {
+    const container = scrollRef.current;
+    if (!container) return;
+    const pause = () => { manualUntilRef.current = Date.now() + MANUAL_SCROLL_GRACE_MS; };
+    container.addEventListener('wheel', pause, { passive: true });
+    container.addEventListener('touchmove', pause, { passive: true });
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => centreActive(true)) : null;
+    observer?.observe(container);
+    return () => {
+      container.removeEventListener('wheel', pause);
+      container.removeEventListener('touchmove', pause);
+      observer?.disconnect();
+    };
+  }, [centreActive]);
 
   const statusLabel = {
     idle: 'Ready',
+    connecting: 'Connecting…',
     listening: 'Listening…',
     ai: 'AI speaking',
     paused: 'Paused',
@@ -53,7 +80,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
           <span
             className={cn(
               'h-2 w-2 rounded-full',
-              status === 'listening' && 'bg-eyeline animate-pulse',
+              (status === 'listening' || status === 'connecting') && 'bg-eyeline animate-pulse',
               status === 'ai' && 'bg-studio-fg animate-pulse',
               (status === 'idle' || status === 'paused' || status === 'complete') && 'bg-studio-muted',
             )}

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { RehearsalProvider, useRehearsal } from '@/contexts/RehearsalContext';
 import { getNamedCharacters, getSavedVoice, withSavedVoice } from '@/lib/scriptVoice';
+import { DEFAULT_VOICE_ID, resolveVoiceId } from '@/lib/voices';
 
 interface Script {
   id: string;
@@ -63,7 +64,9 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     currentParagraphIndex,
     showNames,
     goToParagraph,
+    nextCue,
     isUsingConversationEngine,
+    conversationEngineStatus,
     isTTSPlaying,
     isManualTTSPlaying,
     isListening,
@@ -84,20 +87,20 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       const charactersData = getNamedCharacters(script.characters) as Array<{ name?: string; voice?: string; isUserRole?: boolean }>;
       const parsedCharacters: Character[] = charactersData.map((char) => ({
         name: char?.name || '',
-        voice: char?.voice || '9BWtsMINqrJLrRacOk9x',
+        voice: resolveVoiceId(char?.voice),
         isUserRole: char?.isUserRole || false,
       }));
       initialize(script.content, parsedCharacters);
       const savedVoice = getSavedVoice(script.characters);
       savedVoiceRef.current = savedVoice;
-      if (savedVoice) setSelectedVoice(savedVoice);
+      if (savedVoice) setSelectedVoice(resolveVoiceId(savedVoice));
     }
   }, [script, initialize, setSelectedVoice]);
 
   // Persist the selected scene-partner voice in the existing characters JSON.
   useEffect(() => {
     if (savedVoiceRef.current === selectedVoice) return;
-    if (savedVoiceRef.current === undefined && selectedVoice === '9BWtsMINqrJLrRacOk9x') return;
+    if (savedVoiceRef.current === undefined && selectedVoice === DEFAULT_VOICE_ID) return;
 
     const timer = setTimeout(() => {
       const nextCharacters = withSavedVoice(characters, selectedVoice);
@@ -142,9 +145,10 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     : machineIndex;
   const activeIndex = Math.min(trackedIndex ?? manualIndex, Math.max(0, lines.length - 1));
 
-  const status: 'idle' | 'listening' | 'ai' | 'paused' | 'complete' =
+  const status: 'idle' | 'connecting' | 'listening' | 'ai' | 'paused' | 'complete' =
     rehearsalState === 'COMPLETE' ? 'complete'
       : isPaused ? 'paused'
+      : rehearsalMode && (conversationEngineStatus === 'connecting' || conversationEngineStatus === 'idle') && !isUsingConversationEngine && !stateMachine ? 'connecting'
       : isTTSPlaying || isManualTTSPlaying || rehearsalState === 'AI_SPEAKING' ? 'ai'
       : rehearsalMode && (isListening || rehearsalState === 'WAITING_FOR_ACTOR_CUE') ? 'listening'
       : 'idle';
@@ -169,6 +173,10 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   };
 
   const handleNextCue = () => {
+    if (rehearsalMode && isUsingConversationEngine) {
+      nextCue();
+      return;
+    }
     if (rehearsalMode && stateMachine) {
       if (rehearsalState === 'WAITING_FOR_ACTOR_CUE') stateMachine.handleActorCueDetected();
       return;
@@ -280,7 +288,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                 {isManualTTSPlaying ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}
                 {isManualTTSPlaying ? 'Stop reading' : 'Read script'}
               </button>
-              <button onClick={handleNextCue} className={pill} disabled={rehearsalMode && rehearsalState !== 'WAITING_FOR_ACTOR_CUE'}>
+              <button onClick={handleNextCue} className={pill} disabled={rehearsalMode && !isUsingConversationEngine && rehearsalState !== 'WAITING_FOR_ACTOR_CUE'}>
                 Next cue <ChevronRight className="h-4 w-4" />
               </button>
             </div>

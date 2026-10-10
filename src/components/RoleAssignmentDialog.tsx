@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { isRemovedVoice } from '@/lib/voices';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -30,7 +31,6 @@ interface RoleAssignmentDialogProps {
 
 // Default fallback voices if API fails
 const defaultVoices = [
-  { id: '9BWtsMINqrJLrRacOk9x', name: 'Aria', category: 'Generated', gender: 'Female', accent: 'American' },
   { id: 'CwhRBWXzGAHq8TQ4Fs17', name: 'Roger', category: 'Generated', gender: 'Male', accent: 'American' },
   { id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah', category: 'Generated', gender: 'Female', accent: 'American' },
   { id: 'FGY2WhTYpPnrIDTdsKH5', name: 'Laura', category: 'Generated', gender: 'Female', accent: 'American' },
@@ -93,7 +93,7 @@ export function RoleAssignmentDialog({ characters, onRoleUpdate, content }: Role
       }
 
       if (data?.voices && data.voices.length > 0) {
-        setVoices(data.voices);
+        setVoices(data.voices.filter((v: { id: string }) => !isRemovedVoice(v.id)));
         toast({
           title: "Voices Loaded",
           description: `Loaded ${data.voices.length} voices from ElevenLabs`,
