@@ -34,3 +34,12 @@ Status: **READY TO SCHEDULE** — the rehearsal UI work (the hybrid UI polish) s
 
 ## Not in this phase
 Coach mode, `HybridOpenAIEngine`, analytics dashboards (PRD "Phase 5 – Optional Enhancements"), and pricing (Phase 6).
+
+## Planned refactor (general tech-debt pass)
+Decision: plan a broad refactor after Phase 4 as good practice, rather than letting debt accumulate. PR #19 was merged as-is with this noted here.
+Candidates seen so far:
+- `RehearsalContext.tsx` is very large and mixes the legacy state machine, the engine lifecycle and line tracking; split into focused hooks/modules.
+- `Practice.tsx` and `RehearsalSettingsDrawer.tsx` carry overlapping voice/preview logic; consolidate around `VoicePicker`.
+- The default voice id is still duplicated as a literal in several files (`useTTS`, audio managers, `text-to-speech` edge function); use `src/lib/voices.ts` where possible.
+- Remaining ~31 lint warnings (`react-hooks/exhaustive-deps`, `react-refresh`).
+- Fuzzy line matching and listen-mode timing are approximations; revisit with real per-line events if the engine provides them.

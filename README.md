@@ -66,6 +66,7 @@ Edit `src/lib/featureFlags.ts` or set `window.__FEATURES__` to toggle capabiliti
 - **Phase 5 (done):** Hybrid UI polish — studio rehearsal screen, eye-line teleprompter, voice picker, optional character names (PRs #17, #19).
 - **Phase 4 (next):** Clean up legacy audio managers/hooks and the state-machine fallback. Tracked in `Project plans/Phase4_Legacy_Cleanup_Tracker.md`.
 - **Phase 6 (test):** Pricing.
+- **Ongoing (planned):** General refactor pass to keep tech debt low — see the "Planned refactor" section in `Project plans/Phase4_Legacy_Cleanup_Tracker.md`.
 
 Track progress in:
 
