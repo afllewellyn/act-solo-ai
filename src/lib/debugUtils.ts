@@ -62,19 +62,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
     disableElevenAgents: () => setFeatureFlags({ conversation_engine_eleven: false }),
     
     // Engine testing utilities
-    testHealthRealtime: async () => {
-      try {
-        const response = await fetch(`https://uomdyqdvorusucuudwnz.supabase.co/functions/v1/health-realtime`);
-        const data = await response.json();
-        console.log('Health Realtime Check:', data);
-        return data;
-      } catch (error) {
-        console.error('Health Realtime Error:', error);
-        return { error: error instanceof Error ? error.message : String(error) };
-      }
-    },
-    
-    // Test ElevenAgents token endpoint
+    // Test ElevenAgents token endpoint (requires being signed in)
     testElevenAgentsToken: async () => {
       try {
         console.log('🔑 Testing ElevenAgents token endpoint...');
@@ -130,61 +118,12 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
       }
       
       return results;
-    },
-    
-    // S2S testing utilities
-    testS2SConnection: async () => {
-      try {
-        console.log('🔊 Testing S2S WebSocket connection...');
-        const ws = new WebSocket('wss://uomdyqdvorusucuudwnz.functions.supabase.co/functions/v1/realtime-s2s');
-        
-        return new Promise((resolve) => {
-          const timeout = setTimeout(() => {
-            ws.close();
-            resolve({ status: 'timeout', message: 'Connection timeout after 5s' });
-          }, 5000);
-          
-          ws.onopen = () => {
-            clearTimeout(timeout);
-            console.log('✅ S2S WebSocket connected successfully');
-            ws.close();
-            resolve({ status: 'success', message: 'S2S WebSocket connection successful' });
-          };
-          
-          ws.onerror = (error) => {
-            clearTimeout(timeout);
-            console.error('❌ S2S WebSocket connection failed:', error);
-            resolve({ status: 'error', message: 'S2S WebSocket connection failed' });
-          };
-        });
-      } catch (error) {
-        console.error('❌ S2S Connection Test Error:', error);
-        return { status: 'error', message: error instanceof Error ? error.message : String(error) };
-      }
-    },
-    
-    // Test S2S with actual text
-    testS2SSpeech: async (text = 'Hello, this is a test of the S2S speech system.') => {
-      try {
-        console.log('🎤 Testing S2S speech with text:', text);
-        
-        // This would require access to the audio manager context
-        console.log('💡 To test S2S speech, use the VoiceControls in the app with S2S enabled');
-        return { 
-          status: 'info', 
-          message: 'Use VoiceControls component to test S2S speech functionality',
-          instructions: 'Go to /practice page and try the "Read Script" button'
-        };
-      } catch (error) {
-        return { status: 'error', message: error instanceof Error ? error.message : String(error) };
-      }
     }
   };
   const debugWindow = window as unknown as Record<string, unknown>;
   debugWindow.DEBUG_AUDIO = debugWindow.__DEBUG_AUDIO__;
   console.log('🔧 Debug utilities available at window.__DEBUG_AUDIO__ and window.DEBUG_AUDIO');
   console.log('📋 Try: __DEBUG_AUDIO__.logFeatureFlags()');
-  console.log('🧪 Try: __DEBUG_AUDIO__.testHealthRealtime()');
   console.log('🔑 Try: __DEBUG_AUDIO__.testElevenAgentsToken()');
   console.log('🔍 Try: __DEBUG_AUDIO__.checkBrowserCompatibility()');
   console.log('⚡ Try: __DEBUG_AUDIO__.enableElevenAgents()');

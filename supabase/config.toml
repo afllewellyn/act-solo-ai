@@ -6,9 +6,6 @@ verify_jwt = false
 [functions.get-voices]
 verify_jwt = false
 
-[functions.health-realtime]
-verify_jwt = false
-
 [functions.env-debug]
 verify_jwt = false
 
