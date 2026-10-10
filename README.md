@@ -11,18 +11,18 @@ ActSolo.AI is for actors who need someone to read against. Paste in your script,
 - **Read from a teleprompter.** Your current line sits at eye level on a dark, distraction-free screen, so you can look toward the camera while you play the scene.
 - **Choose your partner's voice.** Preview voices, pick one, and the app remembers your choice for that script.
 - **Run it your way.** Skip to the next cue, tap any line to jump there, or change the text size.
-- **Work on your phone, tablet, or computer.** You just need a modern browser and a microphone.
+- **Work on your phone, tablet, or computer.** You just need a modern browser. The built-in microphone is enough.
 
 ## How it works
 
-1. **Sign up or log in.** It only takes a minute.
+1. **Create an account.** Sign up, confirm your email, then log in. That's all it takes to start running lines.
 2. **Add your script.** Paste it in. Mark the lines you want the AI to read in *italics* and your own lines in **bold**. Lines with no formatting are treated as stage directions, and the AI skips them. Character names are optional, and you can hide them.
 3. **Pick a voice** for your scene partner.
 4. **Press start and act.** If the scene opens on the AI's line, it starts by itself once it's connected.
 
 ## Good to know
 
-- You'll need a microphone and permission to use it in your browser.
+- No special equipment needed. Your computer's or device's built-in microphone works fine. Your browser will ask permission to use it.
 - Voice features are for signed-in users only. That keeps the service free from misuse and helps keep it running for everyone.
 - Use an up-to-date browser. Microphone support varies, so if something doesn't work, try Chrome.
 - Have a question or an idea? Use the Contact page in the app.
