@@ -675,17 +675,44 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     listenTimersRef.current = [];
   };
 
-  // Schedule the highlight once, when playback starts. Only stopping clears it: isTTSPlaying
-  // flickers on pause/buffering events and must not wipe the remaining line changes.
-  const listenScheduledRef = useRef(false);
+  // Line changes follow the clip: scheduled when playback starts, frozen while the audio is
+  // paused (e.g. tab hidden), and re-armed from the elapsed position when it resumes.
+  // Only stopping discards the schedule, so brief isTTSPlaying flicker can't lose line changes.
+  const listenScheduleRef = useRef<{ starts: { paragraphIndex: number; startMs: number }[]; elapsedMs: number; resumedAt: number | null } | null>(null);
   useEffect(() => {
+    const armFrom = (schedule: NonNullable<typeof listenScheduleRef.current>) => {
+      clearListenTimers();
+      const { starts, elapsedMs } = schedule;
+      const current = [...starts].reverse().find((entry) => entry.startMs <= elapsedMs) ?? starts[0];
+      if (current) setCurrentParagraphIndex(current.paragraphIndex);
+      starts.filter((entry) => entry.startMs > elapsedMs).forEach((entry) => {
+        listenTimersRef.current.push(
+          setTimeout(() => setCurrentParagraphIndex(entry.paragraphIndex), entry.startMs - elapsedMs)
+        );
+      });
+      schedule.resumedAt = Date.now();
+    };
+
     if (!isManualTTSPlaying) {
-      listenScheduledRef.current = false;
+      listenScheduleRef.current = null;
       clearListenTimers();
       return;
     }
-    if (!audioManager.isTTSPlaying || listenScheduledRef.current) return;
-    listenScheduledRef.current = true;
+
+    const schedule = listenScheduleRef.current;
+    if (!audioManager.isTTSPlaying) {
+      // Paused: freeze where we are
+      if (schedule && schedule.resumedAt !== null) {
+        clearListenTimers();
+        schedule.elapsedMs += Date.now() - schedule.resumedAt;
+        schedule.resumedAt = null;
+      }
+      return;
+    }
+    if (schedule) {
+      if (schedule.resumedAt === null) armFrom(schedule); // resumed
+      return;
+    }
 
     const WORDS_PER_SECOND = 2.6; // typical TTS pace at 1x, used until the real clip length is known
     const lines = listenLinesRef.current;
@@ -694,17 +721,15 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     const knownMs = audioManager.getTTSDurationMs?.();
     const totalMs = knownMs ?? (totalWords / (WORDS_PER_SECOND * playbackSpeed)) * 1000;
 
-    let elapsedMs = 0;
-    lines.forEach((line, i) => {
-      if (i === 0) {
-        setCurrentParagraphIndex(line.paragraphIndex);
-      } else {
-        listenTimersRef.current.push(
-          setTimeout(() => setCurrentParagraphIndex(line.paragraphIndex), elapsedMs)
-        );
-      }
-      elapsedMs += (wordCounts[i] / totalWords) * totalMs;
+    let startMs = 0;
+    const starts = lines.map((line, i) => {
+      const entry = { paragraphIndex: line.paragraphIndex, startMs };
+      startMs += (wordCounts[i] / totalWords) * totalMs;
+      return entry;
     });
+    const fresh = { starts, elapsedMs: 0, resumedAt: null as number | null };
+    listenScheduleRef.current = fresh;
+    armFrom(fresh);
   }, [isManualTTSPlaying, audioManager.isTTSPlaying]);
 
   // Never leave line-change timers running after the provider goes away
