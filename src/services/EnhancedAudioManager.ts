@@ -29,6 +29,8 @@ export interface AudioManagerReturn {
   resumeTTS: () => Promise<void>;
   stopTTS: () => void;
   enableAudio: () => Promise<void>;
+  /** Length in ms of the clip currently loaded (at the current speed), or null if unknown */
+  getTTSDurationMs: () => number | null;
   
   // Speech Recognition methods
   startListeningForCue: (textToMatch: string) => void;
@@ -72,6 +74,7 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     resume,
     stop,
     enableAudio,
+    getAudioDurationMs,
     isPlaying: isTTSPlaying,
     isLoading: isTTSLoading,
     isPaused: isTTSPaused,
@@ -201,6 +204,7 @@ export const useAudioManager = (config: AudioManagerConfig = {}): AudioManagerRe
     resumeTTS,
     stopTTS,
     enableAudio,
+    getTTSDurationMs: getAudioDurationMs,
     
     // Speech Recognition methods
     startListeningForCue,

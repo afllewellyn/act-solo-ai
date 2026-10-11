@@ -99,6 +99,9 @@ export function useConversationEngine(
   const engineRef = useRef<ConversationEngine | null>(null);
   const unsubscribeRef = useRef<(() => void) | null>(null);
   const responseBufferRef = useRef<string>('');
+  // The engine emits `agent_response` (full text) and then `agent_response_ended` for the same
+  // response; report the end of a response to the caller only once.
+  const responseEndNotifiedRef = useRef(false);
 
   // Check if feature flag is enabled
   const isEnabled = isFeatureEnabled('conversation_engine_eleven');
@@ -141,6 +144,7 @@ export function useConversationEngine(
 
       case 'agent_response_started':
         responseBufferRef.current = '';
+        responseEndNotifiedRef.current = false;
         onAgentResponseStarted?.();
         break;
 
@@ -150,12 +154,15 @@ export function useConversationEngine(
         break;
 
       case 'agent_response_ended':
-        onAgentResponseEnded?.(responseBufferRef.current);
+        if (!responseEndNotifiedRef.current) onAgentResponseEnded?.(responseBufferRef.current);
+        responseEndNotifiedRef.current = false;
         responseBufferRef.current = '';
         break;
 
       case 'agent_response':
         // Complete response in single event
+        responseEndNotifiedRef.current = true;
+        responseBufferRef.current = event.text;
         onAgentResponseEnded?.(event.text);
         break;
 

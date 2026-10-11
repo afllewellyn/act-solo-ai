@@ -20,6 +20,12 @@ interface RehearsalSettingsDrawerProps {
 
 const label = 'text-xs font-semibold tracking-[0.15em] uppercase text-studio-muted';
 
+/** 0.95 -> "0.95", 1 -> "1.0" (toFixed(1) alone shows both 0.9 and 0.95 as "0.9") */
+const formatSpeed = (speed: number) => {
+  const rounded = Math.round(speed * 100) / 100;
+  return Math.round(rounded * 10) / 10 === rounded ? rounded.toFixed(1) : rounded.toFixed(2);
+};
+
 const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onReadScript }: RehearsalSettingsDrawerProps) => {
   const {
     textFilter, setTextFilter, characters, voices, playbackSpeed, setPlaybackSpeed,
@@ -52,7 +58,7 @@ const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onRea
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent side="right" className="w-full sm:max-w-md overflow-y-auto bg-studio text-studio-fg border-studio-border [&>button]:text-studio-fg">
+      <SheetContent side="right" className="dark w-full sm:max-w-md overflow-y-auto bg-studio text-studio-fg border-studio-border [&>button]:text-studio-fg">
         <SheetTitle className="text-2xl font-bold text-studio-fg">Rehearsal settings</SheetTitle>
         <SheetDescription className="sr-only">Choose what the AI reads, voices and speed.</SheetDescription>
 
@@ -65,6 +71,7 @@ const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onRea
               onVoiceChange={setSelectedVoice}
               previewDisabled={locked || rehearsalMode || isManualTTSPlaying}
               disabled={locked || rehearsalMode}
+              menuClassName="dark"
             />
           </section>
 
@@ -123,7 +130,7 @@ const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onRea
                     <SelectTrigger aria-label={`Voice for ${c.name}`} className="w-32 border-0 bg-transparent text-studio-fg focus:ring-0">
                       <SelectValue placeholder="Voice">{voices.find((v) => v.id === c.voice)?.name || 'Voice'}</SelectValue>
                     </SelectTrigger>
-                    <SelectContent className="max-h-72">
+                    <SelectContent className="dark max-h-72">
                       {voices.map((v) => (
                         <SelectItem key={v.id} value={v.id}>
                           <span className="font-medium">{v.name}</span>
@@ -152,7 +159,7 @@ const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onRea
           <section className="space-y-4">
             <div className="flex items-center justify-between">
               <p className={label}>Speed</p>
-              <span className="text-sm font-mono text-studio-muted">{playbackSpeed.toFixed(1)}x</span>
+              <span className="text-sm font-mono text-studio-muted">{formatSpeed(playbackSpeed)}x</span>
             </div>
             <Slider value={[playbackSpeed]} min={0.7} max={1.2} step={0.05} onValueChange={([v]) => setPlaybackSpeed(v)} aria-label="AI speaking speed" />
           </section>

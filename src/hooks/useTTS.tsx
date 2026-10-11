@@ -389,12 +389,20 @@ export const useTTS = () => {
     }
   }, [audioContextManager, needsUserGesture, showTapToResume]);
 
+  /** Wall-clock length (ms) of the clip now loaded, accounting for playback speed; null until known. */
+  const getAudioDurationMs = useCallback((): number | null => {
+    const audio = audioRef.current;
+    if (!audio || !Number.isFinite(audio.duration) || audio.duration <= 0) return null;
+    return (audio.duration / (audio.playbackRate || 1)) * 1000;
+  }, []);
+
   return {
     speak,
     pause,
     resume,
     stop,
     enableAudio,
+    getAudioDurationMs,
     isPlaying,
     isLoading,
     isPaused,

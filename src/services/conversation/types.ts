@@ -22,7 +22,8 @@ export type ConversationControlCommand =
   | { type: 'pause_agent' }
   | { type: 'resume_agent' }
   | { type: 'clear_buffer' }
-  | { type: 'interrupt' };
+  | { type: 'interrupt' }
+  | { type: 'set_playback_speed'; speed: number };
 
 /**
  * Normalized conversation events (provider-agnostic)
