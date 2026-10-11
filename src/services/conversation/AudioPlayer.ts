@@ -8,9 +8,25 @@ export class ConversationAudioPlayer {
   private audioQueue: ArrayBuffer[] = [];
   private isPlaying = false;
   private currentSource: AudioBufferSourceNode | null = null;
+  private playbackSpeed = 1;
+
+  /** Called when the last queued chunk has finished playing (not on stop()). */
+  onDrained: (() => void) | null = null;
 
   constructor() {
     console.log('[ConversationAudioPlayer] Created');
+  }
+
+  /** True while a chunk is playing or waiting in the queue. */
+  get isBusy(): boolean {
+    return this.isPlaying || this.audioQueue.length > 0;
+  }
+
+  /** Speed up or slow down the agent's voice (applies to the current and later chunks). */
+  setPlaybackSpeed(speed: number): void {
+    if (!Number.isFinite(speed)) return;
+    this.playbackSpeed = Math.min(2, Math.max(0.5, speed));
+    if (this.currentSource) this.currentSource.playbackRate.value = this.playbackSpeed;
   }
 
   /**
@@ -64,7 +80,9 @@ export class ConversationAudioPlayer {
    */
   private async playNext(): Promise<void> {
     if (this.audioQueue.length === 0) {
+      const wasPlaying = this.isPlaying;
       this.isPlaying = false;
+      if (wasPlaying) this.onDrained?.();
       return;
     }
 
@@ -90,12 +108,14 @@ export class ConversationAudioPlayer {
       
       const source = this.audioContext.createBufferSource();
       source.buffer = audioBuffer;
+      source.playbackRate.value = this.playbackSpeed;
       source.connect(this.audioContext.destination);
       
       this.currentSource = source;
       
-      // Play next chunk when this one ends
+      // Play next chunk when this one ends (ignore sources that stop() already replaced)
       source.onended = () => {
+        if (this.currentSource !== source) return;
         this.currentSource = null;
         this.playNext();
       };

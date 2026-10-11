@@ -665,4 +665,45 @@ describe('ElevenAgentsEngine', () => {
       expect(engine.getStatus()).toBe('disconnected');
     });
   });
+  describe('Playout-aware audio end', () => {
+    type PlayerStub = { isBusy: boolean; onDrained: (() => void) | null; setPlaybackSpeed: (n: number) => void };
+    const player = () => (engine as unknown as { audioPlayer: PlayerStub }).audioPlayer;
+
+    it('should hold agent_audio_ended until the last chunk has finished playing', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      vi.spyOn(player(), 'isBusy', 'get').mockReturnValue(true); // chunks still playing
+
+      mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('a') } });
+      mockWsInstance?.simulateMessage({ type: 'audio_end' });
+      expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(0);
+
+      vi.spyOn(player(), 'isBusy', 'get').mockReturnValue(false);
+      player().onDrained?.();
+      expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(1);
+
+      player().onDrained?.(); // a later drain must not announce a second end
+      expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(1);
+    });
+
+    it('should not announce the end when playback drains between chunks mid-stream', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('a') } });
+      player().onDrained?.(); // queue momentarily empty, server still streaming
+      expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(0);
+    });
+
+    it('should apply set_playback_speed locally, even without an open socket', async () => {
+      const setSpeed = vi.spyOn(player(), 'setPlaybackSpeed');
+      await engine.sendControl({ type: 'set_playback_speed', speed: 0.8 });
+      expect(setSpeed).toHaveBeenCalledWith(0.8);
+    });
+
+    it('should start the player at the configured speed', () => {
+      const slow = new ElevenAgentsEngine({ agentId: 'a', playbackSpeed: 0.75 });
+      expect((slow as unknown as { audioPlayer: { playbackSpeed: number } }).audioPlayer.playbackSpeed).toBe(0.75);
+    });
+  });
 });

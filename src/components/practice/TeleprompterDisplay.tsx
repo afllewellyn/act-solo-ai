@@ -13,6 +13,10 @@ interface TeleprompterDisplayProps {
 }
 
 const EYELINE = 0.28;
+/** Space kept clear at the bottom (the fade mask) when fitting a tall line on screen. */
+const BOTTOM_MARGIN_PX = 112;
+/** A tall line is never pushed higher than this fraction of the viewport. */
+const MIN_TOP_FRACTION = 0.1;
 /** After a manual scroll, leave the view alone this long before re-centring. */
 const MANUAL_SCROLL_GRACE_MS = 2500;
 
@@ -33,8 +37,15 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     if (!container || !el) return;
     if (!force && Date.now() < manualUntilRef.current) return;
     // Measure from bounding rects (independent of offsetParent) to get the line's position inside the scroll content
-    const lineTop = el.getBoundingClientRect().top - container.getBoundingClientRect().top + container.scrollTop;
-    const top = lineTop - container.clientHeight * EYELINE + 24;
+    const rect = el.getBoundingClientRect();
+    const lineTop = rect.top - container.getBoundingClientRect().top + container.scrollTop;
+    const viewport = container.clientHeight;
+    const eyeOffset = viewport * EYELINE - 24; // where the line's top lands on screen
+    let top = lineTop - eyeOffset;
+    // A long line pinned at the eye-line can run off the bottom: lift it just enough to keep it all
+    // in frame, without pushing its top out of the upper part of the screen.
+    const overflow = eyeOffset + rect.height - (viewport - BOTTOM_MARGIN_PX);
+    if (overflow > 0) top += Math.min(overflow, Math.max(0, eyeOffset - viewport * MIN_TOP_FRACTION));
     container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, [activeIndex]);
 
@@ -95,7 +106,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
       <div className="pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-studio to-transparent z-10" />
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-studio to-transparent z-10" />
 
-      <div ref={scrollRef} className="relative h-full overflow-y-auto scroll-smooth">
+      <div ref={scrollRef} className="relative h-full overflow-y-auto">
         <div className="max-w-4xl mx-auto px-5 sm:px-10" style={{ paddingTop: `${EYELINE * 100}vh`, paddingBottom: '70vh' }}>
           {lines.length === 0 && (
             <p className="text-studio-muted text-center text-lg">This script has no lines yet. Tap Edit script to add some.</p>

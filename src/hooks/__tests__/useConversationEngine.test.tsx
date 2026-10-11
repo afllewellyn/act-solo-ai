@@ -49,3 +49,33 @@ describe('useConversationEngine callbacks', () => {
     await act(async () => root.unmount());
   });
 });
+
+describe('useConversationEngine response end', () => {
+  it('reports each agent response ending once, even though the engine emits two end events', async () => {
+    const ended: string[] = [];
+    let api: ReturnType<typeof useConversationEngine> | null = null;
+    const Harness = () => {
+      api = useConversationEngine({ onAgentResponseEnded: (text) => ended.push(text) });
+      return null;
+    };
+    const root = createRoot(document.createElement('div'));
+    await act(async () => root.render(<Harness />));
+    await act(async () => {
+      await api!.start({ voiceId: 'v', language: 'en' } as never);
+    });
+
+    const response = (text: string) => {
+      emit({ type: 'agent_response_started', timestamp: 0 } as ConversationEvent);
+      emit({ type: 'agent_response_delta', delta: text, timestamp: 0 } as ConversationEvent);
+      emit({ type: 'agent_response', text, timestamp: 0 } as ConversationEvent);
+      emit({ type: 'agent_response_ended', timestamp: 0 } as ConversationEvent);
+    };
+    response('Where were you last night');
+    response('Do not lie to me');
+
+    // A second callback per response used to advance the script twice (AI line -> AI line skipped)
+    expect(ended).toEqual(['Where were you last night', 'Do not lie to me']);
+
+    await act(async () => root.unmount());
+  });
+});

@@ -2,9 +2,9 @@ import { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { ChevronDown, Check, Play, Square, Volume2 } from 'lucide-react';
+import { Play, Square, Volume2 } from 'lucide-react';
 import { useTTS } from '@/hooks/useTTS';
+import { cn } from '@/lib/utils';
 
 interface Voice {
   id: string;
@@ -22,13 +22,15 @@ interface VoicePickerProps {
   previewDisabled?: boolean;
   disabled?: boolean;
   compact?: boolean;
+  /** Extra classes for the dropdown menu (it renders in a portal, outside any themed parent) */
+  menuClassName?: string;
 }
 
 const PREVIEW_TEXT = "Whenever you're ready, I'll be your scene partner. Let's take it from the top.";
 
 /**
- * The AI scene-partner voice: a dropdown of every voice, a Test button, and a
- * browsable list where each voice can be previewed before it is chosen.
+ * The AI scene-partner voice: a single dropdown of every voice with a Test
+ * button beside it to preview the selected voice.
  */
 export const VoicePicker = ({
   voices,
@@ -37,6 +39,7 @@ export const VoicePicker = ({
   previewDisabled = false,
   disabled = false,
   compact = false,
+  menuClassName,
 }: VoicePickerProps) => {
   // Separate TTS instance so previews never trigger rehearsal side effects
   const { speak, stop, isLoading, isPlaying } = useTTS();
@@ -67,33 +70,15 @@ export const VoicePicker = ({
     speak(PREVIEW_TEXT, { voiceId, onComplete: () => setPreviewingId(null) });
   };
 
-  const previewButton = (voiceId: string, label: string) => {
-    const active = previewingId === voiceId;
-    return (
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="h-8 px-2 shrink-0"
-        onClick={(e) => {
-          e.stopPropagation();
-          togglePreview(voiceId);
-        }}
-        disabled={previewDisabled || (isLoading && !active)}
-        aria-label={active ? `Stop ${label} preview` : `Preview ${label}`}
-      >
-        {active ? <Square className="h-3 w-3" /> : <Play className="h-3 w-3" />}
-        {voiceId === selectedVoice && !compact && <span className="ml-1 text-xs">{active ? 'Stop' : 'Test'}</span>}
-      </Button>
-    );
-  };
+  const selectedName = voices.find(v => v.id === selectedVoice)?.name || 'selected voice';
+  const previewing = previewingId === selectedVoice;
 
   return (
     <div className="space-y-2">
       <Label className="text-xs text-muted-foreground">AI voice</Label>
       <div className="flex items-center gap-2">
         <Select value={selectedVoice} onValueChange={onVoiceChange} disabled={disabled}>
-          <SelectTrigger className="flex-1 bg-background border-border" aria-label="Select the AI scene partner voice">
+          <SelectTrigger className="flex-1 min-w-0 bg-background border-border" aria-label="Select the AI scene partner voice">
             <div className="flex items-center min-w-0">
               <Volume2 className="h-4 w-4 shrink-0" />
               <SelectValue placeholder="Select Voice">
@@ -103,7 +88,7 @@ export const VoicePicker = ({
               </SelectValue>
             </div>
           </SelectTrigger>
-          <SelectContent className="max-h-72 bg-background border-border shadow-lg">
+          <SelectContent className={cn('max-h-72 bg-background border-border shadow-lg', menuClassName)}>
             {voices.length > 0 ? (
               voices.map((voice) => (
                 <SelectItem key={voice.id} value={voice.id} className="cursor-pointer p-2">
@@ -118,42 +103,18 @@ export const VoicePicker = ({
             )}
           </SelectContent>
         </Select>
-        {previewButton(selectedVoice, voices.find(v => v.id === selectedVoice)?.name || 'selected voice')}
+        <Button
+          type="button"
+          variant="outline"
+          className="h-10 px-3 shrink-0"
+          onClick={() => togglePreview(selectedVoice)}
+          disabled={previewDisabled || (isLoading && !previewing)}
+          aria-label={previewing ? `Stop ${selectedName} preview` : `Preview ${selectedName}`}
+        >
+          {previewing ? <Square className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+          {!compact && <span className="ml-1.5 text-sm">{previewing ? 'Stop' : 'Test'}</span>}
+        </Button>
       </div>
-
-      <Collapsible>
-        <CollapsibleTrigger asChild>
-          <Button type="button" variant="ghost" size="sm" className="h-7 px-1 text-xs text-muted-foreground" disabled={disabled}>
-            Browse voices ({voices.length})
-            <ChevronDown className="h-3 w-3 ml-1" />
-          </Button>
-        </CollapsibleTrigger>
-        <CollapsibleContent>
-          <ul className="max-h-56 overflow-y-auto rounded-md border border-border divide-y divide-border">
-            {voices.map((voice) => {
-              const selected = voice.id === selectedVoice;
-              return (
-                <li key={voice.id}>
-                  <div className={`flex items-center gap-2 p-2 ${selected ? 'bg-accent/60' : ''}`}>
-                    <button
-                      type="button"
-                      onClick={() => onVoiceChange?.(voice.id)}
-                      aria-pressed={selected}
-                      disabled={disabled}
-                      className="flex-1 min-w-0 text-left cursor-pointer hover:bg-accent disabled:cursor-not-allowed"
-                    >
-                      <span className="block text-sm font-medium truncate">{voice.name}</span>
-                      <span className="block text-xs text-muted-foreground truncate">{voice.gender} • {voice.accent}</span>
-                    </button>
-                    {selected && <Check className="h-4 w-4 text-primary shrink-0" aria-label="Selected" />}
-                    {previewButton(voice.id, voice.name)}
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </CollapsibleContent>
-      </Collapsible>
     </div>
   );
 };

@@ -34,6 +34,8 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private currentResponseText: string = '';
   private isResponseActive: boolean = false;
   private isAudioActive: boolean = false;
+  // Server finished streaming audio; playback may still be draining
+  private audioStreamEnded: boolean = false;
   
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
@@ -47,6 +49,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
   constructor(config: ConversationEngineConfig) {
     this.config = config;
     this.audioPlayer = new ConversationAudioPlayer();
+    if (config.playbackSpeed !== undefined) this.audioPlayer.setPlaybackSpeed(config.playbackSpeed);
+    // "Audio ended" means the line was actually heard, not just fully streamed
+    this.audioPlayer.onDrained = () => this.finishAudioIfDrained();
     logConversationEngine('engine_created', {
       engine: 'eleven_agents',
       component: 'ElevenAgentsEngine',
@@ -204,6 +209,12 @@ export class ElevenAgentsEngine implements ConversationEngine {
   }
 
   async sendControl(command: ConversationControlCommand): Promise<void> {
+    // Local playback setting: needs no socket
+    if (command.type === 'set_playback_speed') {
+      this.audioPlayer.setPlaybackSpeed(command.speed);
+      return;
+    }
+
     if (this.ws?.readyState !== WebSocket.OPEN) {
       logConversationEngine('send_control_failed', {
         engine: 'eleven_agents',
@@ -234,6 +245,17 @@ export class ElevenAgentsEngine implements ConversationEngine {
         this.ws.send(JSON.stringify({ type: 'clear_buffer' }));
         break;
     }
+  }
+
+  /** Emit agent_audio_ended once the server stream is done and the last chunk has played. */
+  private finishAudioIfDrained(): void {
+    if (!this.isAudioActive || !this.audioStreamEnded || this.audioPlayer.isBusy) return;
+    this.isAudioActive = false;
+    this.audioStreamEnded = false;
+    this.emitEvent({
+      type: 'agent_audio_ended',
+      timestamp: Date.now(),
+    });
   }
 
   onEvent(callback: (event: ConversationEvent) => void): () => void {
@@ -391,6 +413,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           if (!audioEvent) break;
 
           // Track audio streaming state
+          this.audioStreamEnded = false;
           if (!this.isAudioActive) {
             this.isAudioActive = true;
             this.audioChunksReceived = 0;
@@ -415,17 +438,14 @@ export class ElevenAgentsEngine implements ConversationEngine {
         }
 
         case 'audio_end':
-          // Audio streaming completed
+          // Audio streaming completed; announce the end once playback has drained too
           if (this.isAudioActive) {
-            this.emitEvent({
-              type: 'agent_audio_ended',
-              timestamp: Date.now(),
-            });
             logConversationEngine('audio_stream_complete', {
               engine: 'eleven_agents',
               audioChunksReceived: this.audioChunksReceived,
             });
-            this.isAudioActive = false;
+            this.audioStreamEnded = true;
+            this.finishAudioIfDrained();
           }
           break;
 
@@ -456,6 +476,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
               timestamp: Date.now(),
             });
             this.isAudioActive = false;
+            this.audioStreamEnded = false;
           }
           break;
 
@@ -569,6 +590,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
         timestamp: Date.now(),
       });
       this.isAudioActive = false;
+      this.audioStreamEnded = false;
     }
     
     // Reset initialized state

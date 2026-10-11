@@ -42,4 +42,5 @@ export interface ConversationEngineConfig {
   enableInterruption?: boolean;    // Allow interruption handling
   initialContext?: ScriptContext;  // Initial script context
   customInstructions?: string;
+  playbackSpeed?: number; // Agent voice playback speed (1 = normal)
 }
