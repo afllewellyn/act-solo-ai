@@ -7,6 +7,8 @@ import type { Json } from '@/integrations/supabase/types';
 import { useAuth } from '@/hooks/useAuth';
 import { StudioScriptEditor } from '@/components/scripts/StudioScriptEditor';
 import { detectCharacterRoles } from '@/lib/scriptMeta';
+import { buildCharactersForSave } from '@/lib/scriptVoice';
+import { DEFAULT_VOICE_ID } from '@/lib/voices';
 import { cn } from '@/lib/utils';
 import { ArrowRight } from 'lucide-react';
 
@@ -32,8 +34,6 @@ const SAMPLE_SCENE = [
   '<p><strong>MAYA: For three hours?</strong></p>',
   '<p><em>DANIEL: I needed to think, Maya.</em></p>',
 ].join('');
-
-const DEFAULT_VOICE = 'EXAVITQu4vr4xnSDxMaL';
 
 const ScriptCreatorDrawer = ({ open, onOpenChange, script, onSaved }: ScriptCreatorDrawerProps) => {
   const [title, setTitle] = useState('');
@@ -64,18 +64,11 @@ const ScriptCreatorDrawer = ({ open, onOpenChange, script, onSaved }: ScriptCrea
     }
     setLoading(true);
     try {
-      // Keep any voices already chosen for existing characters
-      const previous: Array<{ name?: string; voice?: string }> = Array.isArray(script?.characters)
-        ? (script?.characters as Array<{ name?: string; voice?: string }>)
-        : [];
+      // Keeps the voices already chosen, including the script's saved scene-partner voice
       const payload = {
         title: title.trim(),
         content: content.trim(),
-        characters: detected.map((c) => ({
-          name: c.name,
-          voice: previous.find((p) => p.name?.toUpperCase() === c.name)?.voice || DEFAULT_VOICE,
-          isUserRole: c.role === 'you',
-        })) as unknown as Json,
+        characters: buildCharactersForSave(script?.characters, detected, DEFAULT_VOICE_ID) as unknown as Json,
       };
       if (isEditing && script) {
         const { error } = await supabase.from('scripts').update(payload).eq('id', script.id);
