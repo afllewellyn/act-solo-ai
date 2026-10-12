@@ -7,10 +7,11 @@ import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useConversationEngine } from '@/hooks/useConversationEngine';
 import { isFeatureEnabled } from '@/lib/featureFlags';
-import type { ScriptContext } from '@/services/conversation/domain';
+import type { AgentAudioEvent } from '@/services/conversation/types';
 import { getScriptLines } from '@/components/practice/rehearsal/scriptParser';
-import { buildScriptContext, buildCuesFromLines, getCueContext } from '@/utils/scriptCueBuilder';
-import { createAgentTurnFlow } from '@/lib/agentTurnFlow';
+import { buildScriptContext } from '@/utils/scriptCueBuilder';
+import { BASE_WORDS_PER_MINUTE, countWords } from '@/lib/teleprompterPacing';
+import { rehearsalLog } from '@/lib/rehearsalLog';
 
 interface Voice {
   id: string;
@@ -76,10 +77,11 @@ interface RehearsalContextType {
   setVoiceActivated: (activated: boolean) => void;
   setPlaybackSpeed: (speed: number) => void;
   setShowNames: (show: boolean) => void;
-  /** Skip to the next cue (rehearsal only) */
-  nextCue: () => void;
-  /** Jump to the line at or after a script paragraph (tap a line) */
-  goToParagraph: (paragraphIndex: number) => void;
+  /**
+   * Listen to the AI partner's audio lifecycle (started, ended with the measured clip length and text).
+   * Returns an unsubscribe function. Used by the teleprompter clock to calibrate AI-line pacing.
+   */
+  subscribeAgentAudio: (listener: (e: AgentAudioEvent) => void) => () => void;
   handleActorLineDetected: (line: string) => void;
   handleMasterStop: () => void;
   handlePause: () => void;
@@ -173,12 +175,32 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const useElevenEngine = isFeatureEnabled('conversation_engine_eleven');
   const scriptTitleRef = useRef<string>('Untitled Script');
   const sessionStartRef = useRef<number>(Date.now());
-  const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const openingCueSentRef = useRef(false);
-  const currentLineIndexRef = useRef(0);
+  // The last prompt sent to the agent, so an unchanged script is never sent twice
+  const sentInstructionsRef = useRef<string | undefined>(undefined);
+  // Paragraph highlighted outside a timed rehearsal (read-script mode, legacy state machine)
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState<number | null>(null);
-  // Engine lines: stage notes are excluded, so they are never read or waited on
+  // Engine lines: stage notes are excluded, so they are never read or waited on.
+  // Kept for the opening cue and the agent prompt; the app no longer tracks the current line.
   const parsedLinesRef = useRef<ScriptLine[]>([]);
+
+  // Agent audio listeners (the teleprompter clock in Practice)
+  const agentAudioListenersRef = useRef(new Set<(e: AgentAudioEvent) => void>());
+  const subscribeAgentAudio = useCallback((listener: (e: AgentAudioEvent) => void) => {
+    agentAudioListenersRef.current.add(listener);
+    return () => {
+      agentAudioListenersRef.current.delete(listener);
+    };
+  }, []);
+  const emitAgentAudio = (event: AgentAudioEvent) => {
+    agentAudioListenersRef.current.forEach((listener) => {
+      try {
+        listener(event);
+      } catch (error) {
+        console.error('[ConversationEngine] Agent audio listener failed:', error);
+      }
+    });
+  };
 
   // Show/hide "NAME:" prefixes in the script view (remembered per browser)
   const [showNames, setShowNamesState] = useState(() => {
@@ -197,104 +219,29 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     }
   }, []);
 
-  // Single place that moves the current line, so state, ref and highlight stay in sync
-  const setLine = useCallback((index: number) => {
-    currentLineIndexRef.current = index;
-    setCurrentLineIndex(index);
-    setCurrentParagraphIndex(parsedLinesRef.current[index]?.paragraphIndex ?? null);
-  }, []);
-
-  // Not memoized on purpose: it reads the current engine state each render
-  const syncEngineContext = (index: number) => {
-    if (!conversationEngine.isActive) return;
-    const context = buildScriptContext(
-      scriptTitleRef.current,
-      parsedLinesRef.current,
-      index,
-      textFilter,
-      sessionStartRef.current
-    );
-    console.log('📝 [ConversationEngine] Updating context to line', index);
-    conversationEngine.updateContext(context);
-  };
-
-  // Move to the line after `fromIndex` (reads refs, so it is safe from long-lived event handlers)
-  const advanceFrom = (fromIndex: number) => {
-    const nextIndex = fromIndex + 1;
-    const lines = parsedLinesRef.current;
-
-    if (nextIndex >= lines.length) {
-      console.log('🎯 [ConversationEngine] Script complete!');
-      setRehearsalModeState(false);
-      toast({
-        title: "Rehearsal Complete",
-        description: "You've reached the end of the script.",
-      });
-      return;
-    }
-
-    setLine(nextIndex);
-    syncEngineContext(nextIndex);
-  };
-
-  const advanceToNextLine = () => {
-    advanceFrom(currentLineIndexRef.current);
-  };
-
-  // Ask the agent to speak a line now (updating context alone doesn't make it speak).
-  // Hoisted function: the turn flow below captures it before `conversationEngine` exists.
-  function cueAgentForLine(index: number, lead = 'Say your next line now') {
-    const line = parsedLinesRef.current[index];
-    if (!conversationEngine.isActive || line?.type !== 'ai') return;
-    turnFlowRef.current?.markCued(index);
-    conversationEngine.sendText(`${lead}, exactly as written: "${line.dialogue}"`);
-  }
-
-  // Latest-render values for the turn flow, which lives across renders
-  const rehearsalModeRef = useRef(rehearsalMode);
-  rehearsalModeRef.current = rehearsalMode;
-  const isPausedRef = useRef(isPaused);
-  isPausedRef.current = isPaused;
-  const playbackSpeedRef = useRef(playbackSpeed);
-  playbackSpeedRef.current = playbackSpeed;
-  const turnFlowDepsRef = useRef({ advanceFrom, setRehearsalState, cueAgentForLine });
-  turnFlowDepsRef.current = { advanceFrom, setRehearsalState, cueAgentForLine };
-  const turnFlowRef = useRef<ReturnType<typeof createAgentTurnFlow> | null>(null);
-  if (!turnFlowRef.current) {
-    turnFlowRef.current = createAgentTurnFlow({
-      getLines: () => parsedLinesRef.current,
-      getCurrentIndex: () => currentLineIndexRef.current,
-      advanceFrom: (index) => turnFlowDepsRef.current.advanceFrom(index),
-      cueAgent: (index) => turnFlowDepsRef.current.cueAgentForLine(index),
-      isActive: () => rehearsalModeRef.current && !isPausedRef.current,
-      setSpeaking: () => turnFlowDepsRef.current.setRehearsalState('AI_SPEAKING'),
-      setListening: () => turnFlowDepsRef.current.setRehearsalState('WAITING_FOR_ACTOR_CUE'),
-      getSpeed: () => playbackSpeedRef.current,
-    });
-  }
-  const turnFlow = turnFlowRef.current;
-
+  // The agent follows the script itself (see buildScriptContext), so these callbacks only drive the
+  // status pill, the rehearsal log and the teleprompter clock's audio calibration.
   const conversationEngine = useConversationEngine({
     onUserSpeechStarted: () => {
       setRehearsalState('WAITING_FOR_ACTOR_CUE');
     },
-    // Turn-taking (advance after the line is heard, cue the agent when needed) lives in agentTurnFlow
-    onUserSpeechEnded: (transcript) => {
-      turnFlow.onUserSpeechEnded(transcript);
-    },
-    onAgentResponseStarted: () => {
-      turnFlow.onResponseStarted();
-    },
-    onAgentResponseEnded: (fullText) => {
-      turnFlow.onResponseEnded(fullText);
+    onUserSpeechEnded: () => {
+      rehearsalLog.log('user_speech_ended');
     },
     onAgentAudioStarted: () => {
       console.log('🔊 [ConversationEngine] Agent audio started');
-      turnFlow.onAudioStarted();
+      setRehearsalState('AI_SPEAKING');
+      rehearsalLog.log('agent_audio_started');
+      emitAgentAudio({ type: 'started' });
     },
-    onAgentAudioEnded: () => {
+    onAgentAudioEnded: (info) => {
       console.log('🔊 [ConversationEngine] Agent audio ended');
-      turnFlow.onAudioEnded();
+      setRehearsalState('WAITING_FOR_ACTOR_CUE');
+      rehearsalLog.log('agent_audio_ended', {
+        audioMs: info?.audioMs === undefined ? undefined : Math.round(info.audioMs),
+        words: info?.text ? countWords(info.text) : undefined,
+      });
+      emitAgentAudio({ type: 'ended', audioMs: info?.audioMs, text: info?.text });
     },
     onError: (error) => {
       console.error('❌ [ConversationEngine] Error:', error);
@@ -306,6 +253,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     },
     onStatusChange: (status) => {
       console.log('📡 [ConversationEngine] Status:', status);
+      rehearsalLog.log('engine_status', { status });
       if (status === 'ready') {
         toast({
           title: "AI Partner Connected",
@@ -313,6 +261,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
           duration: 2000,
         });
       } else if (status === 'disconnected' || status === 'error') {
+        if (rehearsalMode) rehearsalLog.log('stop');
         setRehearsalModeState(false);
       }
     },
@@ -325,14 +274,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     if (rehearsalMode && scriptContent) {
       console.log('🎭 [ConversationEngine] Starting ElevenLabs Conversational AI');
       sessionStartRef.current = Date.now();
-      turnFlow.reset();
-      
+
       // Parse script lines based on text filter
       const lines = getScriptLines(scriptContent, textFilter).filter(l => l.type !== 'note');
       parsedLinesRef.current = lines;
       openingCueSentRef.current = false;
-      setLine(0);
-      
+
       // Build initial context with actual script content
       const initialContext = buildScriptContext(
         scriptTitleRef.current,
@@ -341,15 +288,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         textFilter,
         sessionStartRef.current
       );
-      
+      sentInstructionsRef.current = initialContext.customInstructions;
+
       console.log('📝 [ConversationEngine] Initial context:', {
         totalLines: initialContext.totalLines,
-        currentCue: initialContext.currentCue?.text?.substring(0, 50),
-        nextCue: initialContext.nextCue?.text?.substring(0, 50),
-        upcomingCuesCount: initialContext.upcomingCues.length,
+        instructionsLength: initialContext.customInstructions?.length,
       });
-      console.log('📝 [ConversationEngine] Custom instructions preview:', 
-        initialContext.customInstructions?.substring(0, 500));
 
       conversationEngine.start({
         voiceId: selectedVoice,
@@ -359,24 +303,29 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         initialContext,
         playbackSpeed,
       });
-    } else if (!rehearsalMode && conversationEngine.isActive) {
-      console.log('🛑 [ConversationEngine] Stopping');
-      turnFlow.reset();
-      conversationEngine.stop();
-      setRehearsalState('IDLE');
-      parsedLinesRef.current = [];
-      setLine(0);
-      setCurrentParagraphIndex(null);
+    } else if (!rehearsalMode) {
+      // A pause must never outlive the rehearsal it belongs to (Pause -> Stop -> Start)
+      setIsPaused(false);
+      if (conversationEngine.isActive) {
+        console.log('🛑 [ConversationEngine] Stopping');
+        conversationEngine.stop();
+        setRehearsalState('IDLE');
+        parsedLinesRef.current = [];
+        sentInstructionsRef.current = undefined;
+        setCurrentParagraphIndex(null);
+      }
     }
   }, [useElevenEngine, rehearsalMode, scriptContent, textFilter]);
 
   // When the scene opens on an AI line the agent would otherwise wait for the user to speak first,
-  // so cue it once as soon as the engine is ready.
+  // so cue it once as soon as the engine is ready. This is the only line the app ever cues.
   useEffect(() => {
     if (!useElevenEngine || !rehearsalMode || !conversationEngine.isActive) return;
     if (openingCueSentRef.current) return;
     openingCueSentRef.current = true;
-    cueAgentForLine(currentLineIndexRef.current, 'Begin the scene now. Say your first line');
+    const first = parsedLinesRef.current[0];
+    if (first?.type !== 'ai') return;
+    conversationEngine.sendText(`Begin the scene now. Say your first line, exactly as written: "${first.dialogue}"`);
   }, [useElevenEngine, rehearsalMode, conversationEngine.isActive]);
 
   // Apply speed changes to the live agent voice without restarting the session
@@ -392,15 +341,18 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     // Re-parse lines if script changes during rehearsal
     const lines = getScriptLines(scriptContent, textFilter).filter(l => l.type !== 'note');
     parsedLinesRef.current = lines;
-    
+
     const context = buildScriptContext(
       scriptTitleRef.current,
       lines,
-      currentLineIndexRef.current,
+      0,
       textFilter,
       sessionStartRef.current
     );
 
+    // The prompt does not depend on position, so only send it when the script actually changed
+    if (context.customInstructions === sentInstructionsRef.current) return;
+    sentInstructionsRef.current = context.customInstructions;
     conversationEngine.updateContext(context);
   }, [useElevenEngine, scriptContent, conversationEngine.isActive, textFilter]);
 
@@ -516,6 +468,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       console.log('🛑 Stopping State Machine');
       stateMachineRef.current.stop();
       stateMachineRef.current = null;
+      setIsPaused(false);
       setRehearsalState('IDLE');
       setCurrentCueWords([]);
       setCurrentParagraphIndex(null);
@@ -618,27 +571,6 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     }
   };
 
-  const nextCue = () => {
-    if (!rehearsalMode) return;
-    const before = currentLineIndexRef.current;
-    advanceToNextLine();
-    if (currentLineIndexRef.current === before) return; // end of script
-    // Updating context alone doesn't make the agent speak, so cue it when we land on an AI line
-    turnFlow.reset();
-    cueAgentForLine(currentLineIndexRef.current);
-  };
-
-  const goToParagraph = (paragraphIndex: number) => {
-    const lines = parsedLinesRef.current;
-    const target = lines.findIndex(l => l.paragraphIndex >= paragraphIndex);
-    if (rehearsalMode && target !== -1) {
-      setLine(target);
-      syncEngineContext(target);
-    } else {
-      setCurrentParagraphIndex(paragraphIndex);
-    }
-  };
-
   const handleActorLineDetected = (line: string) => {
     if (!voiceActivated || !audioManager.isSpeechSupported || audioManager.isListening) return;
     
@@ -653,7 +585,9 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
 
   const handleMasterStop = () => {
     console.log('🛑 Master stop - halting all operations');
+    if (rehearsalMode) rehearsalLog.log('stop');
     setRehearsalModeState(false);
+    setIsPaused(false);
     audioManager.stopAll();
     
     // Stop conversation engine if active
@@ -687,7 +621,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     if (!audioManager.isTTSPlaying || listenScheduledRef.current) return;
     listenScheduledRef.current = true;
 
-    const WORDS_PER_SECOND = 2.6; // typical TTS pace at 1x, used until the real clip length is known
+    const WORDS_PER_SECOND = BASE_WORDS_PER_MINUTE / 60; // typical TTS pace at 1x, used until the real clip length is known
     const lines = listenLinesRef.current;
     const wordCounts = lines.map((line) => Math.max(1, line.dialogue.split(/\s+/).filter(Boolean).length));
     const totalWords = wordCounts.reduce((sum, n) => sum + n, 0);
@@ -783,8 +717,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     
     console.log('⏸️ Pausing rehearsal');
     setIsPaused(true);
-    turnFlow.reset();
-    
+    rehearsalLog.log('pause');
+
     // Interrupt AI if using conversation engine
     if (useElevenEngine && conversationEngine.isActive) {
       conversationEngine.sendControl({ type: 'pause_agent' });
@@ -798,7 +732,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       description: "Tap Resume to continue",
       duration: 2000,
     });
-  }, [rehearsalMode, useElevenEngine, conversationEngine, audioManager, toast, turnFlow]);
+  }, [rehearsalMode, useElevenEngine, conversationEngine, audioManager, toast]);
 
   // Resume rehearsal - restart listening
   const handleResume = useCallback(() => {
@@ -806,7 +740,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     
     console.log('▶️ Resuming rehearsal');
     setIsPaused(false);
-    
+    rehearsalLog.log('resume');
+
     // Resume agent (graceful no-op, agent resumes automatically)
     if (useElevenEngine && conversationEngine.isActive) {
       conversationEngine.sendControl({ type: 'resume_agent' });
@@ -855,8 +790,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setVoiceActivated,
     setPlaybackSpeed,
     setShowNames,
-    nextCue,
-    goToParagraph,
+    subscribeAgentAudio,
     handleActorLineDetected,
     handleMasterStop,
     handlePause,
@@ -895,8 +829,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setVoiceActivated,
     setPlaybackSpeed,
     setShowNames,
-    nextCue,
-    goToParagraph,
+    subscribeAgentAudio,
     handleActorLineDetected,
     handleMasterStop,
     handlePause,

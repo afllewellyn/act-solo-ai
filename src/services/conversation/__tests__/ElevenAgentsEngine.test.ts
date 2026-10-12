@@ -438,6 +438,41 @@ describe('ElevenAgentsEngine', () => {
       expect(contextMsg?.text).toContain('Simple Script');
       expect(contextMsg?.text).toContain('Line 1 of 10');
     });
+
+    it('should omit position hints when the caller reports no position (line 0)', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      const cue: Cue = {
+        text: 'FIRST LINE TEXT',
+        characterName: 'AI',
+        cueWords: ['first'],
+        nextLine: 'SECOND LINE TEXT',
+        lineNumber: 0,
+        isUserLine: false,
+      };
+
+      await engine.updateContext({
+        scriptTitle: 'Agent Tracks Place',
+        currentLine: 0,
+        totalLines: 12,
+        currentCue: cue,
+        upcomingCues: [],
+        sessionStartTime: Date.now(),
+        customInstructions: 'Play the scene',
+      });
+
+      const messages = mockWsInstance?.getSentMessages() || [];
+      const contextMsg = messages.find(m => m.type === 'contextual_update');
+
+      expect(contextMsg).toBeDefined();
+      expect(contextMsg?.text).toContain('Agent Tracks Place');
+      expect(contextMsg?.text).toContain('Play the scene');
+      expect(contextMsg?.text).not.toContain('Progress');
+      expect(contextMsg?.text).not.toContain('Line 0 of');
+      expect(contextMsg?.text).not.toContain('Current cue');
+      expect(contextMsg?.text).not.toContain('FIRST LINE TEXT');
+    });
   });
 
   describe('Connection Lifecycle', () => {
@@ -704,6 +739,163 @@ describe('ElevenAgentsEngine', () => {
     it('should start the player at the configured speed', () => {
       const slow = new ElevenAgentsEngine({ agentId: 'a', playbackSpeed: 0.75 });
       expect((slow as unknown as { audioPlayer: { playbackSpeed: number } }).audioPlayer.playbackSpeed).toBe(0.75);
+    });
+  });
+
+  // The ElevenLabs stream may never send audio_end / agent_response_end, so a burst has to end on
+  // its own: player drained and no new chunk for ~600 ms.
+  describe('Idle-based audio end (no audio_end from the server)', () => {
+    type PlayerStub = { isBusy: boolean; onDrained: (() => void) | null };
+    const player = () => (engine as unknown as { audioPlayer: PlayerStub }).audioPlayer;
+
+    // PCM chunk of `bytes` bytes, as the server's base64 payload
+    const chunk = (bytes: number) => ({
+      type: 'audio',
+      audio_event: { audio_base_64: btoa('a'.repeat(bytes)) },
+    });
+    const say = (text: string) => ({
+      type: 'agent_response',
+      agent_response_event: { agent_response: text },
+    });
+    const ended = () =>
+      events.filter(e => e.type === 'agent_audio_ended') as Array<Extract<ConversationEvent, { type: 'agent_audio_ended' }>>;
+
+    beforeEach(async () => {
+      // Open the socket on real timers, then fake them for the idle check
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should emit agent_audio_ended for two consecutive bursts without any audio_end', async () => {
+      mockWsInstance?.simulateMessage(say('Where were you last night?'));
+      mockWsInstance?.simulateMessage(chunk(3200));
+      expect(ended().length).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(599);
+      expect(ended().length).toBe(0); // not idle long enough yet
+      await vi.advanceTimersByTimeAsync(1);
+      expect(ended().length).toBe(1);
+
+      // The actor answers; the partner speaks again, still with no audio_end / agent_response_end
+      await vi.advanceTimersByTimeAsync(5000);
+      mockWsInstance?.simulateMessage(say('Do not lie to me.'));
+      mockWsInstance?.simulateMessage(chunk(3200));
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(events.filter(e => e.type === 'agent_audio_started').length).toBe(2);
+      expect(ended().length).toBe(2);
+    });
+
+    it('should wait for the player to drain before ending the burst', async () => {
+      vi.spyOn(player(), 'isBusy', 'get').mockReturnValue(true); // a long clip is still playing
+
+      mockWsInstance?.simulateMessage(chunk(3200));
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(ended().length).toBe(0);
+
+      vi.spyOn(player(), 'isBusy', 'get').mockReturnValue(false);
+      player().onDrained?.(); // last chunk finished playing
+      await vi.advanceTimersByTimeAsync(599);
+      expect(ended().length).toBe(0);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(ended().length).toBe(1);
+    });
+
+    it('should keep one burst going while chunks keep arriving inside the idle window', async () => {
+      mockWsInstance?.simulateMessage(chunk(3200));
+      await vi.advanceTimersByTimeAsync(400);
+      mockWsInstance?.simulateMessage(chunk(3200));
+      await vi.advanceTimersByTimeAsync(400); // 800 ms after the first chunk, 400 ms after the last
+      expect(ended().length).toBe(0);
+
+      await vi.advanceTimersByTimeAsync(200);
+      expect(ended().length).toBe(1);
+      expect(events.filter(e => e.type === 'agent_audio_started').length).toBe(1);
+    });
+
+    it('should still end the burst immediately on a real audio_end, then not end it again on idle', async () => {
+      mockWsInstance?.simulateMessage(chunk(3200));
+      mockWsInstance?.simulateMessage({ type: 'audio_end' });
+      expect(ended().length).toBe(1);
+
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(ended().length).toBe(1);
+    });
+
+    it('should report audioMs as PCM bytes / 32 summed over the burst', async () => {
+      mockWsInstance?.simulateMessage(say('Hello there.'));
+      mockWsInstance?.simulateMessage(chunk(16000));
+      mockWsInstance?.simulateMessage(chunk(16000));
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(ended().length).toBe(1);
+      expect(ended()[0].audioMs).toBe(1000); // 32000 bytes at 16 kHz, 16-bit mono = 1 s
+    });
+
+    it("should give each burst its own text and audioMs, not the previous burst's", async () => {
+      // Burst 1: response text arrives in two parts before the audio
+      mockWsInstance?.simulateMessage(say('Where were you '));
+      mockWsInstance?.simulateMessage(say('last night?'));
+      mockWsInstance?.simulateMessage(chunk(32000));
+      await vi.advanceTimersByTimeAsync(600);
+
+      // Burst 2: the audio starts before its response text arrives
+      await vi.advanceTimersByTimeAsync(3000);
+      mockWsInstance?.simulateMessage(chunk(6400));
+      mockWsInstance?.simulateMessage(say('Do not lie to me.'));
+      await vi.advanceTimersByTimeAsync(600);
+
+      const [first, second] = ended();
+      expect(ended().length).toBe(2);
+      expect(first.text).toBe('Where were you last night?');
+      expect(first.audioMs).toBe(1000);
+      expect(second.text).toBe('Do not lie to me.');
+      expect(second.audioMs).toBe(200);
+    });
+
+    it('should leave text and audioMs off the end event when the burst has no response text', async () => {
+      mockWsInstance?.simulateMessage(chunk(3200));
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(ended().length).toBe(1);
+      expect(ended()[0].text).toBeUndefined();
+      expect(ended()[0].audioMs).toBe(100);
+    });
+
+    it('should not carry an interrupted burst into the next one, and skip its measurement', async () => {
+      mockWsInstance?.simulateMessage(say('Cut off'));
+      mockWsInstance?.simulateMessage(chunk(32000));
+      mockWsInstance?.simulateMessage({ type: 'interruption' });
+
+      // The cut-off audio was not fully heard, so it is not a usable sample
+      expect(ended().length).toBe(1);
+      expect(ended()[0].audioMs).toBeUndefined();
+      expect(ended()[0].text).toBeUndefined();
+
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(ended().length).toBe(1); // the idle timer was cancelled with the burst
+
+      mockWsInstance?.simulateMessage(say('Next line.'));
+      mockWsInstance?.simulateMessage(chunk(3200));
+      await vi.advanceTimersByTimeAsync(600);
+
+      expect(ended().length).toBe(2);
+      expect(ended()[1].text).toBe('Next line.');
+      expect(ended()[1].audioMs).toBe(100);
+    });
+
+    it('should cancel the pending idle check when the engine stops', async () => {
+      mockWsInstance?.simulateMessage(chunk(3200));
+      await engine.stop();
+      events.length = 0;
+
+      await vi.advanceTimersByTimeAsync(5000);
+      expect(ended().length).toBe(0);
     });
   });
 });

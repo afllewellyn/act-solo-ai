@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
 import { hideCharacterNamePrefixHtml } from '@/components/practice/rehearsal/textUtils';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,18 @@ interface TeleprompterDisplayProps {
   status: 'idle' | 'connecting' | 'listening' | 'ai' | 'paused' | 'complete';
   onSelectLine: (index: number) => void;
   hideNames?: boolean;
+  /**
+   * True while the rehearsal clock owns the scroll position (it calls `setPosition` every frame, and keeps the
+   * place while paused). The smooth centre-on-line scroll is then switched off. False for idle, read-script
+   * and manual line selection.
+   */
+  followClock?: boolean;
+}
+
+/** Imperative handle: the rehearsal clock moves the scroll through this, with no React state per frame. */
+export interface TeleprompterHandle {
+  /** `index` is the line being read, `fraction` (0..1) how far through it the reading point is. */
+  setPosition: (pos: { index: number; fraction: number }) => void;
 }
 
 const EYELINE = 0.28;
@@ -17,11 +29,12 @@ const EYELINE = 0.28;
 const BOTTOM_MARGIN_PX = 112;
 /** A tall line is never pushed higher than this fraction of the viewport. */
 const MIN_TOP_FRACTION = 0.1;
-/** After a manual scroll, leave the view alone this long before re-centring. */
-const MANUAL_SCROLL_GRACE_MS = 2500;
 
 /** Dark studio teleprompter: active cue pinned to the eye-line at ~28% height. */
-export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine, hideNames = false }: TeleprompterDisplayProps) => {
+export const TeleprompterDisplay = forwardRef<TeleprompterHandle, TeleprompterDisplayProps>(function TeleprompterDisplay(
+  { lines, activeIndex, fontSize, status, onSelectLine, hideNames = false, followClock = false },
+  ref,
+) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
   const displayLines = useMemo(
@@ -29,13 +42,42 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     [hideNames, lines],
   );
 
-  const manualUntilRef = useRef(0);
+  const followClockRef = useRef(followClock);
+  followClockRef.current = followClock;
+  /** Last position the clock sent, re-applied after layout changes (new active line, font size, resize). */
+  const lastPositionRef = useRef<{ index: number; fraction: number } | null>(null);
+  const lineCount = lines.length;
 
-  const centreActive = useCallback((force = false) => {
+  /** Rehearsal scroll: interpolate between this line's top and the next line's top, minus the eye-line offset. */
+  const applyPosition = useCallback((pos: { index: number; fraction: number }) => {
+    const container = scrollRef.current;
+    if (!container || lineCount === 0) return;
+    const index = Math.min(Math.max(0, Math.floor(pos.index)), lineCount - 1);
+    const el = lineRefs.current[index];
+    if (!el) return;
+    const fraction = Math.min(Math.max(0, pos.fraction), 1);
+    const containerTop = container.getBoundingClientRect().top;
+    const topOf = (node: HTMLElement) => node.getBoundingClientRect().top - containerTop + container.scrollTop;
+    const start = topOf(el);
+    const nextEl = lineRefs.current[index + 1];
+    // After the last line there is no next top: carry on to the bottom of that line
+    const end = index + 1 < lineCount && nextEl ? topOf(nextEl) : start + el.getBoundingClientRect().height;
+    const eyeOffset = container.clientHeight * EYELINE - 24; // where the reading point lands on screen
+    container.scrollTop = Math.max(0, start + (end - start) * fraction - eyeOffset);
+  }, [lineCount]);
+
+  useImperativeHandle(ref, () => ({
+    setPosition: (pos) => {
+      lastPositionRef.current = pos;
+      applyPosition(pos);
+    },
+  }), [applyPosition]);
+
+  // Idle / read-script / manual selection: ease the active line onto the eye-line
+  const centreActive = useCallback(() => {
     const container = scrollRef.current;
     const el = lineRefs.current[activeIndex];
     if (!container || !el) return;
-    if (!force && Date.now() < manualUntilRef.current) return;
     // Measure from bounding rects (independent of offsetParent) to get the line's position inside the scroll content
     const rect = el.getBoundingClientRect();
     const lineTop = rect.top - container.getBoundingClientRect().top + container.scrollTop;
@@ -49,26 +91,32 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, [activeIndex]);
 
-  // A new line, text size or line count always re-centres. Font size is not animated, so layout is final when we measure.
-  useEffect(() => {
-    centreActive(true);
-  }, [centreActive, fontSize, lines.length]);
+  // Re-apply or re-centre after a layout change. While the clock owns the scroll, re-apply its last position
+  // instead of easing to the line top (the enlarged active line changes line heights).
+  const settle = useCallback(() => {
+    if (!followClockRef.current) return centreActive();
+    if (lastPositionRef.current) applyPosition(lastPositionRef.current);
+  }, [applyPosition, centreActive]);
 
-  // Re-centre on resize / rotation, and pause auto-scroll briefly after manual scrolling
+  // Leaving clock mode drops the clock's stale position so a later run starts clean
+  useEffect(() => {
+    if (!followClock) lastPositionRef.current = null;
+  }, [followClock]);
+
+  // A new line, text size or line count always re-settles. Font size is not animated, so layout is final when we
+  // measure, and doing it before paint stops a stale scrollTop showing for a frame when the active line grows.
+  useLayoutEffect(() => {
+    settle();
+  }, [settle, fontSize, lineCount]);
+
+  // Re-settle on resize / rotation
   useEffect(() => {
     const container = scrollRef.current;
-    if (!container) return;
-    const pause = () => { manualUntilRef.current = Date.now() + MANUAL_SCROLL_GRACE_MS; };
-    container.addEventListener('wheel', pause, { passive: true });
-    container.addEventListener('touchmove', pause, { passive: true });
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => centreActive(true)) : null;
-    observer?.observe(container);
-    return () => {
-      container.removeEventListener('wheel', pause);
-      container.removeEventListener('touchmove', pause);
-      observer?.disconnect();
-    };
-  }, [centreActive]);
+    if (!container || typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(() => settle());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [settle]);
 
   const statusLabel = {
     idle: 'Ready',
@@ -149,4 +197,4 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
       </div>
     </div>
   );
-};
+});

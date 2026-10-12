@@ -102,7 +102,19 @@ export interface AgentAudioDeltaEvent {
 export interface AgentAudioEndedEvent {
   type: 'agent_audio_ended';
   timestamp: number;
+  /** Length of the burst's audio at 1x, in ms (PCM bytes / 32 for 16 kHz 16-bit mono). Absent if unknown. */
+  audioMs?: number;
+  /** The agent's `agent_response` text for this burst only. Absent if unknown. */
+  text?: string;
 }
+
+/**
+ * Agent audio lifecycle as forwarded by RehearsalContext.subscribeAgentAudio()
+ * to Practice and the teleprompter clock.
+ */
+export type AgentAudioEvent =
+  | { type: 'started' }
+  | { type: 'ended'; audioMs?: number; text?: string };
 
 export interface StatusChangedEvent {
   type: 'status_changed';

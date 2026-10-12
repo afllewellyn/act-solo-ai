@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
@@ -7,7 +7,7 @@ import { ActorLineDetector } from '@/components/ActorLineDetector';
 import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { useToast } from '@/hooks/use-toast';
 import RehearsalSettingsDrawer from '@/components/practice/RehearsalSettingsDrawer';
-import { TeleprompterDisplay } from '@/components/practice/TeleprompterDisplay';
+import { TeleprompterDisplay, type TeleprompterHandle } from '@/components/practice/TeleprompterDisplay';
 import { StudioScriptEditor } from '@/components/scripts/StudioScriptEditor';
 import { getScriptLines } from '@/components/practice/rehearsal/scriptParser';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -18,6 +18,8 @@ import {
 import { RehearsalProvider, useRehearsal } from '@/contexts/RehearsalContext';
 import { getNamedCharacters, getSavedVoice, withSavedVoice } from '@/lib/scriptVoice';
 import { DEFAULT_VOICE_ID, resolveVoiceId } from '@/lib/voices';
+import { useTeleprompterClock } from '@/hooks/useTeleprompterClock';
+import { rehearsalLog } from '@/lib/rehearsalLog';
 
 interface Script {
   id: string;
@@ -44,6 +46,9 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   const [sessionTime, setSessionTime] = useState(0);
   const [take, setTake] = useState(1);
   const [manualIndex, setManualIndex] = useState(0);
+  // Line the rehearsal clock is on; bumps of resetKey restart the clock from line 0 (Start and Restart)
+  const [autoIndex, setAutoIndex] = useState(0);
+  const [resetKey, setResetKey] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isEditingScript, setIsEditingScript] = useState(false);
   const [draft, setDraft] = useState('');
@@ -63,8 +68,8 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     setSelectedVoice,
     currentParagraphIndex,
     showNames,
-    goToParagraph,
-    nextCue,
+    playbackSpeed,
+    subscribeAgentAudio,
     isUsingConversationEngine,
     conversationEngineStatus,
     isTTSPlaying,
@@ -143,7 +148,61 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   const trackedIndex = (rehearsalMode || isManualTTSPlaying) && paragraphLineIndex !== -1
     ? paragraphLineIndex
     : machineIndex;
-  const activeIndex = Math.min(trackedIndex ?? manualIndex, Math.max(0, lines.length - 1));
+  // Engine rehearsal: the highlight comes only from the clock (or an explicit seek). The legacy state machine
+  // path (conversation engine flag off) still follows the machine.
+  const clockDriven = rehearsalMode && !stateMachine;
+  const lastLine = Math.max(0, lines.length - 1);
+  const activeIndex = Math.min(clockDriven ? autoIndex : (trackedIndex ?? manualIndex), lastLine);
+
+  const teleprompterRef = useRef<TeleprompterHandle>(null);
+  // The clock waits for the engine to be ready, so connecting and mic init don't eat into the scene
+  const running = rehearsalMode && !isPaused && isUsingConversationEngine;
+
+  const handlePosition = useCallback((pos: { index: number; fraction: number }) => {
+    teleprompterRef.current?.setPosition(pos);
+  }, []);
+
+  // End of the scene: stop the rehearsal. Read through a ref so the clock always sees the latest callbacks.
+  const completeRef = useRef(() => {});
+  completeRef.current = () => {
+    setRehearsalMode(false);
+    toast({ title: 'Rehearsal Complete', description: "You've reached the end of the script." });
+  };
+  const handleClockComplete = useCallback(() => completeRef.current(), []);
+
+  const clock = useTeleprompterClock({
+    lines,
+    speed: playbackSpeed,
+    running,
+    resetKey,
+    onIndexChange: setAutoIndex,
+    onPosition: handlePosition,
+    onComplete: handleClockComplete,
+  });
+
+  // Agent audio events calibrate AI-line pacing; read the clock through a ref so a new clock object never resubscribes
+  const clockRef = useRef(clock);
+  clockRef.current = clock;
+  useEffect(() => subscribeAgentAudio((e) => {
+    if (e.type === 'started') clockRef.current.noteAgentAudioStarted();
+    else clockRef.current.noteAgentAudioEnded({ audioMs: e.audioMs, text: e.text });
+  }), [subscribeAgentAudio]);
+
+  // Rehearsal log session: one per rehearsal. The meta is read at start only, so it lives in a ref.
+  const logMetaRef = useRef({ lineCount: lines.length, speed: playbackSpeed });
+  logMetaRef.current = { lineCount: lines.length, speed: playbackSpeed };
+  useEffect(() => {
+    if (!rehearsalMode) return;
+    rehearsalLog.start({ scriptId: script.id, ...logMetaRef.current });
+    return () => rehearsalLog.end();
+  }, [rehearsalMode, script.id]);
+
+  const loggedSpeedRef = useRef(playbackSpeed);
+  useEffect(() => {
+    if (loggedSpeedRef.current === playbackSpeed) return;
+    loggedSpeedRef.current = playbackSpeed;
+    if (rehearsalMode) rehearsalLog.log('speed_change', { speed: playbackSpeed });
+  }, [playbackSpeed, rehearsalMode]);
 
   const status: 'idle' | 'connecting' | 'listening' | 'ai' | 'paused' | 'complete' =
     rehearsalState === 'COMPLETE' ? 'complete'
@@ -156,6 +215,8 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   const handlePrimary = () => {
     if (!rehearsalMode) {
       if (isManualTTSPlaying) contextTTSPlay();
+      setAutoIndex(0);
+      setResetKey((k) => k + 1);
       setRehearsalMode(true);
     } else if (isPaused) {
       handleResume();
@@ -168,13 +229,15 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     contextMasterStop();
     setRehearsalMode(false);
     setManualIndex(0);
+    setAutoIndex(0);
+    setResetKey((k) => k + 1);
     setSessionTime(0);
     setTake((t) => t + 1);
   };
 
   const handleNextCue = () => {
-    if (rehearsalMode && isUsingConversationEngine) {
-      nextCue();
+    if (clockDriven) {
+      if (isUsingConversationEngine) clock.seek(activeIndex + 1); // resync only: the agent tracks its own place
       return;
     }
     if (rehearsalMode && stateMachine) {
@@ -268,9 +331,11 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           fontSize={fontSize}
           status={status}
           hideNames={!showNames}
+          ref={teleprompterRef}
+          followClock={clockDriven && isUsingConversationEngine}
           onSelectLine={(i) => {
             if (!rehearsalMode) setManualIndex(i);
-            else if (isUsingConversationEngine) goToParagraph(lines[i].paragraphIndex);
+            else if (clockDriven && isUsingConversationEngine) clock.seek(i); // resync only: the agent tracks its own place
           }}
         />
       </main>
