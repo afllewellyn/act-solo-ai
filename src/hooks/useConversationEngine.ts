@@ -51,8 +51,11 @@ interface UseConversationEngineOptions {
   onAgentAudioStarted?: () => void;
   /** Called for each audio chunk from agent */
   onAgentAudioDelta?: (audioData: ArrayBuffer) => void;
-  /** Called when agent audio finishes */
-  onAgentAudioEnded?: () => void;
+  /**
+   * Called when agent audio finishes playing. `audioMs` (clip length at 1x) and `text` (the agent's
+   * words for that burst) are present only when the engine could measure the burst; either may be absent.
+   */
+  onAgentAudioEnded?: (info: { audioMs?: number; text?: string }) => void;
   /** Called on any error */
   onError?: (error: Error) => void;
   /** Called when status changes */
@@ -175,7 +178,7 @@ export function useConversationEngine(
         break;
 
       case 'agent_audio_ended':
-        onAgentAudioEnded?.();
+        onAgentAudioEnded?.({ audioMs: event.audioMs, text: event.text });
         break;
 
       case 'status_changed':

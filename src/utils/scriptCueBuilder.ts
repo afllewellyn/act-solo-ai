@@ -60,7 +60,29 @@ export function getCueContext(
 }
 
 /**
+ * Build the whole scene as one interleaved script, so the agent can follow it on its own.
+ * Each of the user's lines carries its cue words (the last words the agent listens for).
+ * Stage notes are not part of the scene.
+ */
+function formatScene(lines: ScriptLine[]): string {
+  return lines
+    .filter(l => l.type !== 'note')
+    .map((line, i) => {
+      if (line.type === 'ai') return `${i + 1}. AI: "${line.dialogue}"`;
+      const cueWords = extractCueWords(line.dialogue);
+      const cue = cueWords.length > 0 ? ` (cue words: "${cueWords.join(' ')}")` : '';
+      return `${i + 1}. YOU: "${line.dialogue}"${cue}`;
+    })
+    .join('\n');
+}
+
+/**
  * Build the full script context for ConversationEngine
+ *
+ * The app does not track the rehearsal position any more: the agent keeps its own place by
+ * listening for the user's cue words. So the prompt is position-independent, and the lookahead
+ * hints (`nextCue`, `upcomingCues`) are left empty, because the engine forwards them to the agent
+ * once and they would be stale after the first exchange.
  */
 export function buildScriptContext(
   scriptTitle: string,
@@ -70,35 +92,30 @@ export function buildScriptContext(
   sessionStartTime: number
 ): import('@/services/conversation/domain').ScriptContext {
   const cues = buildCuesFromLines(lines);
-  const { currentCue, nextCue, upcomingCues } = getCueContext(cues, currentLineIndex);
-  
-  // Build custom instructions with the actual lines
-  const aiLines = lines.filter(l => l.type === 'ai').map(l => l.dialogue);
-  const actorLines = lines.filter(l => l.type === 'actor').map(l => l.dialogue);
-  
-  const customInstructions = `You are a scene partner for script rehearsal.
+  const currentCue = cues[currentLineIndex];
 
-YOUR LINES TO READ (in order):
-${aiLines.map((line, i) => `${i + 1}. "${line}"`).join('\n')}
+  const customInstructions = `You are the AI scene partner in a script rehearsal. The user is an actor rehearsing out loud. You play every line marked AI. The user plays every line marked YOU.
 
-USER'S LINES (they will say these):
-${actorLines.map((line, i) => `${i + 1}. "${line}"`).join('\n')}
+THE SCENE, in order:
+${formatScene(lines)}
 
-RULES:
-1. Read ONLY your lines from the list above, in order
-2. After the user says their line, read your next line
-3. Do NOT improvise or add extra dialogue
-4. Do NOT repeat lines you've already said
-5. Current text filter: ${textFilter}
-${nextCue ? `\nYOUR NEXT LINE: "${nextCue.text}"` : ''}`;
+HOW TO PLAY IT:
+1. Say only the AI lines, exactly as written, in order. Never say a YOU line and never improvise or add anything.
+2. Listen to the user. When you hear them finish a YOU line (its cue words are the last words they say), say your next AI line(s) immediately.
+3. If several AI lines come back-to-back, with no YOU line between them, say them all in sequence without waiting for the user.
+4. If the scene starts with an AI line, begin it as soon as the scene starts, without waiting for the user.
+5. Never repeat a line you have already said.
+6. If the user stumbles or skips a line, continue from the last AI line you said.
+7. If you are given an updated script mid-scene, carry on from where you were. Do not start over.
+8. After the last line of the scene, stop and stay quiet.`;
 
   return {
     scriptTitle,
     currentLine: currentLineIndex,
     totalLines: lines.length,
     currentCue,
-    nextCue,
-    upcomingCues,
+    nextCue: undefined,
+    upcomingCues: [],
     sessionStartTime,
     customInstructions,
   };

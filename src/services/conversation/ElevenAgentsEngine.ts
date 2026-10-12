@@ -10,6 +10,15 @@ import { supabase } from '@/integrations/supabase/client';
 import { ConversationAudioPlayer } from './AudioPlayer';
 import { logConversationEngine, type ConversationEngineLogContext } from '@/lib/logger';
 
+/**
+ * A burst of agent audio is over once the player has drained and no chunk has arrived for this long.
+ * The server is not relied on to send `audio_end`, so this idle check is what normally ends a burst.
+ */
+const AUDIO_IDLE_MS = 600;
+
+/** PCM bytes per millisecond at 16 kHz, 16-bit, mono (the format AudioPlayer.createWavFromPCM assumes). */
+const PCM_BYTES_PER_MS = 32;
+
 export class ElevenAgentsEngine implements ConversationEngine {
   private ws: WebSocket | null = null;
   private status: ConversationStatus = 'idle';
@@ -34,9 +43,13 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private currentResponseText: string = '';
   private isResponseActive: boolean = false;
   private isAudioActive: boolean = false;
-  // Server finished streaming audio; playback may still be draining
+  // Server finished streaming audio (a real `audio_end`); playback may still be draining
   private audioStreamEnded: boolean = false;
-  
+  // PCM bytes received in the current audio burst; reset when the burst ends
+  private burstBytes: number = 0;
+  // Fires AUDIO_IDLE_MS after the last chunk / drain to end a burst the server never closed
+  private audioIdleTimer: ReturnType<typeof setTimeout> | null = null;
+
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
   
@@ -51,7 +64,10 @@ export class ElevenAgentsEngine implements ConversationEngine {
     this.audioPlayer = new ConversationAudioPlayer();
     if (config.playbackSpeed !== undefined) this.audioPlayer.setPlaybackSpeed(config.playbackSpeed);
     // "Audio ended" means the line was actually heard, not just fully streamed
-    this.audioPlayer.onDrained = () => this.finishAudioIfDrained();
+    this.audioPlayer.onDrained = () => {
+      this.finishAudioIfDrained();
+      this.scheduleAudioIdleCheck();
+    };
     logConversationEngine('engine_created', {
       engine: 'eleven_agents',
       component: 'ElevenAgentsEngine',
@@ -140,26 +156,27 @@ export class ElevenAgentsEngine implements ConversationEngine {
     
     // Stop audio playback
     this.audioPlayer.stop();
-    
+    this.clearAudioIdleTimer();
+
     // Disconnect and clean up audio worklet
     if (this.audioWorkletNode) {
       this.audioWorkletNode.disconnect();
       this.audioWorkletNode.port.close();
       this.audioWorkletNode = null;
     }
-    
+
     // Stop media stream
     if (this.mediaStream) {
       this.mediaStream.getTracks().forEach(track => track.stop());
       this.mediaStream = null;
     }
-    
+
     // Close audio context
     if (this.audioContext?.state !== 'closed') {
       await this.audioContext?.close();
       this.audioContext = null;
     }
-    
+
     // Close WebSocket
     if (this.ws?.readyState === WebSocket.OPEN) {
       this.ws.close(1000, 'Client requested disconnect');
@@ -247,14 +264,62 @@ export class ElevenAgentsEngine implements ConversationEngine {
     }
   }
 
-  /** Emit agent_audio_ended once the server stream is done and the last chunk has played. */
+  /** Emit agent_audio_ended once a real `audio_end` has arrived and the last chunk has played. */
   private finishAudioIfDrained(): void {
     if (!this.isAudioActive || !this.audioStreamEnded || this.audioPlayer.isBusy) return;
+    this.endAudioBurst(true);
+  }
+
+  /**
+   * (Re)arm the idle check. Called after every audio chunk and every player drain, so the timer
+   * only fires when no chunk has arrived and nothing has finished playing for AUDIO_IDLE_MS.
+   */
+  private scheduleAudioIdleCheck(): void {
+    this.clearAudioIdleTimer();
+    if (!this.isAudioActive) return;
+    this.audioIdleTimer = setTimeout(() => {
+      this.audioIdleTimer = null;
+      // Still playing: the player's next onDrained re-arms this check
+      if (!this.isAudioActive || this.audioPlayer.isBusy) return;
+      logConversationEngine('audio_idle_end', {
+        engine: 'eleven_agents',
+        audioChunksReceived: this.audioChunksReceived,
+      });
+      this.endAudioBurst(true);
+    }, AUDIO_IDLE_MS);
+  }
+
+  private clearAudioIdleTimer(): void {
+    if (this.audioIdleTimer) {
+      clearTimeout(this.audioIdleTimer);
+      this.audioIdleTimer = null;
+    }
+  }
+
+  /**
+   * Close the current audio burst and emit agent_audio_ended, then reset the per-burst byte and
+   * text counters so the next burst starts clean (this also stops response text piling up across turns).
+   *
+   * `measured` is true when the whole burst played out (idle check or real `audio_end`), so its PCM
+   * length and text are a trustworthy pair. On interruption or socket close the audio is cut short,
+   * so the event carries neither and the pacing calibration skips the sample.
+   */
+  private endAudioBurst(measured: boolean): void {
+    if (!this.isAudioActive) return;
+    this.clearAudioIdleTimer();
+
+    const audioMs = this.burstBytes > 0 ? this.burstBytes / PCM_BYTES_PER_MS : undefined;
+    const text = this.currentResponseText || undefined;
+
     this.isAudioActive = false;
     this.audioStreamEnded = false;
+    this.burstBytes = 0;
+    this.currentResponseText = '';
+
     this.emitEvent({
       type: 'agent_audio_ended',
       timestamp: Date.now(),
+      ...(measured ? { audioMs, text } : {}),
     });
   }
 
@@ -417,6 +482,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           if (!this.isAudioActive) {
             this.isAudioActive = true;
             this.audioChunksReceived = 0;
+            this.burstBytes = 0;
             this.emitEvent({
               type: 'agent_audio_started',
               timestamp: Date.now(),
@@ -426,6 +492,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           // Base64 decode audio and emit
           const audioData = this.base64ToArrayBuffer(audioEvent.audio_base_64);
           this.audioChunksReceived++;
+          this.burstBytes += audioData.byteLength;
           this.emitEvent({
             type: 'agent_audio_delta',
             audioData: audioData,
@@ -434,6 +501,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
           // Play the audio chunk
           this.audioPlayer.addChunk(audioData);
+
+          // No audio_end is expected: end the burst if nothing more arrives and playback drains
+          this.scheduleAudioIdleCheck();
           break;
         }
 
@@ -470,14 +540,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
             this.isResponseActive = false;
             this.currentResponseText = '';
           }
-          if (this.isAudioActive) {
-            this.emitEvent({
-              type: 'agent_audio_ended',
-              timestamp: Date.now(),
-            });
-            this.isAudioActive = false;
-            this.audioStreamEnded = false;
-          }
+          this.endAudioBurst(false);
           break;
 
         case 'tool_call':
@@ -584,15 +647,8 @@ export class ElevenAgentsEngine implements ConversationEngine {
       this.isResponseActive = false;
       this.currentResponseText = '';
     }
-    if (this.isAudioActive) {
-      this.emitEvent({
-        type: 'agent_audio_ended',
-        timestamp: Date.now(),
-      });
-      this.isAudioActive = false;
-      this.audioStreamEnded = false;
-    }
-    
+    this.endAudioBurst(false);
+
     // Reset initialized state
     this.isInitialized = false;
     
@@ -811,16 +867,22 @@ export class ElevenAgentsEngine implements ConversationEngine {
   }
 
   private formatScriptContext(context: ScriptContext): string {
-    const parts: string[] = [
-      `Script: ${context.scriptTitle}`,
-      `Progress: Line ${context.currentLine} of ${context.totalLines}`,
-    ];
+    const parts: string[] = [`Script: ${context.scriptTitle}`];
+
+    // Position hints are only meaningful when the caller reports a real position. The app lets the
+    // agent keep its own place and always passes line 0, so a mid-rehearsal prompt refresh must not
+    // tell the agent it is "at line 0" and pull it back to the start of the scene.
+    const hasPosition = context.currentLine > 0;
+
+    if (hasPosition) {
+      parts.push(`Progress: Line ${context.currentLine} of ${context.totalLines}`);
+    }
 
     if (context.scene) {
       parts.push(`Scene: ${context.scene}`);
     }
 
-    if (context.currentCue) {
+    if (hasPosition && context.currentCue) {
       parts.push(`Current cue: "${context.currentCue.text}" (${context.currentCue.characterName})`);
     }
 

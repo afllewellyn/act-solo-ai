@@ -161,7 +161,7 @@ const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onRea
               <p className={label}>Speed</p>
               <span className="text-sm font-mono text-studio-muted">{formatSpeed(playbackSpeed)}x</span>
             </div>
-            <Slider value={[playbackSpeed]} min={0.7} max={1.2} step={0.05} onValueChange={([v]) => setPlaybackSpeed(v)} aria-label="AI speaking speed" />
+            <Slider value={[playbackSpeed]} min={0.7} max={1.2} step={0.05} onValueChange={([v]) => setPlaybackSpeed(v)} aria-label="Voice and scroll speed" />
           </section>
 
           <button
