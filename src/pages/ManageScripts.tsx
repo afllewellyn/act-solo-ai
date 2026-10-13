@@ -24,6 +24,7 @@ import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
 import ScriptCreatorDrawer, { EditableScript } from '@/components/scripts/ScriptCreatorDrawer';
 import { detectCharacterRoles, getPreviewLines, estimateMinutes } from '@/lib/scriptMeta';
+import { getNamedCharacters } from '@/lib/scriptVoice';
 import { LogOut, MoreHorizontal, Pencil, Copy, Trash2, Play, Plus } from 'lucide-react';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
@@ -195,9 +196,10 @@ const ManageScripts = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {scripts.map((script) => {
-              const saved = Array.isArray(script.characters)
-                ? (script.characters as Array<{ name?: string }>).map((c) => (c?.name || '').toUpperCase()).filter(Boolean)
-                : [];
+              // Named characters only: the reserved voice entry must never show as a tag
+              const saved = getNamedCharacters(script.characters)
+                .map((c) => (c.name || '').toUpperCase())
+                .filter(Boolean);
               const names = saved.length ? saved : detectCharacterRoles(script.content).map((c) => c.name);
               const preview = getPreviewLines(script.content, 2);
               return (

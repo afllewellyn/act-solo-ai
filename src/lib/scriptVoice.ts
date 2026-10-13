@@ -23,3 +23,27 @@ export function getSavedVoice(raw: unknown): string | undefined {
 export function withSavedVoice(raw: unknown, voiceId: string): RawCharacter[] {
   return [...getNamedCharacters(raw), { name: DEFAULT_VOICE_KEY, voice: voiceId }];
 }
+
+const nameKey = (name: unknown): string => (typeof name === 'string' ? name.toUpperCase() : '');
+
+/**
+ * Characters JSON to save when a script's text is saved. The named characters
+ * come from the text (`detected`), each keeping the voice previously chosen for
+ * it (matched case-insensitively by name, else `defaultVoiceId`). The reserved
+ * voice entry of the existing list is carried over untouched, so editing a
+ * script can never lose or change its saved voice.
+ */
+export function buildCharactersForSave(
+  existingRaw: unknown,
+  detected: ReadonlyArray<{ name: string; role: string }>,
+  defaultVoiceId: string,
+): RawCharacter[] {
+  const previous = getNamedCharacters(existingRaw);
+  const named = detected.map((c) => ({
+    name: c.name,
+    voice: previous.find((p) => nameKey(p.name) === nameKey(c.name))?.voice || defaultVoiceId,
+    isUserRole: c.role === 'you',
+  }));
+  const savedVoice = getSavedVoice(existingRaw);
+  return savedVoice ? withSavedVoice(named, savedVoice) : named;
+}
