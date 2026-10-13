@@ -1,14 +1,13 @@
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { SkipForward } from 'lucide-react';
 import { useRehearsal } from '@/contexts/RehearsalContext';
 
 /**
- * Script view options: show/hide optional "NAME:" prefixes, and skip to the next cue.
+ * Script view options: show/hide optional "NAME:" prefixes.
+ * (Next cue lives on the Practice screen, where it resyncs the teleprompter clock.)
  */
 export const ScriptViewOptions = () => {
-  const { showNames, setShowNames, rehearsalMode, isUsingConversationEngine, nextCue } = useRehearsal();
+  const { showNames, setShowNames } = useRehearsal();
 
   return (
     <div className="space-y-2">
@@ -18,12 +17,6 @@ export const ScriptViewOptions = () => {
         </Label>
         <Switch id="show-character-names" checked={showNames} onCheckedChange={setShowNames} />
       </div>
-      {rehearsalMode && isUsingConversationEngine && (
-        <Button type="button" variant="outline" size="sm" className="w-full" onClick={nextCue}>
-          <SkipForward className="h-4 w-4 mr-1" />
-          Next cue
-        </Button>
-      )}
     </div>
   );
 };

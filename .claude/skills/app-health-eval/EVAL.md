@@ -1,8 +1,10 @@
 # ActSolo.AI Health Eval — Runbook
 
 Run every check below from the `act-solo-ai/` repo root in a **clean-context
-subagent**. Capture real output. Each check is **PASS / FAIL / KNOWN-ISSUE** with
-an objective bar. Return the report in the contract at the bottom — nothing else.
+subagent**. Capture real output. Each check is **PASS / FAIL / KNOWN-ISSUE /
+BLOCKED** with an objective bar. **BLOCKED** means the check could not run (no
+credential, or no network route) — it is not a pass and not a code failure.
+Return the report in the contract at the bottom — nothing else.
 
 Set these once at the top of the run:
 
@@ -16,9 +18,18 @@ REF=$(grep -oE 'project_id *= *"[^"]+"' supabase/config.toml | cut -d'"' -f2)   
 BASE="https://$REF.supabase.co/functions/v1"
 ORIGIN="https://actsolo.ai"   # an allowed CORS origin (token & TTS gate on this)
 # eleven-agent-token, get-voices and text-to-speech require a signed-in user's
-# access token (they spend ElevenLabs credit). Export one from a dedicated test
-# account before running C1-C3, e.g. ACCESS_TOKEN=$(...sign-in via /auth/v1/token...).
-# Without it those checks return 401 -> record as BLOCKED (missing credential), not FAIL.
+# access token (they spend ElevenLabs credit). Sign in a dedicated email+password
+# test account before C1-C3: export TEST_EMAIL and TEST_PASSWORD first. The apikey
+# below is the public anon key from .env.example (RLS-protected, not a secret).
+ANON_KEY=$(sed -nE 's/^VITE_SUPABASE_PUBLISHABLE_KEY="?([^"]+)"?$/\1/p' .env.example)
+ACCESS_TOKEN=${ACCESS_TOKEN:-$(python3 -c "import json,os; print(json.dumps({'email':os.environ.get('TEST_EMAIL',''),'password':os.environ.get('TEST_PASSWORD','')}))" \
+  | curl -s -X POST "https://$REF.supabase.co/auth/v1/token?grant_type=password" \
+      -H "apikey: $ANON_KEY" -H "Content-Type: application/json" -d @- --max-time 20 \
+  | python3 -c "import json,sys; print(json.load(sys.stdin).get('access_token',''))" 2>/dev/null)}
+# Empty ACCESS_TOKEN (no test account) or no route to $REF.supabase.co (curl:
+# "CONNECT tunnel failed, response 403" / HTTP 000 in <1s = the sandbox egress
+# policy denies the host) -> C1-C3 are BLOCKED, not FAIL. Report the cause and
+# the host; do not retry, proxy around, or mint a token another way.
 AUTH_HEADER="Authorization: Bearer ${ACCESS_TOKEN:-}"
 # Portable timeout (macOS has no `timeout`): GUARD <seconds> <cmd...>
 GUARD() { local s=$1; shift; perl -e 'alarm shift; exec @ARGV' "$s" "$@"; }
@@ -44,15 +55,14 @@ npx tsc --noEmit -p tsconfig.app.json
 - **PASS:** no errors (this is expected to be clean today).
 - **FAIL:** any TS error.
 
-### A3 — Lint (informational)
+### A3 — Lint (CI gate)
 ```bash
 npm run lint 2>&1 | tail -5
 ```
-- **PASS:** clean.
-- **KNOWN-ISSUE:** non-zero with `no-explicit-any`-dominated errors — record the
-  error/warning counts; do **not** block on it. This is known debt (~89 errors /
-  32 warnings, mostly `no-explicit-any` in the conversation engine + edge
-  functions). FAIL only if the count grew versus that baseline.
+- **PASS:** exit 0 with 0 errors and no more than the baseline **32 warnings**
+  (`react-hooks/exhaustive-deps` / `react-refresh`; see `CLAUDE.md`). Record the
+  counts.
+- **FAIL:** any lint error, or warnings above 32. CI gates on 0 errors.
 
 ---
 
@@ -69,13 +79,15 @@ tail -20 /tmp/vitest.log
 grep -qiE '[1-9][0-9]* failed|Failed Tests' /tmp/vitest.log && FAILED=yes || FAILED=no
 echo "vitest exit status: $STATUS   failures-reported: $FAILED"
 ```
-- **PASS:** `STATUS` = 0 **and** `FAILED` = no — all 23 tests pass.
+- **PASS:** `STATUS` = 0 **and** `FAILED` = no — every test in the file passes
+  (37 at last count; record the number).
 - **FAIL:** `FAILED` = yes (vitest reported failing tests — a real regression,
   **even if it then hung to 142**), or `STATUS` non-zero and ≠ 142. Read
   `/tmp/vitest.log` for which test.
 - **KNOWN-ISSUE:** `STATUS` = 142 **and** `FAILED` = no — GUARD killed a clean
   startup hang (the known `vitest` 4 + jsdom issue), no failures were reported.
-  Record it, fall through to B2, do not block.
+  Record it, fall through to B2, do not block. (`CLAUDE.md` records this hang as
+  fixed, so a recurrence is a regression worth investigating.)
 
 ### B2 — Engine contract intact (static, always runs)
 Cheap regression signal that survives even if B1 hangs. The ElevenLabs engine
@@ -106,7 +118,9 @@ grep -qE "conversation_engine_eleven" src/services/conversation/engineFactory.ts
 
 Hits the deployed functions. `time_total` / `ttfb` are the latency signal for
 "no delays." `eleven-agent-token`, `get-voices` and `text-to-speech` require a
-signed-in user's `$ACCESS_TOKEN` (and an allowed `Origin`).
+signed-in user's `$ACCESS_TOKEN` (and an allowed `Origin`). If `$ACCESS_TOKEN` is
+empty, or the probe cannot reach `$REF.supabase.co`, mark C1-C3 **BLOCKED** (see
+the setup block) rather than running them to record a 401 or a connect error.
 
 ### C1 — Voice connection token (the core path)
 ```bash
@@ -224,19 +238,26 @@ ActSolo.AI Health Eval — <branch>
 |----|-------------------------------|-------------|----------|
 | A1 | Build                         | PASS        | exit 0 |
 | A2 | Typecheck                     | PASS        | no errors |
-| A3 | Lint                          | KNOWN-ISSUE | 89 err / 32 warn (baseline) |
-| B1 | Engine unit tests             | ...         | 23 passed / hung@120s |
+| A3 | Lint                          | PASS        | 0 err / 32 warn (baseline) |
+| B1 | Engine unit tests             | ...         | 37 passed / hung@120s |
 | B2 | Engine contract               | ...         | 7/7 methods |
 | B3 | Factory wiring                | ...         | ok |
-| C1 | Voice token                   | ...         | HTTP 200, 0.67s |
-| C2 | Voice list                    | ...         | HTTP 200, 0.50s |
-| C3 | TTS audio                     | ...         | HTTP 200, ttfb 1.1s |
+| C1 | Voice token                   | ...         | HTTP 200, 0.67s / BLOCKED: <cause> |
+| C2 | Voice list                    | ...         | HTTP 200, 0.50s / BLOCKED: <cause> |
+| C3 | TTS audio                     | ...         | HTTP 200, ttfb 1.1s / BLOCKED: <cause> |
 | D2 | Edge logs                     | ...         | retrieved / skipped (no token) |
 
 Failures to fix: <list with the cause from the evidence/logs>
+Blocked: <each BLOCKED check, its cause (empty ACCESS_TOKEN / denied host), what unblocks it>
 Manual checklist (Section E): <pasted verbatim for the user>
-Verdict: GREEN (all automated PASS/KNOWN-ISSUE) | RED (open FAILs)
+Verdict: GREEN (all automated PASS/KNOWN-ISSUE) | INCOMPLETE (no open FAIL, but a check is BLOCKED) | RED (open FAILs)
 ```
 
+A BLOCKED check is never GREEN: any BLOCKED C1-C3 makes the verdict
+**INCOMPLETE**. (D2 with no `SUPABASE_ACCESS_TOKEN` stays KNOWN-ISSUE.)
+
 The primary agent fixes each FAIL and re-spawns this eval until **GREEN**, then
-delivers Section E to the user.
+delivers Section E to the user. A BLOCKED check cannot be fixed in code: report
+**INCOMPLETE** with the cause, and have someone with network access to
+`$REF.supabase.co` and a test-account login (a developer machine, or CI with
+those secrets) run C1-C3 before release.

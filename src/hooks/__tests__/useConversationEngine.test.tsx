@@ -79,3 +79,47 @@ describe('useConversationEngine response end', () => {
     await act(async () => root.unmount());
   });
 });
+
+describe('useConversationEngine agent audio end', () => {
+  it('forwards the measured audioMs and text of the burst to onAgentAudioEnded', async () => {
+    const infos: Array<{ audioMs?: number; text?: string }> = [];
+    let api: ReturnType<typeof useConversationEngine> | null = null;
+    const Harness = () => {
+      api = useConversationEngine({ onAgentAudioEnded: (info) => infos.push(info) });
+      return null;
+    };
+    const root = createRoot(document.createElement('div'));
+    await act(async () => root.render(<Harness />));
+    await act(async () => {
+      await api!.start({ voiceId: 'v', language: 'en' } as never);
+    });
+
+    emit({ type: 'agent_audio_ended', timestamp: 0, audioMs: 2400, text: 'Where were you last night' } as ConversationEvent);
+
+    expect(infos).toEqual([{ audioMs: 2400, text: 'Where were you last night' }]);
+
+    await act(async () => root.unmount());
+  });
+
+  it('calls onAgentAudioEnded with no measurements when the engine could not take any', async () => {
+    const infos: Array<{ audioMs?: number; text?: string }> = [];
+    let api: ReturnType<typeof useConversationEngine> | null = null;
+    const Harness = () => {
+      api = useConversationEngine({ onAgentAudioEnded: (info) => infos.push(info) });
+      return null;
+    };
+    const root = createRoot(document.createElement('div'));
+    await act(async () => root.render(<Harness />));
+    await act(async () => {
+      await api!.start({ voiceId: 'v', language: 'en' } as never);
+    });
+
+    emit({ type: 'agent_audio_ended', timestamp: 0 } as ConversationEvent);
+
+    expect(infos).toHaveLength(1);
+    expect(infos[0].audioMs).toBeUndefined();
+    expect(infos[0].text).toBeUndefined();
+
+    await act(async () => root.unmount());
+  });
+});

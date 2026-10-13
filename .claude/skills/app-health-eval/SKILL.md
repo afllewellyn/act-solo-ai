@@ -33,7 +33,8 @@ green. The detailed checks, commands, and pass bars live in
 
 3. **Iterate on failures.** For each FAIL, the primary agent (you) diagnoses and
    fixes the underlying code, then re-spawns the eval subagent. Loop until the
-   automated checks are all PASS, or a check is a documented known-issue.
+   automated checks are all PASS, or a check is a documented known-issue. Do not
+   loop on a BLOCKED check: no code change unblocks it (see below).
 
 4. **Hand the manual checklist to the user.** The live mic / voice-quality items
    need a human with a browser and a mic — present them as a checklist; do not
@@ -41,23 +42,23 @@ green. The detailed checks, commands, and pass bars live in
 
 ## Environment notes (so the eval matches reality)
 
-- Run all commands from the `act-solo-ai/` repo root with **npm** (two lockfiles
-  coexist; npm is the one that currently resolves). Three known issues this eval
-  deliberately tolerates so they don't mask a real regression: `vitest run` hangs
-  on startup (B1 is time-guarded), `eslint` is red with a large `no-explicit-any`
-  backlog (A3 is informational), and the committed lockfile drifts from
-  `package.json`. (If the repo has a `CLAUDE.md`, its "Known issues" is the
-  source of record — but this skill doesn't depend on it.)
-- Supabase CLI is authenticated and the project is linked; edge functions run with
-  `verify_jwt = false`, but `eleven-agent-token`, `get-voices` and
-  `text-to-speech` verify a signed-in user token in-function (export
-  `ACCESS_TOKEN` from a test account for C1–C3). EVAL.md's setup block is the single source of
-  truth for the exact commands, the `Origin` gate, and the current measured
-  per-function baseline (sections C1–C3) — don't restate those numbers here.
+- Run all commands from the `act-solo-ai/` repo root with **npm** (`npm ci`;
+  `package-lock.json` is canonical). Current gotchas and baselines live in
+  `CLAUDE.md` — don't restate them here.
+- C1–C3 call the deployed edge functions, which verify a signed-in user token
+  in-function. They need outbound network to `<REF>.supabase.co` **and** an
+  `ACCESS_TOKEN` from a dedicated test account. If either is missing (token
+  unset, or the sandbox egress policy denies the host: `curl: CONNECT tunnel
+  failed, response 403` / `HTTP 000`), the check is **BLOCKED** — report the
+  cause and denied host; never route around an egress denial or mint a token
+  another way. EVAL.md's setup block is the single source of truth for the
+  sign-in command, the `Origin` gate, and the per-function baselines.
 
 ## Stop criteria
 
-All automated checks PASS (or are tagged KNOWN-ISSUE with a tracking note), and
-the manual checklist has been delivered to the user. If a check fails to go
-green after 3 fix-and-rerun rounds, stop and report it with the evidence rather
-than forcing it.
+All automated checks PASS (or are tagged KNOWN-ISSUE with a tracking note), none
+are BLOCKED, and the manual checklist has been delivered to the user. If any of
+C1–C3 is BLOCKED, the verdict is **INCOMPLETE**, not green: deliver the report
+and ask the user to run C1–C3 from a machine with network and a test login. If a
+check fails to go green after 3 fix-and-rerun rounds, stop and report it with
+the evidence rather than forcing it.
