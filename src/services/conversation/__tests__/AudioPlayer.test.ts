@@ -18,6 +18,7 @@ class FakeAudioContext {
   async resume() {}
   async close() { this.state = 'closed'; }
   async decodeAudioData() { return {}; }
+  createBuffer(_c: number, length: number) { const data = new Float32Array(length); return { getChannelData: () => data }; }
   createBufferSource(): FakeSource {
     const source: FakeSource = {
       buffer: null,
