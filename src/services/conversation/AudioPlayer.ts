@@ -100,11 +100,11 @@ export class ConversationAudioPlayer {
         await this.audioContext.resume();
       }
 
-      // Convert PCM to WAV
-      const wavData = this.createWavFromPCM(pcmData);
-      
-      // Decode and play
-      const audioBuffer = await this.audioContext.decodeAudioData(wavData);
+      // Decode PCM16 straight into a Float32 buffer (synchronous, no WAV round-trip or async decode gap)
+      const audioBuffer = typeof this.audioContext.createBuffer === 'function'
+        ? this.pcmToAudioBuffer(this.audioContext, pcmData)
+        : await this.audioContext.decodeAudioData(this.createWavFromPCM(pcmData));
+
       
       const source = this.audioContext.createBufferSource();
       source.buffer = audioBuffer;
@@ -129,11 +129,20 @@ export class ConversationAudioPlayer {
     }
   }
 
+  /** Convert raw PCM16 (16kHz, mono, little-endian) into an AudioBuffer. */
+  private pcmToAudioBuffer(ctx: AudioContext, pcmData: ArrayBuffer): AudioBuffer {
+    const view = new DataView(pcmData);
+    const frames = Math.floor(pcmData.byteLength / 2);
+    const buffer = ctx.createBuffer(1, Math.max(1, frames), 16000);
+    const channel = buffer.getChannelData(0);
+    for (let i = 0; i < frames; i++) channel[i] = view.getInt16(i * 2, true) / 32768;
+    return buffer;
+  }
+
   /**
-   * Convert raw PCM16 data to WAV format with proper headers
-   * ElevenLabs Conversational AI outputs: 16kHz, 16-bit, mono
+   * Convert raw PCM16 data to WAV format with proper headers (kept for debugging/export).
    */
-  private createWavFromPCM(pcmData: ArrayBuffer): ArrayBuffer {
+  createWavFromPCM(pcmData: ArrayBuffer): ArrayBuffer {
     const sampleRate = 16000;
     const numChannels = 1;
     const bitsPerSample = 16;

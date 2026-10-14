@@ -132,17 +132,21 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
 
   const lines = useMemo(() => getScriptLines(scriptContent, textFilter), [scriptContent, textFilter]);
 
-  // Follow the state machine's position while rehearsing
-  const machineIndex = rehearsalMode && stateMachine ? stateMachine.getCurrentLineIndex() : null;
-  useEffect(() => {
-    if (machineIndex !== null) setManualIndex(Math.min(machineIndex, Math.max(0, lines.length - 1)));
-  }, [machineIndex, rehearsalState, lines.length]);
+  // Position source: the live engine reports a paragraph index; the legacy state machine
+  // (only used when the live engine is off) reports its own line index.
+  const machineIndex = rehearsalMode && !isUsingConversationEngine && stateMachine
+    ? stateMachine.getCurrentLineIndex()
+    : null;
   const paragraphLineIndex = currentParagraphIndex === null
     ? -1
     : lines.findIndex((line) => line.paragraphIndex >= currentParagraphIndex);
   const trackedIndex = (rehearsalMode || isManualTTSPlaying) && paragraphLineIndex !== -1
     ? paragraphLineIndex
     : machineIndex;
+  // Keep the manual position in step so pausing/stopping never jumps back to an old line
+  useEffect(() => {
+    if (trackedIndex !== null && trackedIndex >= 0) setManualIndex(Math.min(trackedIndex, Math.max(0, lines.length - 1)));
+  }, [trackedIndex, rehearsalState, lines.length]);
   const activeIndex = Math.min(trackedIndex ?? manualIndex, Math.max(0, lines.length - 1));
 
   const status: 'idle' | 'connecting' | 'listening' | 'ai' | 'paused' | 'complete' =

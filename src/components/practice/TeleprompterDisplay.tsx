@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
 import { hideCharacterNamePrefixHtml } from '@/components/practice/rehearsal/textUtils';
 import { cn } from '@/lib/utils';
@@ -18,7 +18,7 @@ const BOTTOM_MARGIN_PX = 112;
 /** A tall line is never pushed higher than this fraction of the viewport. */
 const MIN_TOP_FRACTION = 0.1;
 /** After a manual scroll, leave the view alone this long before re-centring. */
-const MANUAL_SCROLL_GRACE_MS = 2500;
+const MANUAL_SCROLL_GRACE_MS = 1500;
 
 /** Dark studio teleprompter: active cue pinned to the eye-line at ~28% height. */
 export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine, hideNames = false }: TeleprompterDisplayProps) => {
@@ -30,29 +30,35 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
   );
 
   const manualUntilRef = useRef(0);
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
 
   const centreActive = useCallback((force = false) => {
     const container = scrollRef.current;
-    const el = lineRefs.current[activeIndex];
+    const el = lineRefs.current[activeIndexRef.current];
     if (!container || !el) return;
     if (!force && Date.now() < manualUntilRef.current) return;
-    // Measure from bounding rects (independent of offsetParent) to get the line's position inside the scroll content
     const rect = el.getBoundingClientRect();
     const lineTop = rect.top - container.getBoundingClientRect().top + container.scrollTop;
     const viewport = container.clientHeight;
-    const eyeOffset = viewport * EYELINE - 24; // where the line's top lands on screen
+    const eyeOffset = viewport * EYELINE - 24;
     let top = lineTop - eyeOffset;
-    // A long line pinned at the eye-line can run off the bottom: lift it just enough to keep it all
-    // in frame, without pushing its top out of the upper part of the screen.
     const overflow = eyeOffset + rect.height - (viewport - BOTTOM_MARGIN_PX);
     if (overflow > 0) top += Math.min(overflow, Math.max(0, eyeOffset - viewport * MIN_TOP_FRACTION));
     container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
-  }, [activeIndex]);
+  }, []);
 
-  // A new line, text size or line count always re-centres. Font size is not animated, so layout is final when we measure.
-  useEffect(() => {
+  // New line: always re-centre (a new cue overrides manual scrolling). Layout effects run after the
+  // active line's larger text is in the DOM, so the measurement is final.
+  useLayoutEffect(() => {
+    manualUntilRef.current = 0;
     centreActive(true);
-  }, [centreActive, fontSize, lines.length]);
+  }, [activeIndex, centreActive]);
+
+  // Text size / content changes re-centre unless the user is scrolling by hand
+  useLayoutEffect(() => {
+    centreActive();
+  }, [centreActive, fontSize, lines.length, hideNames]);
 
   // Re-centre on resize / rotation, and pause auto-scroll briefly after manual scrolling
   useEffect(() => {
@@ -61,7 +67,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     const pause = () => { manualUntilRef.current = Date.now() + MANUAL_SCROLL_GRACE_MS; };
     container.addEventListener('wheel', pause, { passive: true });
     container.addEventListener('touchmove', pause, { passive: true });
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => centreActive(true)) : null;
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => centreActive()) : null;
     observer?.observe(container);
     return () => {
       container.removeEventListener('wheel', pause);
