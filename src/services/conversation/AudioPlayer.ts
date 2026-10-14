@@ -101,7 +101,9 @@ export class ConversationAudioPlayer {
       }
 
       // Decode PCM16 straight into a Float32 buffer (synchronous, no WAV round-trip or async decode gap)
-      const audioBuffer = this.pcmToAudioBuffer(this.audioContext, pcmData);
+      const audioBuffer = typeof this.audioContext.createBuffer === 'function'
+        ? this.pcmToAudioBuffer(this.audioContext, pcmData)
+        : await this.audioContext.decodeAudioData(this.createWavFromPCM(pcmData));
 
       
       const source = this.audioContext.createBufferSource();

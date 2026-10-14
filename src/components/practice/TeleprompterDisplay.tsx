@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
 import { hideCharacterNamePrefixHtml } from '@/components/practice/rehearsal/textUtils';
 import { cn } from '@/lib/utils';
@@ -48,18 +48,16 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, []);
 
-  // New line: always re-centre (a new cue overrides manual scrolling). Measure on the next frame,
-  // after the active line's larger text has been laid out.
-  useEffect(() => {
+  // New line: always re-centre (a new cue overrides manual scrolling). Layout effects run after the
+  // active line's larger text is in the DOM, so the measurement is final.
+  useLayoutEffect(() => {
     manualUntilRef.current = 0;
-    const raf = requestAnimationFrame(() => centreActive(true));
-    return () => cancelAnimationFrame(raf);
+    centreActive(true);
   }, [activeIndex, centreActive]);
 
   // Text size / content changes re-centre unless the user is scrolling by hand
-  useEffect(() => {
-    const raf = requestAnimationFrame(() => centreActive());
-    return () => cancelAnimationFrame(raf);
+  useLayoutEffect(() => {
+    centreActive();
   }, [centreActive, fontSize, lines.length, hideNames]);
 
   // Re-centre on resize / rotation, and pause auto-scroll briefly after manual scrolling
