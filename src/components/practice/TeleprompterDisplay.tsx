@@ -66,7 +66,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
   useLayoutEffect(() => {
     manualUntilRef.current = 0;
     if (!continuous) centreLine(activeIndex, true);
-    else if (activeIndex > eyeIndexRef.current) { setEyeIndex(activeIndex); centreLine(activeIndex, true); }
+    else if (activeIndex > eyeIndexRef.current) { setEyeIndex(activeIndex); centreLine(activeIndex, true); manualUntilRef.current = Date.now() + 700; }
   }, [activeIndex, continuous, centreLine]);
 
   // Continuous scroll loop (fractional accumulator so slow speeds still move)
@@ -111,8 +111,10 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
   }, [continuous, displayLines]);
 
   // Text size / content changes re-centre unless the user is scrolling by hand
+  const continuousRef = useRef(continuous);
+  continuousRef.current = continuous;
   useLayoutEffect(() => {
-    centreActive();
+    if (!continuousRef.current) centreActive();
   }, [centreActive, fontSize, lines.length, hideNames]);
 
   // Re-centre on resize / rotation, and pause auto-scroll briefly after manual scrolling
@@ -122,7 +124,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     const pause = () => { manualUntilRef.current = Date.now() + MANUAL_SCROLL_GRACE_MS; };
     container.addEventListener('wheel', pause, { passive: true });
     container.addEventListener('touchmove', pause, { passive: true });
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => centreActive()) : null;
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (!continuousRef.current) centreActive(); }) : null;
     observer?.observe(container);
     return () => {
       container.removeEventListener('wheel', pause);
@@ -181,7 +183,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
                 key={i}
                 ref={(el) => (lineRefs.current[i] = el)}
                 onClick={() => {
-                  if (continuous) { setEyeIndex(i); centreLine(i, true); }
+                  if (continuous) { setEyeIndex(i); centreLine(i, true); manualUntilRef.current = Date.now() + 700; }
                   onSelectLine(i);
                 }}
                 className={cn(
