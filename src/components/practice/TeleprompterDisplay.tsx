@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
 import { hideCharacterNamePrefixHtml } from '@/components/practice/rehearsal/textUtils';
 import { cn } from '@/lib/utils';
@@ -10,6 +10,12 @@ interface TeleprompterDisplayProps {
   status: 'idle' | 'connecting' | 'listening' | 'ai' | 'paused' | 'complete';
   onSelectLine: (index: number) => void;
   hideNames?: boolean;
+  /** Continuous teleprompter mode: the script scrolls on its own; the line on the eye-line is highlighted. */
+  continuous?: boolean;
+  /** Whether the continuous scroll is moving (false = paused). */
+  playing?: boolean;
+  /** Continuous scroll speed in pixels per second. */
+  speed?: number;
 }
 
 const EYELINE = 0.28;
@@ -21,7 +27,7 @@ const MIN_TOP_FRACTION = 0.1;
 const MANUAL_SCROLL_GRACE_MS = 1500;
 
 /** Dark studio teleprompter: active cue pinned to the eye-line at ~28% height. */
-export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine, hideNames = false }: TeleprompterDisplayProps) => {
+export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine, hideNames = false, continuous = false, playing = false, speed = 40 }: TeleprompterDisplayProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
   const displayLines = useMemo(
@@ -30,12 +36,14 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
   );
 
   const manualUntilRef = useRef(0);
-  const activeIndexRef = useRef(activeIndex);
-  activeIndexRef.current = activeIndex;
+  const [eyeIndex, setEyeIndex] = useState(activeIndex);
+  const shownIndex = continuous ? eyeIndex : activeIndex;
+  const activeIndexRef = useRef(shownIndex);
+  activeIndexRef.current = shownIndex;
 
-  const centreActive = useCallback((force = false) => {
+  const centreLine = useCallback((index: number, force = false) => {
     const container = scrollRef.current;
-    const el = lineRefs.current[activeIndexRef.current];
+    const el = lineRefs.current[index];
     if (!container || !el) return;
     if (!force && Date.now() < manualUntilRef.current) return;
     const rect = el.getBoundingClientRect();
@@ -47,13 +55,60 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     if (overflow > 0) top += Math.min(overflow, Math.max(0, eyeOffset - viewport * MIN_TOP_FRACTION));
     container.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
   }, []);
+  const centreActive = useCallback((force = false) => centreLine(activeIndexRef.current, force), [centreLine]);
+
+  // Cue mode: follow the engine's line. Continuous mode: only catch up if the engine is ahead.
+  const eyeIndexRef = useRef(eyeIndex);
+  eyeIndexRef.current = eyeIndex;
 
   // New line: always re-centre (a new cue overrides manual scrolling). Layout effects run after the
   // active line's larger text is in the DOM, so the measurement is final.
   useLayoutEffect(() => {
     manualUntilRef.current = 0;
-    centreActive(true);
-  }, [activeIndex, centreActive]);
+    if (!continuous) centreLine(activeIndex, true);
+    else if (activeIndex > eyeIndexRef.current) { setEyeIndex(activeIndex); centreLine(activeIndex, true); }
+  }, [activeIndex, continuous, centreLine]);
+
+  // Continuous scroll loop (fractional accumulator so slow speeds still move)
+  useEffect(() => {
+    if (!continuous || !playing) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    let frame = 0;
+    let last = performance.now();
+    let carry = 0;
+    const tick = (now: number) => {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      if (Date.now() >= manualUntilRef.current) {
+        carry += speed * dt;
+        const step = Math.floor(carry);
+        if (step > 0) { container.scrollTop += step; carry -= step; }
+      }
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [continuous, playing, speed]);
+
+  // Continuous mode: highlight whichever line sits on the eye-line
+  useEffect(() => {
+    if (!continuous) return;
+    const container = scrollRef.current;
+    if (!container) return;
+    const update = () => {
+      const box = container.getBoundingClientRect();
+      const eye = box.top + container.clientHeight * EYELINE;
+      let best = 0;
+      lineRefs.current.forEach((el, i) => {
+        if (el && el.getBoundingClientRect().top <= eye + 8) best = i;
+      });
+      setEyeIndex(best);
+    };
+    update();
+    container.addEventListener('scroll', update, { passive: true });
+    return () => container.removeEventListener('scroll', update);
+  }, [continuous, displayLines]);
 
   // Text size / content changes re-centre unless the user is scrolling by hand
   useLayoutEffect(() => {
@@ -118,14 +173,17 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
             <p className="text-studio-muted text-center text-lg">This script has no lines yet. Tap Edit script to add some.</p>
           )}
           {displayLines.map((line, i) => {
-            const active = i === activeIndex;
-            const past = i < activeIndex;
+            const active = i === shownIndex;
+            const past = i < shownIndex;
             const isYou = line.type === 'actor';
             return (
               <div
                 key={i}
                 ref={(el) => (lineRefs.current[i] = el)}
-                onClick={() => onSelectLine(i)}
+                onClick={() => {
+                  if (continuous) { setEyeIndex(i); centreLine(i, true); }
+                  onSelectLine(i);
+                }}
                 className={cn(
                   'relative my-3 rounded-2xl px-5 py-4 cursor-pointer transition-[background-color,opacity] duration-300',
                   active ? 'bg-studio-cue' : 'hover:bg-studio-surface/50',
