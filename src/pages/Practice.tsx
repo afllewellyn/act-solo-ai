@@ -43,6 +43,10 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   });
   const [sessionTime, setSessionTime] = useState(0);
   const [take, setTake] = useState(1);
+  const [scrollSpeed, setScrollSpeed] = useState(() => {
+    const saved = Number(sessionStorage.getItem('actsolo-teleprompter-speed'));
+    return saved >= 10 && saved <= 120 ? saved : 40;
+  });
   const [manualIndex, setManualIndex] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [isEditingScript, setIsEditingScript] = useState(false);
@@ -122,6 +126,9 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   useEffect(() => {
     sessionStorage.setItem('actsolo-teleprompter-font', String(fontSize));
   }, [fontSize]);
+  useEffect(() => {
+    sessionStorage.setItem('actsolo-teleprompter-speed', String(scrollSpeed));
+  }, [scrollSpeed]);
 
   // Session timer runs while rehearsing
   useEffect(() => {
@@ -260,6 +267,11 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           <button onClick={() => setFontSize((f) => Math.max(20, f - 4))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Smaller text">A−</button>
           <button onClick={() => setFontSize((f) => Math.min(64, f + 4))} className="h-10 px-3 text-base font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Larger text">A+</button>
         </div>
+        <div className="flex items-center rounded-full border border-studio-border" title="Scroll speed">
+          <button onClick={() => setScrollSpeed((v) => Math.max(10, v - 10))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Scroll slower">−</button>
+          <span className="px-1 text-xs text-studio-muted tabular-nums">Speed {scrollSpeed / 10}</span>
+          <button onClick={() => setScrollSpeed((v) => Math.min(120, v + 10))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Scroll faster">+</button>
+        </div>
         <button onClick={() => setSettingsOpen(true)} className={iconBtn} aria-label="Rehearsal settings">
           <Settings className="h-5 w-5" />
         </button>
@@ -272,6 +284,9 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           fontSize={fontSize}
           status={status}
           hideNames={!showNames}
+          continuous={rehearsalMode}
+          playing={rehearsalMode && !isPaused && rehearsalState !== 'COMPLETE'}
+          speed={scrollSpeed}
           onSelectLine={(i) => {
             if (!rehearsalMode) setManualIndex(i);
             else if (isUsingConversationEngine) goToParagraph(lines[i].paragraphIndex);
