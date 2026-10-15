@@ -140,8 +140,8 @@ describe('agentTurnFlow', () => {
     flow.onAudioEnded();
     expect(state.current).toBe(1); // now the user's turn
     flow.onResponseStarted(); // agent starts talking again (e.g. a stray reply)
-    flow.onUserSpeechEnded('echo of the agent');
-    expect(state.current).toBe(1);
+    flow.onUserSpeechEnded('I was at the library'); // user's end-of-speech arrives after the agent started
+    expect(state.current).toBe(2);
     flow.onResponseEnded('Which library');
     flow.onAudioEnded();
     expect(state.current).toBe(3); // caught up to what was actually spoken
@@ -187,6 +187,20 @@ describe('agentTurnFlow', () => {
     vi.advanceTimersByTime(USER_TURN_CUE_MS * 4);
     expect(calls.cued).toEqual([1]);
     agentSpeaks('Hello there'); // keeps flowing afterwards
+  });
+
+  it('never freezes when the user transcript is missed and the agent improvises', () => {
+    const { flow, state, agentSpeaks } = setup([
+      ['ai', 'Where were you last night'],
+      ['actor', 'I was at the library'],
+      ['ai', 'Which library'],
+      ['actor', 'The one on Main Street'],
+    ]);
+    agentSpeaks('Where were you last night'); flow.onAudioEnded();
+    expect(state.current).toBe(1);
+    // no user transcript arrives; agent answers with different words
+    agentSpeaks('Hmm, tell me which one'); flow.onAudioEnded();
+    expect(state.current).toBe(3);
   });
 
   it('runs a whole scene without any manual advance', () => {
