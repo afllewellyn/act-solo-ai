@@ -269,7 +269,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
         </div>
         <div className="flex items-center rounded-full border border-studio-border" title="Scroll speed">
           <button onClick={() => setScrollSpeed((v) => Math.max(10, v - 10))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Scroll slower">−</button>
-          <span className="px-1 text-xs text-studio-muted tabular-nums">Speed {scrollSpeed / 10}</span>
+          <span className="hidden sm:inline px-1 text-xs text-studio-muted tabular-nums">Speed {scrollSpeed / 10}</span>
           <button onClick={() => setScrollSpeed((v) => Math.min(120, v + 10))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Scroll faster">+</button>
         </div>
         <button onClick={() => setSettingsOpen(true)} className={iconBtn} aria-label="Rehearsal settings">
