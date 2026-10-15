@@ -86,8 +86,17 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
     const before = deps.getCurrentIndex();
     // Match what was actually said so we catch up if a turn was missed
     const spokenIndex = findSpokenAiLine(lines, before, text);
-    if (spokenIndex !== -1) deps.advanceFrom(spokenIndex);
-    else if (lines[before]?.type === 'ai') deps.advanceFrom(before);
+    if (spokenIndex !== -1) {
+      deps.advanceFrom(spokenIndex);
+    } else {
+      // Sequential fallback: the agent spoke the next AI line, even if it improvised the words.
+      // This also steps past a user line whose transcript was missed, so the prompter never freezes.
+      let next = -1;
+      for (let i = Math.max(0, before); i < lines.length; i++) {
+        if (lines[i].type === 'ai') { next = i; break; }
+      }
+      if (next !== -1) deps.advanceFrom(next);
+    }
     deps.setListening();
 
     const landed = deps.getCurrentIndex();
@@ -134,19 +143,20 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
 
     onUserSpeechEnded(transcript) {
       if (!deps.isActive()) return;
-      // The agent is talking (or its voice leaked into the mic): that is not the user's line
-      if (busy || pendingText !== null) return;
       if (!transcript?.trim()) return;
 
       const lines = deps.getLines();
       const before = deps.getCurrentIndex();
+      // While the agent's line is playing the highlight sits on an AI line, so echo is ignored here.
+      // If the agent already started answering (race with the end-of-speech event), still advance.
       if (lines[before]?.type !== 'actor') return;
 
-      responseSeen = false;
+      const agentAlreadyAnswering = busy || pendingText !== null;
+      if (!agentAlreadyAnswering) responseSeen = false;
       deps.advanceFrom(before);
 
       const landed = deps.getCurrentIndex();
-      if (landed !== before && lines[landed]?.type === 'ai') {
+      if (!agentAlreadyAnswering && landed !== before && lines[landed]?.type === 'ai') {
         // The agent answers the user on its own; step in only if it stays quiet
         clearCueTimer();
         cueTimer = setTimeout(() => {
