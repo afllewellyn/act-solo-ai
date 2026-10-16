@@ -60,5 +60,12 @@ export const getScriptLines = (
     filteredLines.push({ type, content: lineHtml, dialogue, paragraphIndex });
   });
 
+  let turnId = -1;
+  filteredLines.forEach((line, index) => {
+    if (index === 0 || line.type !== filteredLines[index - 1].type) turnId++;
+    line.turnId = turnId;
+    line.isTurnEnd = index === filteredLines.length - 1 || filteredLines[index + 1].type !== line.type;
+  });
+
   return filteredLines;
 };

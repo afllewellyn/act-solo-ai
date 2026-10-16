@@ -11,7 +11,7 @@
  *  - speech heard while the agent is talking (its own voice picked up by the mic) is ignored.
  */
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
-import { findSpokenAiLine } from '@/utils/lineMatching';
+import { findSpokenActorTurnEnd, findSpokenAiLine } from '@/utils/lineMatching';
 
 /** Response text ended but no audio ever started: don't wait for audio forever. */
 export const NO_AUDIO_FALLBACK_MS = 1500;
@@ -153,7 +153,8 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
 
       const agentAlreadyAnswering = busy || pendingText !== null;
       if (!agentAlreadyAnswering) responseSeen = false;
-      deps.advanceFrom(before);
+      const spokenThrough = findSpokenActorTurnEnd(lines, before, transcript);
+      deps.advanceFrom(spokenThrough === -1 ? before : spokenThrough);
 
       const landed = deps.getCurrentIndex();
       if (!agentAlreadyAnswering && landed !== before && lines[landed]?.type === 'ai') {

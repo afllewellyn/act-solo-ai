@@ -25,6 +25,15 @@ function getNextAiLineText(lines: ScriptLine[], afterIndex: number): string {
   return '';
 }
 
+function getCurrentActorTurn(lines: ScriptLine[], index: number): string {
+  if (lines[index]?.type !== 'actor') return '';
+  let start = index;
+  while (start > 0 && lines[start - 1].type === 'actor') start--;
+  let end = index;
+  while (end + 1 < lines.length && lines[end + 1].type === 'actor') end++;
+  return lines.slice(start, end + 1).map(line => line.dialogue).join(' / ');
+}
+
 /**
  * Build all Cue objects from parsed script lines
  */
@@ -84,9 +93,13 @@ ${aiLines.map((line, i) => `${i + 1}. "${line}"`).join('\n')}
 USER'S LINES (they will say these):
 ${actorLines.map((line, i) => `${i + 1}. "${line}"`).join('\n')}
 
+CURRENT USER TURN BLOCK:
+${getCurrentActorTurn(lines, currentLineIndex) || 'None'}
+
 RULES:
 1. Read ONLY your lines from the list above, in order
-2. After the user says their line, read your next line
+2. Treat consecutive bold/user paragraphs as one user turn, even if they are split for readability
+3. Wait until the user has finished the full current user turn block before reading your next line
 3. Do NOT improvise or add extra dialogue
 4. Do NOT repeat lines you've already said
 5. Current text filter: ${textFilter}
