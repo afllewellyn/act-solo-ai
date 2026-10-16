@@ -42,3 +42,20 @@ export function findSpokenAiLine(
   }
   return bestScore >= threshold ? best : -1;
 }
+
+/** Last consecutive actor line covered by the transcript, starting at `fromIndex`. */
+export function findSpokenActorTurnEnd(
+  lines: ScriptLine[],
+  fromIndex: number,
+  spoken: string,
+  threshold = 0.45
+): number {
+  if (lines[fromIndex]?.type !== 'actor') return -1;
+
+  let last = fromIndex;
+  for (let i = fromIndex + 1; i < lines.length && lines[i].type === 'actor'; i++) {
+    const score = wordOverlap(spoken, lines[i].dialogue);
+    if (score >= threshold) last = i;
+  }
+  return last;
+}

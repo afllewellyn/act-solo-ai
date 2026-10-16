@@ -247,6 +247,10 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   });
 
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
+  const decreaseFont = () => setFontSize((f) => Math.max(20, f - 4));
+  const increaseFont = () => setFontSize((f) => Math.min(64, f + 4));
+  const slowScroll = () => setScrollSpeed((v) => Math.max(10, v - 10));
+  const fastScroll = () => setScrollSpeed((v) => Math.min(120, v + 10));
 
   const primaryLabel = !rehearsalMode ? 'Start rehearsal' : isPaused ? 'Resume' : 'Pause';
   const PrimaryIcon = rehearsalMode && !isPaused ? Pause : Play;
@@ -263,14 +267,14 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
         <h1 className="flex-1 min-w-0 truncate font-semibold">{script.title}</h1>
         <span className="font-mono text-sm text-studio-muted tabular-nums">{formatTime(sessionTime)}</span>
         <span className="hidden sm:inline text-sm text-studio-muted">Take <strong className="text-studio-fg">{take}</strong></span>
-        <div className="hidden sm:flex items-center rounded-full border border-studio-border">
-          <button onClick={() => setFontSize((f) => Math.max(20, f - 4))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Smaller text">A−</button>
-          <button onClick={() => setFontSize((f) => Math.min(64, f + 4))} className="h-10 px-3 text-base font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Larger text">A+</button>
+        <div className="flex items-center rounded-full border border-studio-border" aria-label="Text size controls">
+          <button onClick={decreaseFont} className="h-10 px-2.5 sm:px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Smaller text">A−</button>
+          <button onClick={increaseFont} className="h-10 px-2.5 sm:px-3 text-base font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Larger text">A+</button>
         </div>
-        <div className="flex items-center rounded-full border border-studio-border" title="Scroll speed">
-          <button onClick={() => setScrollSpeed((v) => Math.max(10, v - 10))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Scroll slower">−</button>
-          <span className="hidden sm:inline px-1 text-xs text-studio-muted tabular-nums">Speed {scrollSpeed / 10}</span>
-          <button onClick={() => setScrollSpeed((v) => Math.min(120, v + 10))} className="h-10 px-3 text-sm font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Scroll faster">+</button>
+        <div className="flex items-center rounded-full border border-studio-border" title="Teleprompter scroll speed" aria-label="Teleprompter scroll speed controls">
+          <button onClick={slowScroll} className="h-10 px-2.5 sm:px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Scroll slower">−</button>
+          <span className="px-1 sm:px-2 text-[10px] sm:text-xs text-studio-muted tabular-nums whitespace-nowrap">Scroll {scrollSpeed / 10}</span>
+          <button onClick={fastScroll} className="h-10 px-2.5 sm:px-3 text-sm font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Scroll faster">+</button>
         </div>
         <button onClick={() => setSettingsOpen(true)} className={iconBtn} aria-label="Rehearsal settings">
           <Settings className="h-5 w-5" />
@@ -321,8 +325,8 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
                     { label: 'Edit script', icon: Pencil, run: openEditor },
                     { label: isManualTTSPlaying ? 'Stop reading' : 'Read script', icon: Volume2, run: handleReadScript },
                     { label: 'Next cue', icon: ChevronRight, run: handleNextCue },
-                    { label: 'Larger text', icon: Plus, run: () => setFontSize((f) => Math.min(64, f + 4)) },
-                    { label: 'Smaller text', icon: Minus, run: () => setFontSize((f) => Math.max(20, f - 4)) },
+                    { label: 'Larger text', icon: Plus, run: increaseFont },
+                    { label: 'Smaller text', icon: Minus, run: decreaseFont },
                   ].map(({ label, icon: Icon, run }) => (
                     <button key={label} onClick={() => { run(); setMoreOpen(false); }} className="w-full h-11 rounded-xl px-3 text-left text-sm inline-flex items-center gap-3 hover:bg-studio-border">
                       <Icon className="h-4 w-4" /> {label}

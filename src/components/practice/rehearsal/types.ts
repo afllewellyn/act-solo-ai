@@ -39,4 +39,8 @@ export interface ScriptLine {
   dialogue: string;
   /** Index of the source paragraph among the non-empty <p> elements (for scrolling/highlighting) */
   paragraphIndex: number;
+  /** Consecutive same-speaker block; bold paragraphs split for readability stay one actor turn. */
+  turnId?: number;
+  /** True when this is the final paragraph in its same-speaker turn. */
+  isTurnEnd?: boolean;
 }

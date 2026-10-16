@@ -128,6 +128,24 @@ describe('agentTurnFlow', () => {
     expect(calls.cued).toEqual([1]);
   });
 
+  it('waits for the final paragraph of a split actor turn before cueing the AI', () => {
+    const { flow, state, calls } = setup([
+      ['actor', 'I need you to hear me'],
+      ['actor', 'This is still my thought'],
+      ['ai', 'I hear you'],
+    ]);
+
+    flow.onUserSpeechEnded('I need you to hear me');
+    expect(state.current).toBe(1);
+    vi.advanceTimersByTime(USER_TURN_CUE_MS * 2);
+    expect(calls.cued).toEqual([]);
+
+    flow.onUserSpeechEnded('This is still my thought');
+    expect(state.current).toBe(2);
+    vi.advanceTimersByTime(USER_TURN_CUE_MS);
+    expect(calls.cued).toEqual([2]);
+  });
+
   it('ignores speech heard while the agent is talking (its own voice) and empty transcripts', () => {
     const { flow, state, agentSpeaks } = setup([
       ['ai', 'Where were you last night'],

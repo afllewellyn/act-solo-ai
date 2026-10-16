@@ -61,12 +61,12 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
   const eyeIndexRef = useRef(eyeIndex);
   eyeIndexRef.current = eyeIndex;
 
-  // New line: always re-centre (a new cue overrides manual scrolling). Layout effects run after the
-  // active line's larger text is in the DOM, so the measurement is final.
+  // Cue mode follows the engine. Continuous mode keeps the scroll moving; routine cue updates should
+  // not snap the script ahead and visually skip lines.
   useLayoutEffect(() => {
     manualUntilRef.current = 0;
     if (!continuous) centreLine(activeIndex, true);
-    else if (activeIndex > eyeIndexRef.current) { setEyeIndex(activeIndex); centreLine(activeIndex, true); manualUntilRef.current = Date.now() + 700; }
+    else if (activeIndex > eyeIndexRef.current) setEyeIndex(activeIndex);
   }, [activeIndex, continuous, centreLine]);
 
   // Continuous scroll loop (fractional accumulator so slow speeds still move)

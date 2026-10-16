@@ -36,6 +36,20 @@ describe('getScriptLines (names optional)', () => {
   it('listen mode: the AI reads every line', () => {
     expect(getScriptLines(unnamed, 'all').every(l => l.type === 'ai')).toBe(true);
   });
+
+  it('groups consecutive same-role paragraphs into one turn', () => {
+    const splitActorTurn =
+      '<p><strong>I need you to hear me.</strong></p>' +
+      '<p><strong>This is still my thought.</strong></p>' +
+      '<p><em>I hear you.</em></p>';
+    const lines = getScriptLines(splitActorTurn, 'italic');
+
+    expect(lines.map(l => [l.type, l.turnId, l.isTurnEnd])).toEqual([
+      ['actor', 0, false],
+      ['actor', 0, true],
+      ['ai', 1, true],
+    ]);
+  });
 });
 
 describe('countLineRoles / detectCharacterNames', () => {

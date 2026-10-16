@@ -60,7 +60,7 @@ const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onRea
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent side="right" className="dark w-full sm:max-w-md overflow-y-auto bg-studio text-studio-fg border-studio-border [&>button]:text-studio-fg">
         <SheetTitle className="text-2xl font-bold text-studio-fg">Rehearsal settings</SheetTitle>
-        <SheetDescription className="sr-only">Choose what the AI reads, voices and speed.</SheetDescription>
+            <SheetDescription className="sr-only">Choose what the AI reads, voices and AI speaking speed.</SheetDescription>
 
         <div className="space-y-8 py-6">
           <section className="space-y-3">
@@ -158,7 +158,7 @@ const RehearsalSettingsDrawer = ({ open, onOpenChange, onCharactersChange, onRea
 
           <section className="space-y-4">
             <div className="flex items-center justify-between">
-              <p className={label}>Speed</p>
+              <p className={label}>AI speaking speed</p>
               <span className="text-sm font-mono text-studio-muted">{formatSpeed(playbackSpeed)}x</span>
             </div>
             <Slider value={[playbackSpeed]} min={0.7} max={1.2} step={0.05} onValueChange={([v]) => setPlaybackSpeed(v)} aria-label="AI speaking speed" />

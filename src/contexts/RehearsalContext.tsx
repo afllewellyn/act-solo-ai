@@ -283,6 +283,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       turnFlow.onUserSpeechEnded(transcript);
     },
     onAgentResponseStarted: () => {
+      const currentLine = parsedLinesRef.current[currentLineIndexRef.current];
+      if (currentLine?.type === 'actor' && currentLine.isTurnEnd === false) {
+        console.log('⏸️ [ConversationEngine] Interrupting early AI response during split actor turn');
+        conversationEngine.sendControl({ type: 'interrupt' });
+        return;
+      }
       turnFlow.onResponseStarted();
     },
     onAgentResponseEnded: (fullText) => {

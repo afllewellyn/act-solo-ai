@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { findSpokenAiLine } from '../lineMatching';
+import { findSpokenActorTurnEnd, findSpokenAiLine } from '../lineMatching';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
 
 const line = (type: ScriptLine['type'], dialogue: string, i: number): ScriptLine => ({
@@ -28,5 +28,15 @@ describe('findSpokenAiLine', () => {
 
   it('returns -1 for unrelated speech', () => {
     expect(findSpokenAiLine(lines, 0, 'completely different words here')).toBe(-1);
+  });
+
+  it('finds the final paragraph covered in a split actor turn', () => {
+    const splitTurn = [
+      line('actor', 'I need you to hear me.', 0),
+      line('actor', 'This is still my thought.', 1),
+      line('ai', 'I hear you.', 2),
+    ];
+
+    expect(findSpokenActorTurnEnd(splitTurn, 0, 'I need you to hear me. This is still my thought.')).toBe(1);
   });
 });
