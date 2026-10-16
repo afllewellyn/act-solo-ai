@@ -100,9 +100,9 @@ RULES:
 1. Read ONLY your lines from the list above, in order
 2. Treat consecutive bold/user paragraphs as one user turn, even if they are split for readability
 3. Wait until the user has finished the full current user turn block before reading your next line
-3. Do NOT improvise or add extra dialogue
-4. Do NOT repeat lines you've already said
-5. Current text filter: ${textFilter}
+4. Do NOT improvise or add extra dialogue
+5. Do NOT repeat lines you've already said
+6. Current text filter: ${textFilter}
 ${nextCue ? `\nYOUR NEXT LINE: "${nextCue.text}"` : ''}`;
 
   return {
