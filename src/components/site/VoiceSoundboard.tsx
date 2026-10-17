@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { trackVoicePreviewClick, type PreviewVoice } from "@/lib/voicePreviewTracking";
 import jamesSample from "@/assets/james.mp3.asset.json";
 import liamSample from "@/assets/liam.mp3.asset.json";
 import lauraSample from "@/assets/laura.mp3.asset.json";
 
 const voices = [
-  { id: "james", name: "James", tag: "Relaxed", src: jamesSample.url },
-  { id: "liam", name: "Liam", tag: "Energetic", src: liamSample.url },
-  { id: "laura", name: "Laura", tag: "Quirky", src: lauraSample.url },
+  { id: "james", name: "James", voiceId: "EkK5I93UQWFDigLMpZcX", tag: "Relaxed", src: jamesSample.url },
+  { id: "liam", name: "Liam", voiceId: "TX3LPaxmHKxFdv7VOQHJ", tag: "Energetic", src: liamSample.url },
+  { id: "laura", name: "Laura", voiceId: "FGY2WhTYpPnrIDTdsKH5", tag: "Quirky", src: lauraSample.url },
 ];
 
 export const VoiceSoundboard = () => {
@@ -16,7 +18,9 @@ export const VoiceSoundboard = () => {
 
   useEffect(() => () => audioRef.current?.pause(), []);
 
-  const toggle = (id: string, src: string) => {
+  const toggle = (voice: PreviewVoice & { src: string }) => {
+    const { id, src } = voice;
+    trackVoicePreviewClick(voice, playing === id ? 'pause' : 'play');
     if (playing === id) {
       audioRef.current?.pause();
       setPlaying(null);
@@ -24,9 +28,11 @@ export const VoiceSoundboard = () => {
     }
     audioRef.current?.pause();
     const audio = new Audio(src);
-    audio.onended = () => setPlaying(null);
+    audio.onended = () => { if (audioRef.current === audio) setPlaying(null); };
+    audio.onerror = () => { if (audioRef.current === audio) setPlaying(null); };
     audioRef.current = audio;
-    audio.play().then(() => setPlaying(id)).catch(() => setPlaying(null));
+    setPlaying(id);
+    audio.play().catch(() => { if (audioRef.current === audio) setPlaying(null); });
   };
 
   return (
@@ -36,18 +42,23 @@ export const VoiceSoundboard = () => {
         {voices.map((v) => {
           const isPlaying = playing === v.id;
           return (
-            <button
+            <Button
               key={v.id}
+              variant="outline"
+              id={`voice-preview-${v.id}`}
+              data-voice-name={v.name}
+              data-voice-id={v.voiceId}
+              data-preview-action={isPlaying ? "pause" : "play"}
               type="button"
-              onClick={() => toggle(v.id, v.src)}
+              onClick={() => toggle(v)}
               aria-pressed={isPlaying}
               aria-label={`${isPlaying ? "Pause" : "Play"} ${v.name} sample voice (${v.tag})`}
-              className="inline-flex items-center gap-2 rounded-full border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow-sm transition-colors hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-900 focus-visible:ring-offset-2"
+              className="rounded-full px-4 py-2 shadow-sm"
             >
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {v.name}
-              <span className="text-gray-500">· {v.tag}</span>
-            </button>
+              <span className="text-muted-foreground pointer-events-none">· {v.tag}</span>
+            </Button>
           );
         })}
       </div>
