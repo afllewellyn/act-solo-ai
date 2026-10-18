@@ -2,14 +2,14 @@ import { useEffect, useRef, useState } from "react";
 import { Pause, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trackVoicePreviewClick, type PreviewVoice } from "@/lib/voicePreviewTracking";
-import jamesSample from "@/assets/james.mp3.asset.json";
-import liamSample from "@/assets/liam.mp3.asset.json";
-import lauraSample from "@/assets/laura.mp3.asset.json";
+import matildaSample from "@/assets/matilda-welcome.mp3.asset.json";
+import liamSample from "@/assets/liam-welcome.mp3.asset.json";
+import jessicaSample from "@/assets/jessica-welcome.mp3.asset.json";
 
 const voices = [
-  { id: "james", name: "James", voiceId: "EkK5I93UQWFDigLMpZcX", tag: "Relaxed", src: jamesSample.url },
+  { id: "matilda", name: "Matilda", voiceId: "XrExE9yKIg1WjnnlVkGX", tag: "Warm", src: matildaSample.url },
   { id: "liam", name: "Liam", voiceId: "TX3LPaxmHKxFdv7VOQHJ", tag: "Energetic", src: liamSample.url },
-  { id: "laura", name: "Laura", voiceId: "FGY2WhTYpPnrIDTdsKH5", tag: "Quirky", src: lauraSample.url },
+  { id: "jessica", name: "Jessica", voiceId: "cgSgspJ2msm6clMCkdW9", tag: "Bright", src: jessicaSample.url },
 ];
 
 export const VoiceSoundboard = () => {
