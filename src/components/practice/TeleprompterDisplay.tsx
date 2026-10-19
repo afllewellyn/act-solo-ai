@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef } from 'react';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
 import { hideCharacterNamePrefixHtml } from '@/components/practice/rehearsal/textUtils';
 import { cn } from '@/lib/utils';
@@ -10,12 +10,6 @@ interface TeleprompterDisplayProps {
   status: 'idle' | 'connecting' | 'listening' | 'ai' | 'paused' | 'complete';
   onSelectLine: (index: number) => void;
   hideNames?: boolean;
-  /** Continuous teleprompter mode: the script scrolls on its own; the line on the eye-line is highlighted. */
-  continuous?: boolean;
-  /** Whether the continuous scroll is moving (false = paused). */
-  playing?: boolean;
-  /** Continuous scroll speed in pixels per second. */
-  speed?: number;
 }
 
 const EYELINE = 0.28;
@@ -25,9 +19,31 @@ const BOTTOM_MARGIN_PX = 112;
 const MIN_TOP_FRACTION = 0.1;
 /** After a manual scroll, leave the view alone this long before re-centring. */
 const MANUAL_SCROLL_GRACE_MS = 1500;
+/** Beat held on a freshly-glided cue before an oversized line starts to crawl. */
+const TALL_LINE_HOLD_MS = 1500;
+/** Gentle reveal speed for cues too tall to fit on screen (px/s). Deliberately not user-tunable. */
+const CRAWL_PX_PER_SEC = 24;
 
-/** Dark studio teleprompter: active cue pinned to the eye-line at ~28% height. */
-export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine, hideNames = false, continuous = false, playing = false, speed = 40 }: TeleprompterDisplayProps) => {
+/**
+ * Furthest the view may scroll while revealing a tall cue: the cue's bottom edge
+ * rests just above the bottom fade mask, so the next cue never enters view.
+ */
+export function tallLineScrollTarget(
+  lineTop: number,
+  lineHeight: number,
+  viewport: number,
+  bottomMargin = BOTTOM_MARGIN_PX,
+): number {
+  return Math.max(0, lineTop + lineHeight - (viewport - bottomMargin));
+}
+
+/**
+ * Dark studio teleprompter. The engine's activeIndex is the single source of truth
+ * for the highlight: on a cue change the new cue glides to the eye-line at ~28%
+ * height and holds there. Only a cue too tall to fit on screen scrolls on its own —
+ * a gentle, delayed crawl clamped to that cue's bottom edge.
+ */
+export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSelectLine, hideNames = false }: TeleprompterDisplayProps) => {
   const scrollRef = useRef<HTMLDivElement>(null);
   const lineRefs = useRef<(HTMLDivElement | null)[]>([]);
   const displayLines = useMemo(
@@ -36,10 +52,8 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
   );
 
   const manualUntilRef = useRef(0);
-  const [eyeIndex, setEyeIndex] = useState(activeIndex);
-  const shownIndex = continuous ? eyeIndex : activeIndex;
-  const activeIndexRef = useRef(shownIndex);
-  activeIndexRef.current = shownIndex;
+  const activeIndexRef = useRef(activeIndex);
+  activeIndexRef.current = activeIndex;
 
   const centreLine = useCallback((index: number, force = false) => {
     const container = scrollRef.current;
@@ -57,64 +71,44 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
   }, []);
   const centreActive = useCallback((force = false) => centreLine(activeIndexRef.current, force), [centreLine]);
 
-  // Cue mode: follow the engine's line. Continuous mode: only catch up if the engine is ahead.
-  const eyeIndexRef = useRef(eyeIndex);
-  eyeIndexRef.current = eyeIndex;
-
-  // Cue mode follows the engine. Continuous mode keeps the scroll moving; routine cue updates should
-  // not snap the script ahead and visually skip lines.
+  // The engine is the single source of truth for the highlighted cue: when it
+  // advances, glide that cue to the eye-line and hold there.
   useLayoutEffect(() => {
     manualUntilRef.current = 0;
-    if (!continuous) centreLine(activeIndex, true);
-    else if (activeIndex > eyeIndexRef.current) setEyeIndex(activeIndex);
-  }, [activeIndex, continuous, centreLine]);
+    centreLine(activeIndex, true);
+  }, [activeIndex, centreLine]);
 
-  // Continuous scroll loop (fractional accumulator so slow speeds still move)
+  // Tall cues only: after a beat, gently crawl so the rest of the line is revealed.
+  // The crawl is clamped to the active cue's bottom edge and never enters the next cue.
   useEffect(() => {
-    if (!continuous || !playing) return;
+    if (status !== 'listening' && status !== 'ai') return;
     const container = scrollRef.current;
-    if (!container) return;
+    const el = lineRefs.current[activeIndex];
+    if (!container || !el) return;
     let frame = 0;
-    let last = performance.now();
-    let carry = 0;
-    const tick = (now: number) => {
-      const dt = Math.min(0.1, (now - last) / 1000);
-      last = now;
-      if (Date.now() >= manualUntilRef.current) {
-        carry += speed * dt;
-        const step = Math.floor(carry);
-        if (step > 0) { container.scrollTop += step; carry -= step; }
-      }
+    let last = 0;
+    const timer = setTimeout(() => {
+      const rect = el.getBoundingClientRect();
+      const lineTop = rect.top - container.getBoundingClientRect().top + container.scrollTop;
+      const target = tallLineScrollTarget(lineTop, rect.height, container.clientHeight);
+      if (target <= container.scrollTop + 2) return; // already fully visible
+      last = performance.now();
+      const tick = (now: number) => {
+        const dt = Math.min(0.1, (now - last) / 1000);
+        last = now;
+        if (Date.now() >= manualUntilRef.current) {
+          container.scrollTop = Math.min(target, container.scrollTop + CRAWL_PX_PER_SEC * dt);
+        }
+        if (container.scrollTop < target - 0.5) frame = requestAnimationFrame(tick);
+      };
       frame = requestAnimationFrame(tick);
-    };
-    frame = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frame);
-  }, [continuous, playing, speed]);
-
-  // Continuous mode: highlight whichever line sits on the eye-line
-  useEffect(() => {
-    if (!continuous) return;
-    const container = scrollRef.current;
-    if (!container) return;
-    const update = () => {
-      const box = container.getBoundingClientRect();
-      const eye = box.top + container.clientHeight * EYELINE;
-      let best = 0;
-      lineRefs.current.forEach((el, i) => {
-        if (el && el.getBoundingClientRect().top <= eye + 8) best = i;
-      });
-      setEyeIndex(best);
-    };
-    update();
-    container.addEventListener('scroll', update, { passive: true });
-    return () => container.removeEventListener('scroll', update);
-  }, [continuous, displayLines]);
+    }, TALL_LINE_HOLD_MS);
+    return () => { clearTimeout(timer); cancelAnimationFrame(frame); };
+  }, [activeIndex, status, fontSize, lines]);
 
   // Text size / content changes re-centre unless the user is scrolling by hand
-  const continuousRef = useRef(continuous);
-  continuousRef.current = continuous;
   useLayoutEffect(() => {
-    if (!continuousRef.current) centreActive();
+    centreActive();
   }, [centreActive, fontSize, lines.length, hideNames]);
 
   // Re-centre on resize / rotation, and pause auto-scroll briefly after manual scrolling
@@ -124,7 +118,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     const pause = () => { manualUntilRef.current = Date.now() + MANUAL_SCROLL_GRACE_MS; };
     container.addEventListener('wheel', pause, { passive: true });
     container.addEventListener('touchmove', pause, { passive: true });
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => { if (!continuousRef.current) centreActive(); }) : null;
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => centreActive()) : null;
     observer?.observe(container);
     return () => {
       container.removeEventListener('wheel', pause);
@@ -175,17 +169,14 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
             <p className="text-studio-muted text-center text-lg">This script has no lines yet. Tap Edit script to add some.</p>
           )}
           {displayLines.map((line, i) => {
-            const active = i === shownIndex;
-            const past = i < shownIndex;
+            const active = i === activeIndex;
+            const past = i < activeIndex;
             const isYou = line.type === 'actor';
             return (
               <div
                 key={i}
                 ref={(el) => (lineRefs.current[i] = el)}
-                onClick={() => {
-                  if (continuous) { setEyeIndex(i); centreLine(i, true); manualUntilRef.current = Date.now() + 700; }
-                  onSelectLine(i);
-                }}
+                onClick={() => onSelectLine(i)}
                 className={cn(
                   'relative my-3 rounded-2xl px-5 py-4 cursor-pointer transition-[background-color,opacity] duration-300',
                   active ? 'bg-studio-cue' : 'hover:bg-studio-surface/50',
