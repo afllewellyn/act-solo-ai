@@ -36,7 +36,8 @@ export interface AgentTurnFlowDeps {
 }
 
 export interface AgentTurnFlow {
-  onResponseStarted(): void;
+  /** Returns false when the reply came too early (mid split actor speech) and is being discarded. */
+  onResponseStarted(): boolean;
   onAudioStarted(): void;
   onResponseEnded(spokenText: string): void;
   onAudioEnded(): void;
@@ -55,6 +56,12 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
   let busy = false; // the agent is mid-response (text or audio in flight)
   let responseSeen = false;
   let lastCued = -1;
+  let discarding = false; // an early reply mid actor turn: ignore all its events
+
+  const inUnfinishedActorTurn = () => {
+    const l = deps.getLines()[deps.getCurrentIndex()];
+    return l?.type === 'actor' && l.isTurnEnd === false;
+  };
   let responseTimer: ReturnType<typeof setTimeout> | null = null;
   let cueTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -84,6 +91,11 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
 
     const lines = deps.getLines();
     const before = deps.getCurrentIndex();
+    // Never let the agent's reply skip actor paragraphs that haven't been spoken yet
+    if (inUnfinishedActorTurn()) {
+      deps.setListening();
+      return;
+    }
     // Match what was actually said so we catch up if a turn was missed
     const spokenIndex = findSpokenAiLine(lines, before, text);
     if (spokenIndex !== -1) {
@@ -109,19 +121,32 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
 
   return {
     onResponseStarted() {
+      if (deps.isActive() && inUnfinishedActorTurn()) {
+        discarding = true;
+        clearResponseTimer();
+        pendingText = null;
+        audio = 'none';
+        busy = false;
+        deps.setListening();
+        return false;
+      }
+      discarding = false;
       busy = true;
       responseSeen = true;
       clearCueTimer();
       deps.setSpeaking();
+      return true;
     },
 
     onAudioStarted() {
+      if (discarding) return;
       busy = true;
       audio = 'playing';
       clearCueTimer();
     },
 
     onResponseEnded(spokenText) {
+      if (discarding) return;
       pendingText = spokenText;
       clearResponseTimer();
       if (audio === 'done') {
@@ -137,6 +162,7 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
     },
 
     onAudioEnded() {
+      if (discarding) return;
       if (pendingText !== null) complete();
       else audio = 'done';
     },
@@ -144,6 +170,7 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
     onUserSpeechEnded(transcript) {
       if (!deps.isActive()) return;
       if (!transcript?.trim()) return;
+      discarding = false;
 
       const lines = deps.getLines();
       const before = deps.getCurrentIndex();
@@ -179,6 +206,7 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
       busy = false;
       responseSeen = false;
       lastCued = -1;
+      discarding = false;
     },
   };
 }

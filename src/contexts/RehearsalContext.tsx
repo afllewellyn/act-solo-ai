@@ -1,3 +1,4 @@
+import { rehearsalLog } from '@/lib/rehearsalLog';
 import React, { createContext, useContext, useRef, useState, useEffect, useMemo, useCallback } from 'react';
 import { isRemovedVoice } from '@/lib/voices';
 import { ScriptRehearsalStateMachine, Character, TextFilter, RehearsalState, ScriptLine } from '@/services/ScriptRehearsalStateMachine';
@@ -283,13 +284,11 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       turnFlow.onUserSpeechEnded(transcript);
     },
     onAgentResponseStarted: () => {
-      const currentLine = parsedLinesRef.current[currentLineIndexRef.current];
-      if (currentLine?.type === 'actor' && currentLine.isTurnEnd === false) {
-        console.log('⏸️ [ConversationEngine] Interrupting early AI response during split actor turn');
+      if (!turnFlow.onResponseStarted()) {
+        console.log('⏸️ [ConversationEngine] Discarding early AI response during split actor turn');
         conversationEngine.sendControl({ type: 'interrupt' });
-        return;
+        rehearsalLog.log('early_response_discarded', { index: currentLineIndexRef.current });
       }
-      turnFlow.onResponseStarted();
     },
     onAgentResponseEnded: (fullText) => {
       turnFlow.onResponseEnded(fullText);
