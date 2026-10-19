@@ -37,8 +37,16 @@ export const getScriptLines = (
   const tempDiv = document.createElement('div');
   tempDiv.innerHTML = scriptContent;
   
-  // Get all paragraph elements
-  const paragraphs = tempDiv.querySelectorAll('p');
+  // A <br> inside a paragraph (Shift+Enter / pasted text) is a separate line: split it so
+  // an actor line and an AI line typed on one paragraph never merge into one block.
+  const paragraphs: HTMLElement[] = [];
+  tempDiv.querySelectorAll('p').forEach((p) => {
+    p.innerHTML.split(/<br\s*\/?>/i).forEach((segment) => {
+      const el = document.createElement('p');
+      el.innerHTML = segment;
+      paragraphs.push(el);
+    });
+  });
   
   const filteredLines: ScriptLine[] = [];
   let paragraphIndex = -1;

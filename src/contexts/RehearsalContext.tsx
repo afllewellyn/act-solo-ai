@@ -364,8 +364,11 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         initialContext,
         playbackSpeed,
       });
+      rehearsalLog.start({ scriptId: scriptTitleRef.current, lineCount: lines.length, speed: playbackSpeed });
     } else if (!rehearsalMode && conversationEngine.isActive) {
       console.log('🛑 [ConversationEngine] Stopping');
+      rehearsalLog.log('stop');
+      rehearsalLog.end();
       turnFlow.reset();
       conversationEngine.stop();
       setRehearsalState('IDLE');

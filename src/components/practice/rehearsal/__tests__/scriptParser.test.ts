@@ -79,3 +79,11 @@ describe('hideCharacterNamePrefixHtml', () => {
       .toBe('<em>Where were you?</em>');
   });
 });
+
+describe('getScriptLines line breaks', () => {
+  it('splits a bold and italic line joined by <br> into separate actor and AI lines', () => {
+    const lines = getScriptLines('<p><strong>My line.</strong><br><em>Your line.</em></p>', 'italic');
+    expect(lines.map(l => l.type)).toEqual(['actor', 'ai']);
+    expect(lines[0].isTurnEnd).toBe(true);
+  });
+});
