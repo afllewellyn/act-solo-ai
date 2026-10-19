@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { TeleprompterDisplay } from '../TeleprompterDisplay';
+import { TeleprompterDisplay, tallLineScrollTarget } from '../TeleprompterDisplay';
 import type { ScriptLine } from '@/components/practice/rehearsal/types';
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -61,10 +61,10 @@ describe('TeleprompterDisplay scrolling', () => {
     delete (HTMLElement.prototype as unknown as Record<string, unknown>).offsetHeight;
   });
 
-  const render = (activeIndex: number) =>
+  const render = (activeIndex: number, status: 'idle' | 'listening' | 'ai' = 'ai') =>
     act(async () =>
       root.render(
-        <TeleprompterDisplay lines={lines} activeIndex={activeIndex} fontSize={24} status="ai" onSelectLine={() => {}} />,
+        <TeleprompterDisplay lines={lines} activeIndex={activeIndex} fontSize={24} status={status} onSelectLine={() => {}} />,
       ),
     );
 
@@ -98,5 +98,66 @@ describe('TeleprompterDisplay scrolling', () => {
     await render(2);
     const top = (scrollTo.mock.calls.at(-1)![0] as ScrollToOptions).top!;
     expect(FIRST_TOP + 2 * GAP - top).toBeCloseTo(VIEWPORT * 0.28 - 24, 5);
+  });
+
+  it('keeps the highlight on the engine index no matter where the view is scrolled', async () => {
+    await render(2);
+    const scroller = container.querySelector('.overflow-y-auto') as HTMLElement;
+    // Simulate the user flinging the view so a different line sits on the eye-line
+    scroller.scrollTop = 0;
+    scroller.dispatchEvent(new Event('scroll'));
+
+    const highlighted = container.querySelectorAll('.bg-studio-cue');
+    expect(highlighted).toHaveLength(1);
+    expect(highlighted[0].textContent).toContain('line 2');
+  });
+
+  it('crawls a too-tall cue gently after a beat and stops at its bottom edge', async () => {
+    vi.useFakeTimers();
+    try {
+      lineHeights = [150, 1200, 150, 150]; // taller than the viewport even when lifted
+      await render(1, 'listening');
+      const scroller = container.querySelector('.overflow-y-auto') as HTMLElement;
+      const target = tallLineScrollTarget(FIRST_TOP + GAP, 1200, VIEWPORT);
+      expect(target).toBeGreaterThan(0);
+
+      // Nothing moves during the hold beat
+      await act(async () => { vi.advanceTimersByTime(1400); });
+      expect(scroller.scrollTop).toBe(0);
+
+      // After the hold, the crawl moves the view but never past the cue's bottom edge
+      await act(async () => { vi.advanceTimersByTime(1000); });
+      expect(scroller.scrollTop).toBeGreaterThan(0);
+      expect(scroller.scrollTop).toBeLessThanOrEqual(target);
+
+      await act(async () => { vi.advanceTimersByTime(120000); });
+      expect(scroller.scrollTop).toBeLessThanOrEqual(target + 0.5);
+      expect(scroller.scrollTop).toBeGreaterThan(target - 1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not crawl a tall cue while paused or idle', async () => {
+    vi.useFakeTimers();
+    try {
+      lineHeights = [150, 1200, 150, 150];
+      await render(1, 'idle');
+      const scroller = container.querySelector('.overflow-y-auto') as HTMLElement;
+      await act(async () => { vi.advanceTimersByTime(10000); });
+      expect(scroller.scrollTop).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe('tallLineScrollTarget', () => {
+  it('stops with the cue bottom just above the bottom fade mask', () => {
+    expect(tallLineScrollTarget(500, 1200, 800)).toBe(500 + 1200 - (800 - 112));
+  });
+
+  it('never scrolls backwards past the top', () => {
+    expect(tallLineScrollTarget(100, 50, 800)).toBe(0);
   });
 });
