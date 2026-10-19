@@ -33,6 +33,7 @@ const EVENT_NAMES = new Set([
   'agent_audio_ended',
   'user_speech_ended',
   'pacing_sample',
+  'early_response_discarded',
 ]);
 
 // Per-event payload fields. Anything not listed here is dropped.

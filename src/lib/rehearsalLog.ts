@@ -35,7 +35,8 @@ export type RehearsalLogEvent =
   | 'agent_audio_started'
   | 'agent_audio_ended'
   | 'user_speech_ended'
-  | 'pacing_sample';
+  | 'pacing_sample'
+  | 'early_response_discarded';
 
 export type RehearsalLogData = Record<string, number | string | boolean | null | undefined>;
 
