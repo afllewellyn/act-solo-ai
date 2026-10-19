@@ -1,72 +1,37 @@
-# Rehearsal Fixes — Voices, Name-Free Scripts, Eye-Line Scrolling
+# Stop the AI from skipping past a split bold speech
 
-## 1. Pick and sample any voice again
-**What's wrong:** The voice list in Rehearsal settings only appears for characters found from `NAME:` prefixes. Scripts without names show no voice picker at all.
+## The problem
+When an actor's speech is split into several bold paragraphs, the AI sometimes starts talking after the first paragraph. The app already tries to stop it, but the rest of that early reply (its text and audio) still reaches the turn logic. When the reply "finishes", the screen jumps forward to the next AI line, skipping the actor's remaining bold paragraphs.
 
-**Fix:**
-- Add an **AI voice** row that's always shown. It has a dropdown of every available voice (name, gender, accent) and a **▶ Test** button. It sets the voice the AI scene partner uses.
-- Add a **Browse voices** list underneath. It shows every voice, each with its own ▶ preview, so the user can sample before choosing. Tapping a voice selects it.
-- If the script does have named characters, each AI character also gets its own optional voice override row (as it works now). It falls back to the main AI voice.
-- The voice choice is remembered for the script (saved with the script), so it's still set next time.
+## What will change (for the actor)
+- If the AI speaks while bold lines are still unfinished, its voice is cut off immediately and the screen stays on the actor's lines.
+- The early reply is thrown away completely: it cannot move the highlight, change the status, or count as the AI's turn.
+- Once the actor reaches the last bold paragraph, the AI answers as normal (on its own, or cued after a short silence).
+- Everything else stays as it is: continuous scrolling, scroll speed in the header, pause/resume, Next cue, voice choice, AI-to-AI lines, end-of-script.
 
-## 2. Names in front of lines become optional
-**Rule:** *Italic = the AI reads it. Bold = you read it.* Names like "BEN:" are allowed but never required.
+## Steps
+1. **Ignore early replies end to end.** When an AI reply starts on a non-final actor line, mark it as "discarded": interrupt the agent, silence its audio on our side, and ignore every following text/audio event for that reply until the next reply begins.
+2. **Screen can only move forward through actor lines by the actor's speech.** The "AI finished speaking" step may only advance the highlight if the current line is an AI line, or the actor's turn has reached its last paragraph. It will never skip unfinished bold lines.
+3. **Recover cleanly.** After a discarded reply, return to "listening" so the actor just keeps going; no re-cue until the bold block is complete.
+4. **Log it.** Record discarded replies in the rehearsal log so we can see how often the agent still jumps in.
 
-- **New / Edit Script panel:** "Characters detected" becomes **"Lines detected"**, e.g. "6 yours · 5 AI". Named characters still show as chips when present. The hint text changes to "Make your lines **bold** and the AI's lines *italic*. Character names are optional."
-- **Script cards:** show "N your lines · N AI lines" when there are no names, or the character chips when there are.
-- **Rehearsal settings:** "Your role" shows "Your bold lines (N)" when unnamed, or the names when present.
-- A new **Show character names** toggle in Rehearsal settings (default on) lets users who use names keep them on the teleprompter or hide them. Names are never read aloud either way (this already works).
-- Lines with no formatting are shown as stage notes in the teleprompter and skipped by the AI. A gentle tip in the editor asks the user to make every line bold or italic.
+## QA (before calling it done)
+Automated tests, kept in the project:
+- Split bold speech (3 paragraphs): AI reply after paragraph 1 is discarded; highlight stays on paragraph 1/2; no AI cue sent.
+- Discarded reply's text and audio-ended events do not move the highlight.
+- After the actor speaks the last paragraph, the AI is cued/answers and the highlight lands on the AI line.
+- Normal single bold line -> AI reply still advances as before.
+- AI -> AI lines still auto-cue.
+- A missed actor transcript still can't freeze the screen once the actor's turn is done.
+- Existing test suites (turn flow, line matching, script parser, teleprompter, engine) all pass.
 
-## 3. Teleprompter auto-scroll and eye-line
-**What's wrong:** The highlighted line doesn't move to the eye-line as the scene plays. The likely cause is that the screen reads the current line from rehearsal state that isn't refreshed on every turn. The live AI partner also reports turns through its own events, not that state. **This is unconfirmed:** step 1 is to log the turn events during a real rehearsal and confirm it before changing anything.
-
-**Fix:**
-- Keep one current-line position owned by the rehearsal screen. It moves forward when:
-  - the AI finishes speaking its line (AI turn ends), or
-  - the user finishes speaking their bold line (user speech ends / line matched), or
-  - the user taps **Next cue** or a line.
-- Match what the AI actually said to the next AI line, so the screen catches up if a turn is missed.
-- Auto-scroll centres the current line on the dashed eye-line (28% from the top) on every change. It also re-centres when the window is resized or the text size changes.
-- Read script aloud (no mic) steps through the lines in time with playback, so listen mode scrolls too.
-- If you scroll by hand, auto-scroll pauses briefly, then snaps back on the next line.
+Checks:
+- Typecheck, lint, production build, and the real-browser smoke test.
+- Browser run of the practice screen signed in: open a script with split bold speech, start rehearsal, confirm header scroll speed, font size, pause/resume, settings drawer and voice picker all work.
+- Live voice check with ElevenLabs: I'll attempt it in the sandbox; if the microphone can't be simulated there, I'll tell you and ask you to do one run-through with a split speech and natural pauses.
 
 ## Technical details
-- `RehearsalSettingsDrawer.tsx`: always show the main voice selector bound to `selectedVoice` / `setSelectedVoice`, plus a browse list using `voices` and `useTTS().speak` for previews. Per-character rows only when `characters.length > 0`. Save the main voice into the script's `characters` JSON as a reserved `__default` entry (no database schema change).
-- `scriptMeta.ts`: add `countLineRoles(html)` (bold / italic / plain per paragraph); keep `detectCharacterRoles` for optional names.
-- `ScriptCreatorDrawer.tsx`, `ManageScripts.tsx`: switch labels and chips to the line-count summary when there are no names.
-- `TeleprompterDisplay.tsx`: add a `showNames` prop that strips the `NAME:` prefix from the displayed HTML; render plain lines as muted stage notes; add ResizeObserver re-centring and a manual-scroll grace period.
-- `Practice.tsx`: replace the `stateMachine.getCurrentLineIndex()` read with a local `currentLine` advanced from rehearsal context events (`rehearsalState` transitions, `onAgentResponseEnded`, `onUserSpeechEnded`), exposed via a small `onTurnAdvance` callback added to `RehearsalContext`. Fuzzy-match the agent text against upcoming AI lines.
-- `RehearsalContext.tsx`: expose `onTurnAdvance` subscription and the current line index from the state machine via state (not the ref), so the UI re-renders on every change. No engine or audio changes.
-- No changes to sign-in, saved data structure, or the voice backend.
-
-## QA
-- Script without names: create, save, rehearse; AI reads italic and waits on bold; settings show the voice picker; Test works for every voice.
-- Script with names: per-character voices, names toggle on and off.
-- Scrolling: each line lands on the eye-line through a full scene in rehearsal and in Read script mode; Next cue and line-tap jump correctly; desktop and mobile.
-- Typecheck and lint clean. You'll need to do the signed-in voice and mic checks in the preview, since automated sign-in isn't available here.
-
-## Handoff notes (for whoever picks this up)
-
-**Verified code locations behind each bug**
-- Voices: `RehearsalSettingsDrawer.tsx` lines 33–36 build the AI voice rows only from `characters` (saved from `NAME:` prefixes). If a script has no names, the list is empty and the voice picker never shows. `selectedVoice` / `setSelectedVoice` already exist in `RehearsalContext` but aren't used in the drawer.
-- Name requirement: `src/lib/scriptMeta.ts` `detectCharacterRoles` and the save step in `ScriptCreatorDrawer.tsx` only record characters from lines that match `CHARACTER_LINE_REGEX` (`textUtils.ts`). The rehearsal engine itself (`scriptParser.ts` `getScriptLines`) already works without names.
-- Scrolling: `Practice.tsx` lines 100–103 read `stateMachine.getCurrentLineIndex()`. `stateMachine` comes from `stateMachineRef.current` in the context value (`RehearsalContext.tsx` line 680), so it isn't refreshed reliably. Turn events are available at `RehearsalContext.tsx` line 204 (`onUserSpeechEnded`) and line 217 (`onAgentResponseEnded`) but nothing passes them on to the screen.
-
-**Steps, in order**
-1. Add temporary logging of `rehearsalState`, the line position and both turn events during one real rehearsal, to confirm the scrolling cause. Remove the logging afterwards.
-2. Rework the voice picker (section 1).
-3. Make names optional (section 2).
-4. Fix scrolling (section 3).
-5. Run QA.
-
-**Done when (pass/fail)**
-- [ ] A script with no names shows an AI voice dropdown with every available voice, and each voice's ▶ preview plays.
-- [ ] The chosen voice is used in rehearsal and is still selected after a page reload.
-- [ ] A script with names shows per-character overrides, and the names toggle hides or shows them on the teleprompter.
-- [ ] You can save and rehearse a script with no `NAME:` prefixes without errors. Cards and the editor show the yours / AI line counts.
-- [ ] During a full rehearsal, every new line lands on the dashed eye-line within about half a second of the previous turn ending.
-- [ ] Read script aloud scrolls line by line. Next cue and tapping a line jump correctly. Resize and A+/A− re-centre the line.
-- [ ] Typecheck has no errors, and lint has no new errors.
-
-**Out of scope:** sign-in, database structure, edge functions, the ElevenLabs engine internals.
+- `RehearsalContext.tsx`: `onAgentResponseStarted` sets a `discardResponseRef`; while set, `onAgentResponseEnded`, `onAgentAudioStarted/Ended` skip `turnFlow`; audio player stopped/flushed via engine interrupt; flag cleared on next valid response start or on user speech reaching turn end.
+- `agentTurnFlow.ts`: `complete()` guard — if current line is `actor` and not at `isTurnEnd`, do not advance; sequential fallback must not cross unfinished actor lines. Add `discardResponse()` API so the logic is unit-testable.
+- `rehearsalLog.ts`: new `early_response_discarded` event.
+- Tests in `src/lib/__tests__/agentTurnFlow.test.ts` and context-level test where practical.
