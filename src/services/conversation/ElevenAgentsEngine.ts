@@ -239,6 +239,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
         });
         break;
       case 'interrupt':
+        this.audioPlayer.stop(); // silence locally right away, don't wait for the server
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
         break;
       case 'clear_buffer':
