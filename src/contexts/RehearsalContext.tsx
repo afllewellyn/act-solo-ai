@@ -200,9 +200,13 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
 
   // Single place that moves the current line, so state, ref and highlight stay in sync
   const setLine = useCallback((index: number) => {
+    const previousIndex = currentLineIndexRef.current;
     currentLineIndexRef.current = index;
     setCurrentLineIndex(index);
     setCurrentParagraphIndex(parsedLinesRef.current[index]?.paragraphIndex ?? null);
+    if (previousIndex !== index) {
+      rehearsalLog.log('line_change', { index, type: parsedLinesRef.current[index]?.type });
+    }
   }, []);
 
   // Not memoized on purpose: it reads the current engine state each render
@@ -234,8 +238,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       return;
     }
 
+    const previousLine = lines[currentLineIndexRef.current];
     setLine(nextIndex);
-    syncEngineContext(nextIndex);
+    // The full actor block is already in context: visual paragraph progress is not a new turn.
+    if (previousLine?.type !== 'actor' || lines[nextIndex]?.type !== 'actor') {
+      syncEngineContext(nextIndex);
+    }
   };
 
   const advanceToNextLine = () => {
@@ -277,10 +285,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
 
   const conversationEngine = useConversationEngine({
     onUserSpeechStarted: () => {
+      turnFlow.onUserSpeechStarted();
       setRehearsalState('WAITING_FOR_ACTOR_CUE');
     },
     // Turn-taking (advance after the line is heard, cue the agent when needed) lives in agentTurnFlow
     onUserSpeechEnded: (transcript) => {
+      rehearsalLog.log('user_speech_ended');
       turnFlow.onUserSpeechEnded(transcript);
     },
     onAgentResponseStarted: () => {
@@ -295,10 +305,12 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     },
     onAgentAudioStarted: () => {
       console.log('🔊 [ConversationEngine] Agent audio started');
+      rehearsalLog.log('agent_audio_started');
       turnFlow.onAudioStarted();
     },
     onAgentAudioEnded: () => {
       console.log('🔊 [ConversationEngine] Agent audio ended');
+      rehearsalLog.log('agent_audio_ended');
       turnFlow.onAudioEnded();
     },
     onError: (error) => {
@@ -311,6 +323,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     },
     onStatusChange: (status) => {
       console.log('📡 [ConversationEngine] Status:', status);
+      rehearsalLog.log('engine_status', { status });
       if (status === 'ready') {
         toast({
           title: "AI Partner Connected",
@@ -365,6 +378,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         playbackSpeed,
       });
       rehearsalLog.start({ scriptId: scriptTitleRef.current, lineCount: lines.length, speed: playbackSpeed });
+      rehearsalLog.log('line_change', { index: 0, type: lines[0]?.type });
     } else if (!rehearsalMode && conversationEngine.isActive) {
       console.log('🛑 [ConversationEngine] Stopping');
       rehearsalLog.log('stop');
@@ -791,6 +805,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     
     console.log('⏸️ Pausing rehearsal');
     setIsPaused(true);
+    rehearsalLog.log('pause');
     turnFlow.reset();
     
     // Interrupt AI if using conversation engine
@@ -814,6 +829,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     
     console.log('▶️ Resuming rehearsal');
     setIsPaused(false);
+    rehearsalLog.log('resume');
     
     // Resume agent (graceful no-op, agent resumes automatically)
     if (useElevenEngine && conversationEngine.isActive) {

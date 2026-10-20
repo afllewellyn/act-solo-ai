@@ -21,6 +21,25 @@ describe('split bold actor speech', () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
+  it('waits 4 seconds of silence after the actor finishes before cueing the AI', () => {
+    const { flow, cued } = setup();
+    flow.onUserSpeechEnded('I need you to hear me. This is still my thought. And this is the end.');
+    expect(USER_TURN_CUE_MS).toBe(4000);
+    vi.advanceTimersByTime(3999);
+    expect(cued).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(cued).toEqual([3]);
+  });
+
+  it('does not cue the AI when the actor starts speaking again during the pause', () => {
+    const { flow, cued } = setup();
+    flow.onUserSpeechEnded('I need you to hear me. This is still my thought. And this is the end.');
+    vi.advanceTimersByTime(2000);
+    flow.onUserSpeechStarted();
+    vi.advanceTimersByTime(10000);
+    expect(cued).toEqual([]);
+  });
+
   it('discards an AI reply that starts after the first bold paragraph', () => {
     const { flow, state, cued } = setup();
     expect(flow.onResponseStarted()).toBe(false);

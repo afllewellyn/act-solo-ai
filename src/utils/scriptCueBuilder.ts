@@ -102,7 +102,8 @@ RULES:
 3. Wait until the user has finished the full current user turn block before reading your next line
 4. Do NOT improvise or add extra dialogue
 5. Do NOT repeat lines you've already said
-6. Current text filter: ${textFilter}
+6. Stay silent during the user's pauses, however long. Never ask them to continue, offer reminders or coaching, or read their lines for them
+7. Current text filter: ${textFilter}
 ${nextCue ? `\nYOUR NEXT LINE: "${nextCue.text}"` : ''}`;
 
   return {
