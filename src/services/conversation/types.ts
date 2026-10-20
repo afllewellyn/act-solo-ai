@@ -23,6 +23,8 @@ export type ConversationControlCommand =
   | { type: 'resume_agent' }
   | { type: 'clear_buffer' }
   | { type: 'interrupt' }
+  /** Interrupt and silently drop the rest of the current reply (until the user speaks or is cued). */
+  | { type: 'discard_response' }
   | { type: 'set_playback_speed'; speed: number };
 
 /**

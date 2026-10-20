@@ -6,6 +6,7 @@
 - [ ] Verify replacement audio playback. Blocked: replacement recordings need ElevenLabs access or uploaded MP3s; existing CDN audio did not play in the local browser check.
 
 # Hybrid cue-driven teleprompter
+- [x] Stop discarded early replies from playing; pace the highlight through split bold speeches; confirm with transcripts.
 - [x] Stabilize text size and eliminate duplicate cue-positioning passes.
 - [x] Extend post-actor fallback to 4 seconds and cancel it on fresh speech; instruct the partner to wait silently.
 - [x] Avoid full context updates inside one actor turn; record line/audio timing and recent changes.

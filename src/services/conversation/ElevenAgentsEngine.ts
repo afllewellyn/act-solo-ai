@@ -8,6 +8,7 @@ import { ConversationEngine, ConversationStatus, ConversationEvent, Conversation
 import { ConversationEngineConfig, ScriptContext } from './domain';
 import { supabase } from '@/integrations/supabase/client';
 import { ConversationAudioPlayer } from './AudioPlayer';
+import { createSpeechOnsetDetector } from './speechOnset';
 import { logConversationEngine, type ConversationEngineLogContext } from '@/lib/logger';
 
 export class ElevenAgentsEngine implements ConversationEngine {
@@ -36,6 +37,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private isAudioActive: boolean = false;
   // Server finished streaming audio; playback may still be draining
   private audioStreamEnded: boolean = false;
+  // Dropping the rest of a reply the app rejected (early answer mid split actor speech)
+  private discardingAudio: boolean = false;
+  private detectSpeechOnset = createSpeechOnsetDetector();
   
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
@@ -181,6 +185,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
     logConversationEngine('send_text', {
       engine: 'eleven_agents',
     });
+    this.discardingAudio = false; // a deliberate cue: its reply must be heard
     this.ws.send(JSON.stringify({
       type: 'user_message',
       text,
@@ -242,10 +247,28 @@ export class ElevenAgentsEngine implements ConversationEngine {
         this.audioPlayer.stop(); // silence locally right away, don't wait for the server
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
         break;
+      case 'discard_response':
+        // Interrupt, and drop every remaining chunk of this reply until the actor speaks or we cue
+        this.discardingAudio = true;
+        this.audioPlayer.stop();
+        this.ws.send(JSON.stringify({ type: 'interrupt' }));
+        if (this.isAudioActive) {
+          this.isAudioActive = false;
+          this.audioStreamEnded = false;
+          this.emitEvent({ type: 'agent_audio_ended', timestamp: Date.now() });
+        }
+        break;
       case 'clear_buffer':
         this.ws.send(JSON.stringify({ type: 'clear_buffer' }));
         break;
     }
+  }
+
+  /** Emit user_speech_started on a fresh loud mic chunk (ignored while the agent is audible). */
+  private checkSpeechOnset(samples: Int16Array): void {
+    const onset = this.detectSpeechOnset(samples, Date.now());
+    if (!onset || this.audioPlayer.isBusy) return;
+    this.emitEvent({ type: 'user_speech_started', timestamp: Date.now() });
   }
 
   /** Emit agent_audio_ended once the server stream is done and the last chunk has played. */
@@ -349,6 +372,8 @@ export class ElevenAgentsEngine implements ConversationEngine {
           // ElevenLabs uses user_transcription_event nested object
           const transcriptEvent = message.user_transcription_event;
           if (transcriptEvent) {
+            // The actor spoke again: the agent's next reply is a fresh one
+            this.discardingAudio = false;
             // ElevenLabs doesn't have is_final flag - emit user_speech_ended with transcript
             this.emitEvent({
               type: 'user_speech_ended',
@@ -412,6 +437,8 @@ export class ElevenAgentsEngine implements ConversationEngine {
           // ElevenLabs uses audio_event nested object with audio_base_64
           const audioEvent = message.audio_event;
           if (!audioEvent) break;
+          // A discarded early reply keeps streaming for a moment after the interrupt: never play it
+          if (this.discardingAudio) break;
 
           // Track audio streaming state
           this.audioStreamEnded = false;
@@ -751,6 +778,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
         
         const { type, buffer } = event.data;
         if (type === 'audio') {
+          this.checkSpeechOnset(new Int16Array(buffer));
           // Convert ArrayBuffer to base64
           const base64 = this.arrayBufferToBase64(buffer);
           
@@ -802,6 +830,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           int16Array[i] = s < 0 ? s * 0x8000 : s * 0x7FFF;
         }
         
+        this.checkSpeechOnset(int16Array);
         const base64 = this.arrayBufferToBase64(int16Array.buffer);
         this.ws.send(JSON.stringify({ user_audio_chunk: base64 }));
       };
