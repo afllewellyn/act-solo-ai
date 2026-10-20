@@ -337,6 +337,24 @@ describe('ElevenAgentsEngine', () => {
       expect(interruptMsg).toBeDefined();
     });
 
+    it('discard_response drops the rest of the rejected reply until the actor speaks again', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      const chunk = () => mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('x') } });
+
+      chunk();
+      await engine.sendControl({ type: 'discard_response' });
+      expect(mockWsInstance?.getSentMessages().some(m => m.type === 'interrupt')).toBe(true);
+      const deltasBefore = events.filter(e => e.type === 'agent_audio_delta').length;
+      chunk();
+      chunk();
+      expect(events.filter(e => e.type === 'agent_audio_delta').length).toBe(deltasBefore);
+
+      mockWsInstance?.simulateMessage({ type: 'user_transcript', user_transcription_event: { user_transcript: 'and the end' } });
+      chunk();
+      expect(events.filter(e => e.type === 'agent_audio_delta').length).toBe(deltasBefore + 1);
+    });
+
     it('should send clear_buffer command', async () => {
       await engine.start();
       await new Promise(resolve => setTimeout(resolve, 10));
