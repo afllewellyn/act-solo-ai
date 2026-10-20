@@ -34,7 +34,9 @@ export type RehearsalLogEvent =
   | 'stop'
   | 'agent_audio_started'
   | 'agent_audio_ended'
+  | 'user_speech_started'
   | 'user_speech_ended'
+  | 'actor_paced'
   | 'pacing_sample'
   | 'early_response_discarded';
 

@@ -279,12 +279,14 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       setSpeaking: () => turnFlowDepsRef.current.setRehearsalState('AI_SPEAKING'),
       setListening: () => turnFlowDepsRef.current.setRehearsalState('WAITING_FOR_ACTOR_CUE'),
       getSpeed: () => playbackSpeedRef.current,
+      onPaced: (index) => rehearsalLog.log('actor_paced', { index }),
     });
   }
   const turnFlow = turnFlowRef.current;
 
   const conversationEngine = useConversationEngine({
     onUserSpeechStarted: () => {
+      rehearsalLog.log('user_speech_started');
       turnFlow.onUserSpeechStarted();
       setRehearsalState('WAITING_FOR_ACTOR_CUE');
     },
@@ -296,7 +298,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     onAgentResponseStarted: () => {
       if (!turnFlow.onResponseStarted()) {
         console.log('⏸️ [ConversationEngine] Discarding early AI response during split actor turn');
-        conversationEngine.sendControl({ type: 'interrupt' });
+        conversationEngine.sendControl({ type: 'discard_response' });
         rehearsalLog.log('early_response_discarded', { index: currentLineIndexRef.current });
       }
     },
