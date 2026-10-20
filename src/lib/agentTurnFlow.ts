@@ -18,7 +18,7 @@ export const NO_AUDIO_FALLBACK_MS = 1500;
 /** Pause between finishing one AI line and cueing the next AI line. */
 export const AI_TO_AI_CUE_MS = 500;
 /** How long the agent gets to answer the user on its own before we cue it. */
-export const USER_TURN_CUE_MS = 2500;
+export const USER_TURN_CUE_MS = 4000;
 
 export interface AgentTurnFlowDeps {
   getLines(): ScriptLine[];
@@ -41,6 +41,8 @@ export interface AgentTurnFlow {
   onAudioStarted(): void;
   onResponseEnded(spokenText: string): void;
   onAudioEnded(): void;
+  /** A fresh actor utterance cancels the silence fallback; pauses are not cues. */
+  onUserSpeechStarted(): void;
   onUserSpeechEnded(transcript?: string): void;
   /** Record that the agent was cued for `index` by someone else (opening line, Next cue). */
   markCued(index: number): void;
@@ -167,10 +169,13 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
       else audio = 'done';
     },
 
+    onUserSpeechStarted() {
+      clearCueTimer();
+    },
+
     onUserSpeechEnded(transcript) {
       if (!deps.isActive()) return;
       if (!transcript?.trim()) return;
-      discarding = false;
 
       const lines = deps.getLines();
       const before = deps.getCurrentIndex();

@@ -71,12 +71,10 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
   }, []);
   const centreActive = useCallback((force = false) => centreLine(activeIndexRef.current, force), [centreLine]);
 
-  // The engine is the single source of truth for the highlighted cue: when it
-  // advances, glide that cue to the eye-line and hold there.
+  // One positioning pass for cue and layout changes; text never resizes on activation.
   useLayoutEffect(() => {
-    manualUntilRef.current = 0;
-    centreLine(activeIndex, true);
-  }, [activeIndex, centreLine]);
+    centreLine(activeIndex);
+  }, [activeIndex, centreLine, fontSize, lines, hideNames]);
 
   // Tall cues only: after a beat, gently crawl so the rest of the line is revealed.
   // The crawl is clamped to the active cue's bottom edge and never enters the next cue.
@@ -106,11 +104,6 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     return () => { clearTimeout(timer); cancelAnimationFrame(frame); };
   }, [activeIndex, status, fontSize, lines]);
 
-  // Text size / content changes re-centre unless the user is scrolling by hand
-  useLayoutEffect(() => {
-    centreActive();
-  }, [centreActive, fontSize, lines.length, hideNames]);
-
   // Re-centre on resize / rotation, and pause auto-scroll briefly after manual scrolling
   useEffect(() => {
     const container = scrollRef.current;
@@ -118,7 +111,14 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
     const pause = () => { manualUntilRef.current = Date.now() + MANUAL_SCROLL_GRACE_MS; };
     container.addEventListener('wheel', pause, { passive: true });
     container.addEventListener('touchmove', pause, { passive: true });
-    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => centreActive()) : null;
+    let width = container.clientWidth;
+    let height = container.clientHeight;
+    const observer = typeof ResizeObserver !== 'undefined' ? new ResizeObserver(() => {
+      if (width === container.clientWidth && height === container.clientHeight) return;
+      width = container.clientWidth;
+      height = container.clientHeight;
+      centreActive();
+    }) : null;
     observer?.observe(container);
     return () => {
       container.removeEventListener('wheel', pause);
@@ -196,7 +196,7 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
                 )}
                 <div
                   className={cn('leading-snug [&_strong]:font-bold [&_em]:italic', isYou ? 'font-semibold' : 'italic')}
-                  style={{ fontSize: active ? fontSize * 1.35 : fontSize }}
+                  style={{ fontSize }}
                   dangerouslySetInnerHTML={{ __html: line.content }}
                 />
               </div>

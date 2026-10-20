@@ -6,6 +6,10 @@
 - [ ] Verify replacement audio playback. Blocked: replacement recordings need ElevenLabs access or uploaded MP3s; existing CDN audio did not play in the local browser check.
 
 # Hybrid cue-driven teleprompter
+- [x] Stabilize text size and eliminate duplicate cue-positioning passes.
+- [x] Extend post-actor fallback to 4 seconds and cancel it on fresh speech; instruct the partner to wait silently.
+- [x] Avoid full context updates inside one actor turn; record line/audio timing and recent changes.
+- [ ] Run regression QA for stable scrolling, patient cue timing and split-turn recovery.
 - [x] Decouple highlight from scroll position: engine activeIndex is the single source of truth.
 - [x] Glide new cues to the eye-line, hold stationary for ordinary dialogue.
 - [x] Bounded gentle crawl for too-tall cues only, clamped at the cue's bottom edge.
