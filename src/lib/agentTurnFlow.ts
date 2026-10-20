@@ -115,9 +115,21 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
     if (responseTimer) clearTimeout(responseTimer);
     responseTimer = null;
   };
+  let cueAction: (() => void) | null = null;
   const clearCueTimer = () => {
     if (cueTimer) clearTimeout(cueTimer);
     cueTimer = null;
+    cueAction = null;
+  };
+  /** Run `action` after `ms` of quiet; fresh actor speech restarts the wait instead of dropping it. */
+  const armCue = (action: () => void, ms = USER_TURN_CUE_MS) => {
+    clearCueTimer();
+    cueAction = action;
+    cueTimer = setTimeout(() => {
+      cueTimer = null;
+      cueAction = null;
+      action();
+    }, ms);
   };
 
   const cueIfIdle = (index: number) => {
@@ -125,6 +137,20 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
     if (deps.getLines()[index]?.type !== 'ai' || lastCued === index) return;
     lastCued = index;
     deps.cueAgent(index);
+  };
+
+  const recoverAfterDiscard = () => {
+    if (!deps.isActive() || busy) return;
+    const lines = deps.getLines();
+    const index = deps.getCurrentIndex();
+    const line = lines[index];
+    if (line?.type !== 'actor') return;
+    if (line.isTurnEnd === false) { armCue(recoverAfterDiscard); return; } // pace is still walking the block
+    heard = { turnId: line.turnId ?? -1, index };
+    clearPaceTimer();
+    deps.advanceFrom(index);
+    const landed = deps.getCurrentIndex();
+    if (landed !== index) cueIfIdle(landed);
   };
 
   const complete = () => {
@@ -160,8 +186,7 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
     const landed = deps.getCurrentIndex();
     if (landed !== before && lines[landed]?.type === 'ai') {
       // AI -> AI: nobody else is going to speak this line
-      clearCueTimer();
-      cueTimer = setTimeout(() => cueIfIdle(landed), AI_TO_AI_CUE_MS);
+      armCue(() => cueIfIdle(landed), AI_TO_AI_CUE_MS);
     }
   };
 
@@ -174,6 +199,9 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
         audio = 'none';
         busy = false;
         deps.setListening();
+        // The agent thinks the actor is done. If they then stay quiet on their last paragraph,
+        // treat the speech as finished (a missed transcript must not freeze the scene).
+        armCue(recoverAfterDiscard);
         return false;
       }
       discarding = false;
@@ -215,13 +243,7 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
 
     onUserSpeechStarted() {
       // Fresh speech postpones the silence fallback (restarted from now, so stray noise can't stall it)
-      if (cueTimer) {
-        const index = deps.getCurrentIndex();
-        clearCueTimer();
-        cueTimer = setTimeout(() => {
-          if (!responseSeen) cueIfIdle(index);
-        }, USER_TURN_CUE_MS);
-      }
+      if (cueAction) armCue(cueAction);
       // Start walking a split speech the moment the actor starts reading it
       if (!paceTimer) schedulePace();
     },
@@ -260,10 +282,9 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
       const landed = deps.getCurrentIndex();
       if (!agentAlreadyAnswering && landed !== before && lines[landed]?.type === 'ai') {
         // The agent answers the user on its own; step in only if it stays quiet
-        clearCueTimer();
-        cueTimer = setTimeout(() => {
+        armCue(() => {
           if (!responseSeen) cueIfIdle(landed);
-        }, USER_TURN_CUE_MS);
+        });
       }
     },
 
