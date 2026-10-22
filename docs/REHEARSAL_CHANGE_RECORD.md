@@ -31,3 +31,8 @@ Automated checks cover cue timing, split-turn interruption/recovery, ordinary sc
 - When the AI finishes, the prompter steps forward one line; catch-up jumps only on confident matches (>=75%, lines of 4+ words) within the next 2 AI lines, never past an unspoken actor line.
 - Tapping a line goes to that exact line, clears pending turn timers, and cues the AI on AI lines; finishing a text selection no longer counts as a tap.
 - New `highlight_move` diagnostic (reason: ai_start / sequential / catch_up / tap, indices only).
+
+## Oct 22 2026 — reliable audio-end and calmer split-speech pacing
+- Root cause of the stuck highlight on AI lines: if the server never sent `audio_end`, the turn never completed and the prompter froze. The engine now ends the audio turn after a 2.5-second quiet gap with no more chunks (each fresh chunk restarts the wait), in addition to the existing playout-aware end.
+- Split bold speeches now pace at ~1.8 words/second (was 2.3) with a 1.6-second minimum per paragraph, so the highlight trails dramatic delivery instead of racing ahead of it.
+- The rehearsal-log receiver now preserves `highlight_move` details (reason, from, to) instead of dropping them, so future traces show why the highlight moved.
