@@ -46,6 +46,8 @@ export interface AgentTurnFlowDeps {
   getSpeed?(): number;
   /** Diagnostics: the highlight walked to `index` by reading pace. */
   onPaced?(index: number): void;
+  /** Diagnostics: why the highlight moved (indices only). */
+  onMove?(reason: 'ai_start' | 'sequential' | 'catch_up', from: number, to: number): void;
 }
 
 export interface AgentTurnFlow {
@@ -153,6 +155,20 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
     if (landed !== index) cueIfIdle(landed);
   };
 
+  /** The agent started answering a finished actor turn: highlight its line now, not after transcripts. */
+  const showAiLineNow = () => {
+    if (!deps.isActive()) return;
+    const lines = deps.getLines();
+    const index = deps.getCurrentIndex();
+    if (lines[index]?.type !== 'actor' || inUnfinishedActorTurn()) return;
+    let next = index + 1;
+    while (next < lines.length && lines[next].type === 'actor') next++;
+    if (lines[next]?.type !== 'ai') return;
+    clearPaceTimer();
+    deps.onMove?.('ai_start', index, next);
+    deps.advanceFrom(next - 1);
+  };
+
   const complete = () => {
     clearResponseTimer();
     const text = pendingText ?? '';
@@ -168,10 +184,14 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
       deps.setListening();
       return;
     }
-    // Match what was actually said so we catch up if a turn was missed
+    // Catch up only on a confident nearby match; otherwise step forward in order
     const spokenIndex = findSpokenAiLine(lines, before, text);
-    if (spokenIndex !== -1) {
+    if (spokenIndex !== -1 && spokenIndex > before) {
+      deps.onMove?.('catch_up', before, spokenIndex + 1);
       deps.advanceFrom(spokenIndex);
+    } else if (lines[before]?.type === 'ai') {
+      deps.onMove?.('sequential', before, before + 1);
+      deps.advanceFrom(before);
     } else {
       // Sequential fallback: the agent spoke the next AI line, even if it improvised the words.
       // This also steps past a user line whose transcript was missed, so the prompter never freezes.
@@ -208,6 +228,7 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
       busy = true;
       responseSeen = true;
       clearCueTimer();
+      showAiLineNow();
       deps.setSpeaking();
       return true;
     },
@@ -217,6 +238,7 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
       busy = true;
       audio = 'playing';
       clearCueTimer();
+      showAiLineNow();
     },
 
     onResponseEnded(spokenText) {
