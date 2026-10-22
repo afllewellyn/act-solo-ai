@@ -16,4 +16,7 @@
 - [x] Glide new cues to the eye-line, hold stationary for ordinary dialogue.
 - [x] Bounded gentle crawl for too-tall cues only, clamped at the cue's bottom edge.
 - [x] Remove the manual scroll-speed slider from the rehearsal HUD.
+- [x] End AI audio turns reliably when the server omits audio_end (2.5s quiet-gap watchdog).
+- [x] Calm split-speech pacing to ~1.8 words/sec so the highlight trails delivery.
+- [x] Preserve highlight_move reason/from/to in rehearsal logs for diagnosis.
 - [ ] Verify a live signed-in rehearsal with microphone and real engine turns. Blocked: auth is external_unmanaged in this sandbox, so no session can be minted; needs a real user read-through.

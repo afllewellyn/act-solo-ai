@@ -40,6 +40,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
   // Dropping the rest of a reply the app rejected (early answer mid split actor speech)
   private discardingAudio: boolean = false;
   private detectSpeechOnset = createSpeechOnsetDetector();
+  // Safety net: if the server never sends audio_end, finish the turn after a quiet gap
+  private audioEndWatchdog: ReturnType<typeof setTimeout> | null = null;
+  private static readonly AUDIO_END_WATCHDOG_MS = 2500;
   
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
@@ -143,6 +146,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
     this.reconnectAttempts = 0;
     
     // Stop audio playback
+    this.clearAudioEndWatchdog();
     this.audioPlayer.stop();
     
     // Disconnect and clean up audio worklet
@@ -250,6 +254,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
       case 'discard_response':
         // Interrupt, and drop every remaining chunk of this reply until the actor speaks or we cue
         this.discardingAudio = true;
+        this.clearAudioEndWatchdog();
         this.audioPlayer.stop();
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
         if (this.isAudioActive) {
@@ -274,12 +279,33 @@ export class ElevenAgentsEngine implements ConversationEngine {
   /** Emit agent_audio_ended once the server stream is done and the last chunk has played. */
   private finishAudioIfDrained(): void {
     if (!this.isAudioActive || !this.audioStreamEnded || this.audioPlayer.isBusy) return;
+    this.clearAudioEndWatchdog();
     this.isAudioActive = false;
     this.audioStreamEnded = false;
     this.emitEvent({
       type: 'agent_audio_ended',
       timestamp: Date.now(),
     });
+  }
+
+  private clearAudioEndWatchdog(): void {
+    if (this.audioEndWatchdog) clearTimeout(this.audioEndWatchdog);
+    this.audioEndWatchdog = null;
+  }
+
+  /** Restart the quiet-gap watchdog each time a chunk arrives; if no audio_end follows, end the turn. */
+  private armAudioEndWatchdog(): void {
+    this.clearAudioEndWatchdog();
+    this.audioEndWatchdog = setTimeout(() => {
+      this.audioEndWatchdog = null;
+      if (!this.isAudioActive || this.audioStreamEnded || this.discardingAudio) return;
+      logConversationEngine('audio_end_watchdog_fired', {
+        engine: 'eleven_agents',
+        audioChunksReceived: this.audioChunksReceived,
+      });
+      this.audioStreamEnded = true;
+      this.finishAudioIfDrained();
+    }, ElevenAgentsEngine.AUDIO_END_WATCHDOG_MS);
   }
 
   onEvent(callback: (event: ConversationEvent) => void): () => void {
@@ -454,6 +480,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           // Base64 decode audio and emit
           const audioData = this.base64ToArrayBuffer(audioEvent.audio_base_64);
           this.audioChunksReceived++;
+          this.armAudioEndWatchdog();
           this.emitEvent({
             type: 'agent_audio_delta',
             audioData: audioData,
@@ -472,6 +499,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
               engine: 'eleven_agents',
               audioChunksReceived: this.audioChunksReceived,
             });
+            this.clearAudioEndWatchdog();
             this.audioStreamEnded = true;
             this.finishAudioIfDrained();
           }
@@ -479,6 +507,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
         case 'interruption':
           // Stop audio playback immediately on interruption
+          this.clearAudioEndWatchdog();
           this.audioPlayer.stop();
           logConversationEngine('interruption_received', {
             engine: 'eleven_agents',

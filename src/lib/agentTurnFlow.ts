@@ -23,8 +23,8 @@ export const AI_TO_AI_CUE_MS = 500;
 /** How long the agent gets to answer the user on its own before we cue it. */
 export const USER_TURN_CUE_MS = 4000;
 /** Calm reading pace for walking a split actor speech (slower than speech so it trails, never leads). */
-export const ACTOR_PACE_WORDS_PER_SEC = 2.3;
-export const ACTOR_PACE_MIN_MS = 1200;
+export const ACTOR_PACE_WORDS_PER_SEC = 1.8;
+export const ACTOR_PACE_MIN_MS = 1600;
 
 export const actorPaceMs = (line: ScriptLine | undefined, speed = 1): number => {
   const words = (line?.dialogue ?? '').split(/\s+/).filter(Boolean).length;
