@@ -23,6 +23,13 @@ export function initPostHog() {
       // Scripts and rehearsal dialogue are user content: never send their text to PostHog.
       maskAllInputs: true,
       maskTextSelector: '*',
+      // Project-level network capture must not bypass the no-dialogue rule
+      // (script saves send full script HTML in request bodies).
+      recordBody: false,
+      recordHeaders: false,
     },
+    // Console logs can echo script text; keep them out of recordings.
+    enable_recording_console_log: false,
+    capture_performance: false,
   })
 }

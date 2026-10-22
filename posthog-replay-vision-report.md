@@ -3,7 +3,8 @@
 ## Recording
 - Server-side session recording enabled for project 306156 (`session_recording_opt_in: true`).
 - `posthog-js` 1.438.15 added; `src/lib/posthog.ts` is initialized from `src/main.tsx`.
-- Init is a no-op without `VITE_POSTHOG_KEY` (dev builds log the required error). **Recordings will not flow until `VITE_POSTHOG_KEY` (and optionally `VITE_POSTHOG_HOST`) is set in `.env` and in the production host's env vars.**
+- `VITE_POSTHOG_KEY` / `VITE_POSTHOG_HOST` override the defaults; if unset, init falls back to the public project token and the US host, so deployed builds record without extra env configuration.
+- Privacy: all text and inputs are masked, and request/response bodies, headers, console logs and performance capture are disabled locally so script dialogue is never sent.
 
 ## Scanners (all enabled, model gemini-3.5-flash-lite, 2 credits/observation)
 | Name | Type | Watches | Sampling | Credit cap | Est. monthly |
