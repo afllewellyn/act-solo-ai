@@ -1,6 +1,9 @@
 import posthog from 'posthog-js'
 
-const key = import.meta.env.VITE_POSTHOG_KEY as string | undefined
+// The project token is public by design (write-only), like the Supabase anon key.
+const key =
+  (import.meta.env.VITE_POSTHOG_KEY as string | undefined) ||
+  'phc_XtQnsnMxa9JMZYf0iDogUSz0kD8hytsyLFJRUkYihuo'
 const host = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
 
 export function initPostHog() {
@@ -16,5 +19,10 @@ export function initPostHog() {
     api_host: host,
     defaults: '2025-05-24',
     capture_exceptions: true,
+    session_recording: {
+      // Scripts and rehearsal dialogue are user content: never send their text to PostHog.
+      maskAllInputs: true,
+      maskTextSelector: '*',
+    },
   })
 }
