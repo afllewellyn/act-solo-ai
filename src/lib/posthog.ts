@@ -19,6 +19,8 @@ export function initPostHog() {
     api_host: host,
     defaults: '2025-05-24',
     capture_exceptions: true,
+    // Autocaptured clicks (incl. $rageclick) would otherwise carry clicked cue text.
+    mask_all_text: true,
     session_recording: {
       // Scripts and rehearsal dialogue are user content: never send their text to PostHog.
       maskAllInputs: true,
