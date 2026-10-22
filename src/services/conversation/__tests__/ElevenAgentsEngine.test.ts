@@ -723,5 +723,38 @@ describe('ElevenAgentsEngine', () => {
       const slow = new ElevenAgentsEngine({ agentId: 'a', playbackSpeed: 0.75 });
       expect((slow as unknown as { audioPlayer: { playbackSpeed: number } }).audioPlayer.playbackSpeed).toBe(0.75);
     });
+
+    it('should end the audio turn when the server never sends audio_end', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      vi.useFakeTimers();
+      try {
+        mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('a') } });
+        expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(0);
+
+        await vi.advanceTimersByTimeAsync(2600); // past the 2.5s quiet-gap watchdog
+        expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('a fresh chunk postpones the watchdog instead of ending the turn early', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      vi.useFakeTimers();
+      try {
+        mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('a') } });
+        await vi.advanceTimersByTimeAsync(2000);
+        mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('b') } });
+        await vi.advanceTimersByTimeAsync(2000); // 4s since first chunk, 2s since last
+        expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(0);
+
+        await vi.advanceTimersByTimeAsync(600); // now 2.6s of quiet
+        expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });
