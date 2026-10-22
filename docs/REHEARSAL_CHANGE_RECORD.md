@@ -26,3 +26,8 @@
 
 ## QA boundary
 Automated checks cover cue timing, split-turn interruption/recovery, ordinary scene flow and bounded prompter motion. Live signed-in microphone rehearsal requires the user's external Supabase session and remains a user verification step; simulated events do not establish ElevenLabs listening quality.
+## Oct 22 2026 — AI highlight timing and in-order stepping
+- Highlight moves to the AI line when the AI starts answering (text or audio), not after transcripts.
+- When the AI finishes, the prompter steps forward one line; catch-up jumps only on confident matches (>=75%, lines of 4+ words) within the next 2 AI lines, never past an unspoken actor line.
+- Tapping a line goes to that exact line, clears pending turn timers, and cues the AI on AI lines; finishing a text selection no longer counts as a tap.
+- New `highlight_move` diagnostic (reason: ai_start / sequential / catch_up / tap, indices only).

@@ -20,20 +20,34 @@ export function wordOverlap(spoken: string, scriptLine: string): number {
   return hits / lineWords.length;
 }
 
+/** Catch-up limits: only nearby, confident, non-trivial matches may move the highlight. */
+export const AI_MATCH_THRESHOLD = 0.75;
+export const AI_MATCH_MAX_AHEAD = 2;
+export const AI_MATCH_MIN_WORDS = 4;
+
 /**
  * Index of the AI line at or after `fromIndex` that best matches `spoken`,
- * preferring the earliest line on ties. Returns -1 when nothing matches well enough.
+ * preferring the earliest line on ties. Looks at most `maxAhead` AI lines ahead,
+ * ignores short lines, and never searches past an actor line the actor hasn't spoken
+ * (leading actor lines at `fromIndex` are the turn just finished). Returns -1 when unsure.
  */
 export function findSpokenAiLine(
   lines: ScriptLine[],
   fromIndex: number,
   spoken: string,
-  threshold = 0.6
+  threshold = AI_MATCH_THRESHOLD,
+  maxAhead = AI_MATCH_MAX_AHEAD,
 ): number {
   let best = -1;
   let bestScore = 0;
-  for (let i = Math.max(0, fromIndex); i < lines.length; i++) {
+  let i = Math.max(0, fromIndex);
+  while (i < lines.length && lines[i].type === 'actor') i++; // the finished actor turn
+  let seen = 0;
+  for (; i < lines.length && seen < maxAhead; i++) {
+    if (lines[i].type === 'actor') break;
     if (lines[i].type !== 'ai') continue;
+    seen++;
+    if (normalize(lines[i].dialogue).length < AI_MATCH_MIN_WORDS) continue;
     const score = wordOverlap(spoken, lines[i].dialogue);
     if (score > bestScore + 1e-9) {
       best = i;

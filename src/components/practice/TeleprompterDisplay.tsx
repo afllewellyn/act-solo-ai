@@ -176,7 +176,10 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
               <div
                 key={i}
                 ref={(el) => (lineRefs.current[i] = el)}
-                onClick={() => onSelectLine(i)}
+                onClick={() => {
+                  if (window.getSelection()?.toString()) return; // finishing a text selection is not a tap
+                  onSelectLine(i);
+                }}
                 className={cn(
                   'relative my-3 rounded-2xl px-5 py-4 cursor-pointer transition-[background-color,opacity] duration-300',
                   active ? 'bg-studio-cue' : 'hover:bg-studio-surface/50',

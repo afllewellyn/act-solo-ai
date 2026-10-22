@@ -18,8 +18,24 @@ describe('findSpokenAiLine', () => {
     expect(findSpokenAiLine(lines, 0, 'I was at the station, waiting for the late train.')).toBe(1);
   });
 
-  it('catches up to a later AI line when a turn was missed', () => {
-    expect(findSpokenAiLine(lines, 0, 'My phone died, I swear it did')).toBe(3);
+  it('never jumps over an actor line that has not been spoken', () => {
+    expect(findSpokenAiLine(lines, 0, 'My phone died, I swear it did')).toBe(-1);
+  });
+
+  it('catches up across consecutive AI lines within the window', () => {
+    const run = [
+      line('ai', 'The train was late again tonight.', 0),
+      line('ai', 'So I walked the whole way home.', 1),
+      line('ai', 'And then the rain started pouring down.', 2),
+    ];
+    expect(findSpokenAiLine(run, 0, 'So I walked the whole way home')).toBe(1);
+    expect(findSpokenAiLine(run, 0, 'And then the rain started pouring down')).toBe(-1); // beyond 2 AI lines
+  });
+
+  it('ignores short lines and weak matches', () => {
+    const run = [line('ai', 'Fine.', 0), line('ai', 'I was at the station all night.', 1)];
+    expect(findSpokenAiLine(run, 0, 'Fine.')).toBe(-1);
+    expect(findSpokenAiLine(run, 0, 'I was at home')).toBe(-1);
   });
 
   it('never matches behind the current position', () => {
