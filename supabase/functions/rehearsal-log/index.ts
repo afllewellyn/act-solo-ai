@@ -45,6 +45,8 @@ const NUMBER_FIELDS = [
   'speed',
   'index',
   'toIndex',
+  'from',
+  'to',
   'words',
   'clockMs',
   'audioMs',
@@ -52,7 +54,7 @@ const NUMBER_FIELDS = [
   'leadInMs',
   'aiWpmAt1x',
 ];
-const TOKEN_FIELDS = ['status', 'lineType', 'kind']; // short single tokens only, no spaces
+const TOKEN_FIELDS = ['status', 'lineType', 'kind', 'reason']; // short single tokens only, no spaces
 const TOKEN_PATTERN = /^[A-Za-z0-9_.:-]{1,32}$/;
 const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 
