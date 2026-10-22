@@ -146,6 +146,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
     this.reconnectAttempts = 0;
     
     // Stop audio playback
+    this.clearAudioEndWatchdog();
     this.audioPlayer.stop();
     
     // Disconnect and clean up audio worklet
@@ -253,6 +254,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
       case 'discard_response':
         // Interrupt, and drop every remaining chunk of this reply until the actor speaks or we cue
         this.discardingAudio = true;
+        this.clearAudioEndWatchdog();
         this.audioPlayer.stop();
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
         if (this.isAudioActive) {
@@ -478,6 +480,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           // Base64 decode audio and emit
           const audioData = this.base64ToArrayBuffer(audioEvent.audio_base_64);
           this.audioChunksReceived++;
+          this.armAudioEndWatchdog();
           this.emitEvent({
             type: 'agent_audio_delta',
             audioData: audioData,
@@ -496,6 +499,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
               engine: 'eleven_agents',
               audioChunksReceived: this.audioChunksReceived,
             });
+            this.clearAudioEndWatchdog();
             this.audioStreamEnded = true;
             this.finishAudioIfDrained();
           }
@@ -503,6 +507,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
 
         case 'interruption':
           // Stop audio playback immediately on interruption
+          this.clearAudioEndWatchdog();
           this.audioPlayer.stop();
           logConversationEngine('interruption_received', {
             engine: 'eleven_agents',
