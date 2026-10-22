@@ -64,6 +64,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     currentParagraphIndex,
     showNames,
     goToParagraph,
+    goToLine,
     nextCue,
     isUsingConversationEngine,
     conversationEngineStatus,
@@ -276,7 +277,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           hideNames={!showNames}
           onSelectLine={(i) => {
             if (!rehearsalMode) setManualIndex(i);
-            else if (isUsingConversationEngine) goToParagraph(lines[i].paragraphIndex);
+            else if (isUsingConversationEngine) goToLine(i);
           }}
         />
       </main>

@@ -81,6 +81,8 @@ interface RehearsalContextType {
   nextCue: () => void;
   /** Jump to the line at or after a script paragraph (tap a line) */
   goToParagraph: (paragraphIndex: number) => void;
+  /** Jump to an exact cue index during rehearsal (tap a line) */
+  goToLine: (index: number) => void;
   handleActorLineDetected: (line: string) => void;
   handleMasterStop: () => void;
   handlePause: () => void;
@@ -280,6 +282,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       setListening: () => turnFlowDepsRef.current.setRehearsalState('WAITING_FOR_ACTOR_CUE'),
       getSpeed: () => playbackSpeedRef.current,
       onPaced: (index) => rehearsalLog.log('actor_paced', { index }),
+      onMove: (reason, from, to) => rehearsalLog.log('highlight_move', { reason, from, to }),
     });
   }
   const turnFlow = turnFlowRef.current;
@@ -652,6 +655,16 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     cueAgentForLine(currentLineIndexRef.current);
   };
 
+  const goToLine = (index: number) => {
+    const lines = parsedLinesRef.current;
+    if (!rehearsalMode || index < 0 || index >= lines.length) return;
+    rehearsalLog.log('highlight_move', { reason: 'tap', from: currentLineIndexRef.current, to: index });
+    turnFlow.reset(); // stale timers must not move the highlight after a jump
+    setLine(index);
+    syncEngineContext(index);
+    cueAgentForLine(index); // no-op on actor lines: wait for the actor
+  };
+
   const goToParagraph = (paragraphIndex: number) => {
     const lines = parsedLinesRef.current;
     const target = lines.findIndex(l => l.paragraphIndex >= paragraphIndex);
@@ -883,6 +896,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setShowNames,
     nextCue,
     goToParagraph,
+    goToLine,
     handleActorLineDetected,
     handleMasterStop,
     handlePause,
@@ -923,6 +937,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
     setShowNames,
     nextCue,
     goToParagraph,
+    goToLine,
     handleActorLineDetected,
     handleMasterStop,
     handlePause,
