@@ -40,6 +40,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
   // Dropping the rest of a reply the app rejected (early answer mid split actor speech)
   private discardingAudio: boolean = false;
   private detectSpeechOnset = createSpeechOnsetDetector();
+  // Safety net: if the server never sends audio_end, finish the turn after a quiet gap
+  private audioEndWatchdog: ReturnType<typeof setTimeout> | null = null;
+  private static readonly AUDIO_END_WATCHDOG_MS = 2500;
   
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
@@ -274,12 +277,33 @@ export class ElevenAgentsEngine implements ConversationEngine {
   /** Emit agent_audio_ended once the server stream is done and the last chunk has played. */
   private finishAudioIfDrained(): void {
     if (!this.isAudioActive || !this.audioStreamEnded || this.audioPlayer.isBusy) return;
+    this.clearAudioEndWatchdog();
     this.isAudioActive = false;
     this.audioStreamEnded = false;
     this.emitEvent({
       type: 'agent_audio_ended',
       timestamp: Date.now(),
     });
+  }
+
+  private clearAudioEndWatchdog(): void {
+    if (this.audioEndWatchdog) clearTimeout(this.audioEndWatchdog);
+    this.audioEndWatchdog = null;
+  }
+
+  /** Restart the quiet-gap watchdog each time a chunk arrives; if no audio_end follows, end the turn. */
+  private armAudioEndWatchdog(): void {
+    this.clearAudioEndWatchdog();
+    this.audioEndWatchdog = setTimeout(() => {
+      this.audioEndWatchdog = null;
+      if (!this.isAudioActive || this.audioStreamEnded || this.discardingAudio) return;
+      logConversationEngine('audio_end_watchdog_fired', {
+        engine: 'eleven_agents',
+        audioChunksReceived: this.audioChunksReceived,
+      });
+      this.audioStreamEnded = true;
+      this.finishAudioIfDrained();
+    }, ElevenAgentsEngine.AUDIO_END_WATCHDOG_MS);
   }
 
   onEvent(callback: (event: ConversationEvent) => void): () => void {
