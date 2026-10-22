@@ -1,0 +1,37 @@
+import posthog from 'posthog-js'
+
+// The project token is public by design (write-only), like the Supabase anon key.
+const key =
+  (import.meta.env.VITE_POSTHOG_KEY as string | undefined) ||
+  'phc_XtQnsnMxa9JMZYf0iDogUSz0kD8hytsyLFJRUkYihuo'
+const host = (import.meta.env.VITE_POSTHOG_HOST as string | undefined) || 'https://us.i.posthog.com'
+
+export function initPostHog() {
+  if (!key) {
+    if (import.meta.env.DEV) {
+      console.error(
+        'VITE_POSTHOG_KEY variable required by PostHog is missing or un-configured, this causes events to be silently missed. This error stops appearing once VITE_POSTHOG_KEY is configured',
+      )
+    }
+    return
+  }
+  posthog.init(key, {
+    api_host: host,
+    defaults: '2025-05-24',
+    capture_exceptions: true,
+    // Autocaptured clicks (incl. $rageclick) would otherwise carry clicked cue text.
+    mask_all_text: true,
+    session_recording: {
+      // Scripts and rehearsal dialogue are user content: never send their text to PostHog.
+      maskAllInputs: true,
+      maskTextSelector: '*',
+      // Project-level network capture must not bypass the no-dialogue rule
+      // (script saves send full script HTML in request bodies).
+      recordBody: false,
+      recordHeaders: false,
+    },
+    // Console logs can echo script text; keep them out of recordings.
+    enable_recording_console_log: false,
+    capture_performance: false,
+  })
+}

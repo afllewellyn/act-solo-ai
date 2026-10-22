@@ -4,6 +4,9 @@ import './index.css'
 import './lib/debugUtils' // Initialize debug utilities
 import { ThemeProvider } from './components/ThemeProvider'
 import { logger } from './lib/logger'
+import { initPostHog } from './lib/posthog'
+
+initPostHog()
 const isMobile = /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
 logger.setDefaultContext({
   browser: navigator.userAgent,
