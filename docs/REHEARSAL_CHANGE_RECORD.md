@@ -36,3 +36,8 @@ Automated checks cover cue timing, split-turn interruption/recovery, ordinary sc
 - Root cause of the stuck highlight on AI lines: if the server never sent `audio_end`, the turn never completed and the prompter froze. The engine now ends the audio turn after a 2.5-second quiet gap with no more chunks (each fresh chunk restarts the wait), in addition to the existing playout-aware end.
 - Split bold speeches now pace at ~1.8 words/second (was 2.3) with a 1.6-second minimum per paragraph, so the highlight trails dramatic delivery instead of racing ahead of it.
 - The rehearsal-log receiver now preserves `highlight_move` details (reason, from, to) instead of dropping them, so future traces show why the highlight moved.
+
+## Oct 24 2026 — Restore AI voices
+- Early-reply mute now covers one rejected reply only; lifted by a new reply after it ended, actor speech onset, transcript, a cue, or a 1.5s quiet gap (`discard_start`/`discard_end` logs with reason and ms).
+- Rehearsal Start unlocks browser audio inside the click (`audio_unlocked`/`audio_unlock_failed`).
+- Voice preview: interrupted play (`AbortError`) no longer shows "Text-to-Speech Error".

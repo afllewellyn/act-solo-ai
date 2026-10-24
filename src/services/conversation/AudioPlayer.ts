@@ -41,6 +41,20 @@ export class ConversationAudioPlayer {
     }
   }
 
+  /** Create/resume the audio context; call inside a user click so the browser allows sound. */
+  async unlock(): Promise<boolean> {
+    try {
+      if (typeof AudioContext === 'undefined') return false;
+      if (!this.audioContext || this.audioContext.state === 'closed') {
+        this.audioContext = new AudioContext({ sampleRate: 16000 });
+      }
+      if (this.audioContext.state === 'suspended') await this.audioContext.resume();
+      return this.audioContext.state === 'running';
+    } catch {
+      return false;
+    }
+  }
+
   /**
    * Stop current playback and clear the queue
    */

@@ -123,7 +123,7 @@ export const useTTS = () => {
       errorMessage = 'TTS service not properly configured. Please contact support.';
     } else if (err.message?.includes('Too long')) {
       errorMessage = 'Text is too long for speech generation. Please shorten it.';
-    } else if (err.name === 'NotAllowedError') {
+    } else if (err.name === 'NotAllowedError' || err.name === 'AbortError') {
       // Don't show error toast for autoplay policy - we handle this above
       return;
     }
@@ -288,6 +288,8 @@ export const useTTS = () => {
                 "Click the play button to enable audio playback",
               variant: "default",
             });
+          } else if (pe.name === 'AbortError') {
+            // Play was interrupted by a newer request or stop(): not a failure
           } else {
             throw playError; // Re-throw other errors
           }
