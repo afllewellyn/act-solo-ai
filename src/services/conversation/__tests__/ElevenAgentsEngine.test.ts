@@ -355,6 +355,37 @@ describe('ElevenAgentsEngine', () => {
       expect(events.filter(e => e.type === 'agent_audio_delta').length).toBe(deltasBefore + 1);
     });
 
+    it('a new reply after the rejected one ended is heard even without an actor transcript', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      const chunk = () => mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('x') } });
+      mockWsInstance?.simulateMessage({ type: 'agent_response', agent_response_event: { agent_response: 'early' } });
+      await engine.sendControl({ type: 'discard_response' });
+      const before = events.filter(e => e.type === 'agent_audio_delta').length;
+      chunk();
+      expect(events.filter(e => e.type === 'agent_audio_delta').length).toBe(before);
+      mockWsInstance?.simulateMessage({ type: 'agent_response_end' });
+      mockWsInstance?.simulateMessage({ type: 'agent_response', agent_response_event: { agent_response: 'next' } });
+      chunk();
+      expect(events.filter(e => e.type === 'agent_audio_delta').length).toBe(before + 1);
+    });
+
+    it('the mute lifts itself after a quiet gap so it can never stick', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      vi.useFakeTimers();
+      try {
+        const chunk = () => mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('x') } });
+        await engine.sendControl({ type: 'discard_response' });
+        const before = events.filter(e => e.type === 'agent_audio_delta').length;
+        vi.advanceTimersByTime(1600);
+        chunk();
+        expect(events.filter(e => e.type === 'agent_audio_delta').length).toBe(before + 1);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
     it('should send clear_buffer command', async () => {
       await engine.start();
       await new Promise(resolve => setTimeout(resolve, 10));
