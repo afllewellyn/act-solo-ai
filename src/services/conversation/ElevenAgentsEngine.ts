@@ -37,8 +37,13 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private isAudioActive: boolean = false;
   // Server finished streaming audio; playback may still be draining
   private audioStreamEnded: boolean = false;
-  // Dropping the rest of a reply the app rejected (early answer mid split actor speech)
+  // Dropping the rest of ONE reply the app rejected (early answer mid split actor speech).
+  // Lifted by: a new reply after the rejected one ended, actor speech, a cue, or a quiet gap.
   private discardingAudio: boolean = false;
+  private discardStartedAt = 0;
+  private rejectedReplyEnded = false;
+  private discardQuietTimer: ReturnType<typeof setTimeout> | null = null;
+  static readonly DISCARD_QUIET_MS = 1500;
   private detectSpeechOnset = createSpeechOnsetDetector();
   // Safety net: if the server never sends audio_end, finish the turn after a quiet gap
   private audioEndWatchdog: ReturnType<typeof setTimeout> | null = null;
@@ -75,6 +80,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
   }
 
   async start(): Promise<void> {
+    // Unlock playback while still inside the Start click, before any network wait
+    void this.audioPlayer.unlock().then((ok) =>
+      logConversationEngine(ok ? 'audio_unlocked' : 'audio_unlock_failed', { engine: 'eleven_agents' }));
     this.connectionStartTime = performance.now();
     logConversationEngine('websocket_connecting', {
       engine: 'eleven_agents',
