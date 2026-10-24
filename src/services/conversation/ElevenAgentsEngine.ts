@@ -197,7 +197,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
     logConversationEngine('send_text', {
       engine: 'eleven_agents',
     });
-    this.discardingAudio = false; // a deliberate cue: its reply must be heard
+    this.liftDiscard('cue'); // a deliberate cue: its reply must be heard
     this.ws.send(JSON.stringify({
       type: 'user_message',
       text,
@@ -262,6 +262,10 @@ export class ElevenAgentsEngine implements ConversationEngine {
       case 'discard_response':
         // Interrupt, and drop every remaining chunk of this reply until the actor speaks or we cue
         this.discardingAudio = true;
+        this.discardStartedAt = Date.now();
+        this.rejectedReplyEnded = false;
+        this.armDiscardQuietTimer();
+        logConversationEngine('discard_start', { engine: 'eleven_agents' });
         this.clearAudioEndWatchdog();
         this.audioPlayer.stop();
         this.ws.send(JSON.stringify({ type: 'interrupt' }));
@@ -281,6 +285,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private checkSpeechOnset(samples: Int16Array): void {
     const onset = this.detectSpeechOnset(samples, Date.now());
     if (!onset || this.audioPlayer.isBusy) return;
+    this.liftDiscard('speech_onset');
     this.emitEvent({ type: 'user_speech_started', timestamp: Date.now() });
   }
 
@@ -294,6 +299,27 @@ export class ElevenAgentsEngine implements ConversationEngine {
       type: 'agent_audio_ended',
       timestamp: Date.now(),
     });
+  }
+
+  /** Stop dropping agent audio; safe to call any time. */
+  liftDiscard(reason: string): void {
+    if (this.discardQuietTimer) clearTimeout(this.discardQuietTimer);
+    this.discardQuietTimer = null;
+    if (!this.discardingAudio) return;
+    this.discardingAudio = false;
+    this.rejectedReplyEnded = false;
+    logConversationEngine('discard_end', {
+      engine: 'eleven_agents', reason, ms: Date.now() - this.discardStartedAt,
+    });
+  }
+
+  /** Safety net: once the rejected reply has gone quiet, never keep muting. */
+  private armDiscardQuietTimer(): void {
+    if (this.discardQuietTimer) clearTimeout(this.discardQuietTimer);
+    this.discardQuietTimer = setTimeout(() => {
+      this.discardQuietTimer = null;
+      this.liftDiscard('quiet_gap');
+    }, ElevenAgentsEngine.DISCARD_QUIET_MS);
   }
 
   private clearAudioEndWatchdog(): void {
@@ -407,7 +433,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           const transcriptEvent = message.user_transcription_event;
           if (transcriptEvent) {
             // The actor spoke again: the agent's next reply is a fresh one
-            this.discardingAudio = false;
+            this.liftDiscard('transcript');
             // ElevenLabs doesn't have is_final flag - emit user_speech_ended with transcript
             this.emitEvent({
               type: 'user_speech_ended',
@@ -425,6 +451,10 @@ export class ElevenAgentsEngine implements ConversationEngine {
           // ElevenLabs uses agent_response_event nested object
           const responseEvent = message.agent_response_event;
           if (!responseEvent) break;
+          // A brand-new reply after the rejected one finished must be heard
+          if (this.discardingAudio && this.rejectedReplyEnded && !this.isResponseActive) {
+            this.liftDiscard('new_reply');
+          }
 
           // Start tracking response if not already active
           if (!this.isResponseActive) {
@@ -448,6 +478,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
         }
 
         case 'agent_response_end':
+          if (this.discardingAudio) this.rejectedReplyEnded = true;
           // Response completed - emit final aggregated response
           if (this.isResponseActive) {
             this.emitEvent({
@@ -472,7 +503,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           const audioEvent = message.audio_event;
           if (!audioEvent) break;
           // A discarded early reply keeps streaming for a moment after the interrupt: never play it
-          if (this.discardingAudio) break;
+          if (this.discardingAudio) { this.armDiscardQuietTimer(); break; }
 
           // Track audio streaming state
           this.audioStreamEnded = false;
@@ -514,6 +545,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
           break;
 
         case 'interruption':
+          if (this.discardingAudio) this.rejectedReplyEnded = true;
           // Stop audio playback immediately on interruption
           this.clearAudioEndWatchdog();
           this.audioPlayer.stop();
