@@ -4,6 +4,7 @@
  * Phase 3.5: Structured telemetry for production monitoring
  */
 
+import { rehearsalLog } from '@/lib/rehearsalLog';
 import { ConversationEngine, ConversationStatus, ConversationEvent, ConversationControlCommand } from './types';
 import { ConversationEngineConfig, ScriptContext } from './domain';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,7 +48,8 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private detectSpeechOnset = createSpeechOnsetDetector();
   // Safety net: if the server never sends audio_end, finish the turn after a quiet gap
   private audioEndWatchdog: ReturnType<typeof setTimeout> | null = null;
-  private static readonly AUDIO_END_WATCHDOG_MS = 2500;
+  static readonly AUDIO_QUIET_MS = 600;
+  private lastServerEventType = '';
   
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
@@ -327,7 +329,10 @@ export class ElevenAgentsEngine implements ConversationEngine {
     this.audioEndWatchdog = null;
   }
 
-  /** Restart the quiet-gap watchdog each time a chunk arrives; if no audio_end follows, end the turn. */
+  /**
+   * ElevenLabs doesn't send audio_end: once no chunk has arrived for a short quiet window, treat the
+   * stream as finished; agent_audio_ended then fires as soon as playback drains (onDrained).
+   */
   private armAudioEndWatchdog(): void {
     this.clearAudioEndWatchdog();
     this.audioEndWatchdog = setTimeout(() => {
@@ -339,7 +344,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
       });
       this.audioStreamEnded = true;
       this.finishAudioIfDrained();
-    }, ElevenAgentsEngine.AUDIO_END_WATCHDOG_MS);
+    }, ElevenAgentsEngine.AUDIO_QUIET_MS);
   }
 
   onEvent(callback: (event: ConversationEvent) => void): () => void {
@@ -425,6 +430,11 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private handleMessage(event: MessageEvent): void {
     try {
       const message = JSON.parse(event.data);
+      // Diagnostics: which server message types actually arrive (type name only, once per change)
+      if (message.type !== this.lastServerEventType && message.type !== 'ping') {
+        this.lastServerEventType = message.type;
+        rehearsalLog.log('server_event', { kind: String(message.type) });
+      }
       
       // Normalize ElevenLabs events to ConversationEvent types
       switch (message.type) {
@@ -448,31 +458,33 @@ export class ElevenAgentsEngine implements ConversationEngine {
         }
 
         case 'agent_response': {
-          // ElevenLabs uses agent_response_event nested object
+          // ElevenLabs sends each reply as ONE complete message (there is no agent_response_end),
+          // so every message is a whole reply: started -> text -> ended.
           const responseEvent = message.agent_response_event;
           if (!responseEvent) break;
           // A brand-new reply after the rejected one finished must be heard
-          if (this.discardingAudio && this.rejectedReplyEnded && !this.isResponseActive) {
+          if (this.discardingAudio && this.rejectedReplyEnded) {
             this.liftDiscard('new_reply');
           }
+          const text = responseEvent.agent_response || '';
+          this.isResponseActive = true;
+          this.currentResponseText = text;
+          this.emitEvent({ type: 'agent_response_started', timestamp: Date.now() });
+          this.emitEvent({ type: 'agent_response_delta', delta: text, timestamp: Date.now() });
+          this.emitEvent({ type: 'agent_response', text, timestamp: Date.now() });
+          this.emitEvent({ type: 'agent_response_ended', timestamp: Date.now() });
+          this.isResponseActive = false;
+          this.currentResponseText = '';
+          // If this reply was rejected (discard began during the events above), it is now over
+          if (this.discardingAudio) this.rejectedReplyEnded = true;
+          break;
+        }
 
-          // Start tracking response if not already active
-          if (!this.isResponseActive) {
-            this.isResponseActive = true;
-            this.currentResponseText = '';
-            this.emitEvent({
-              type: 'agent_response_started',
-              timestamp: Date.now(),
-            });
-          }
-
-          // Accumulate response text and emit delta
-          const delta = responseEvent.agent_response || '';
-          this.currentResponseText += delta;
-          this.emitEvent({
-            type: 'agent_response_delta',
-            delta,
-            timestamp: Date.now(),
+        case 'agent_response_correction': {
+          // Interrupted reply: the server reports what was actually spoken. Text only.
+          const corrected = message.agent_response_correction_event?.corrected_agent_response;
+          logConversationEngine('agent_response_corrected', {
+            engine: 'eleven_agents', words: typeof corrected === 'string' ? corrected.split(/\s+/).filter(Boolean).length : 0,
           });
           break;
         }

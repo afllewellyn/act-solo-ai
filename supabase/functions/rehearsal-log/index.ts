@@ -37,6 +37,7 @@ const EVENT_NAMES = new Set([
   'pacing_sample',
   'early_response_discarded',
   'highlight_move',
+  'server_event',
 ]);
 
 // Per-event payload fields. Anything not listed here is dropped.

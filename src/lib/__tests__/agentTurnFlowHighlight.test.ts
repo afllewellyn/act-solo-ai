@@ -46,4 +46,24 @@ describe('AI line highlighting', () => {
     flow.onAudioEnded();
     expect(state.current).toBe(1);
   });
+
+  it('audio ending with no reply text still steps forward within 800ms', () => {
+    const { flow, state } = setup([['ai', 'At the station all night long'], ['actor', 'Liar'], ['ai', 'Fine']]);
+    flow.onAudioStarted();
+    flow.onAudioEnded();
+    vi.advanceTimersByTime(799);
+    expect(state.current).toBe(0);
+    vi.advanceTimersByTime(2);
+    expect(state.current).toBe(1);
+  });
+
+  it('real ElevenLabs order (text, then audio end) reaches the actor line as soon as the voice stops', () => {
+    const { flow, state } = setup([['actor', 'Where were you'], ['ai', 'At the station all night long'], ['actor', 'Liar']]);
+    flow.onAudioStarted();
+    flow.onResponseStarted();
+    flow.onResponseEnded('At the station all night long');
+    expect(state.current).toBe(1);
+    flow.onAudioEnded();
+    expect(state.current).toBe(2);
+  });
 });

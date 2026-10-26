@@ -227,23 +227,17 @@ describe('ElevenAgentsEngine', () => {
         agent_response_event: { agent_response: 'there!' },
       });
 
-      // End response
-      mockWsInstance?.simulateMessage({
-        type: 'agent_response_end',
-      });
-
       const startedEvents = events.filter(e => e.type === 'agent_response_started');
       const deltaEvents = events.filter(e => e.type === 'agent_response_delta');
       const responseEvents = events.filter(e => e.type === 'agent_response');
       const endedEvents = events.filter(e => e.type === 'agent_response_ended');
 
-      expect(startedEvents.length).toBe(1);
+      // Real protocol: every agent_response message is a complete reply
+      expect(startedEvents.length).toBe(2);
       expect(deltaEvents.length).toBe(2);
-      expect(deltaEvents[0]).toMatchObject({ delta: 'Hello ' });
-      expect(deltaEvents[1]).toMatchObject({ delta: 'there!' });
-      expect(responseEvents.length).toBe(1);
-      expect(responseEvents[0]).toMatchObject({ text: 'Hello there!' });
-      expect(endedEvents.length).toBe(1);
+      expect(responseEvents[0]).toMatchObject({ text: 'Hello ' });
+      expect(responseEvents[1]).toMatchObject({ text: 'there!' });
+      expect(endedEvents.length).toBe(2);
     });
 
     it('should emit agent_audio_started -> deltas -> ended', async () => {
@@ -763,29 +757,49 @@ describe('ElevenAgentsEngine', () => {
         mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('a') } });
         expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(0);
 
-        await vi.advanceTimersByTimeAsync(2600); // past the 2.5s quiet-gap watchdog
+        await vi.advanceTimersByTimeAsync(700); // past the 600ms quiet window
         expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(1);
       } finally {
         vi.useRealTimers();
       }
     });
 
-    it('a fresh chunk postpones the watchdog instead of ending the turn early', async () => {
+    it('a fresh chunk postpones the quiet window instead of ending the turn early', async () => {
       await engine.start();
       await new Promise(resolve => setTimeout(resolve, 10));
       vi.useFakeTimers();
       try {
         mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('a') } });
-        await vi.advanceTimersByTimeAsync(2000);
+        await vi.advanceTimersByTimeAsync(400);
         mockWsInstance?.simulateMessage({ type: 'audio', audio_event: { audio_base_64: btoa('b') } });
-        await vi.advanceTimersByTimeAsync(2000); // 4s since first chunk, 2s since last
+        await vi.advanceTimersByTimeAsync(400); // 800ms since first chunk, 400ms since last
         expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(0);
 
-        await vi.advanceTimersByTimeAsync(600); // now 2.6s of quiet
+        await vi.advanceTimersByTimeAsync(300); // now 700ms of quiet
         expect(events.filter(e => e.type === 'agent_audio_ended').length).toBe(1);
       } finally {
         vi.useRealTimers();
       }
+    });
+
+    it('real ElevenLabs sequence: each agent_response is a whole reply, text never carries over', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      mockWsInstance?.simulateMessage({ type: 'agent_response', agent_response_event: { agent_response: 'First line.' } });
+      mockWsInstance?.simulateMessage({ type: 'agent_response', agent_response_event: { agent_response: 'Second line.' } });
+      expect(events.filter(e => e.type === 'agent_response_started').length).toBe(2);
+      expect(events.filter(e => e.type === 'agent_response_ended').length).toBe(2);
+      const texts = events.filter(e => e.type === 'agent_response').map(e => (e as { text: string }).text);
+      expect(texts).toEqual(['First line.', 'Second line.']);
+    });
+
+    it('a second early reply after a rejected one is reported as a new reply', async () => {
+      await engine.start();
+      await new Promise(resolve => setTimeout(resolve, 10));
+      engine.sendControl({ type: 'discard_response' } as never);
+      mockWsInstance?.simulateMessage({ type: 'agent_response', agent_response_event: { agent_response: 'Too early.' } });
+      mockWsInstance?.simulateMessage({ type: 'agent_response', agent_response_event: { agent_response: 'Again early.' } });
+      expect(events.filter(e => e.type === 'agent_response_started').length).toBe(2);
     });
   });
 });
