@@ -47,7 +47,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private detectSpeechOnset = createSpeechOnsetDetector();
   // Safety net: if the server never sends audio_end, finish the turn after a quiet gap
   private audioEndWatchdog: ReturnType<typeof setTimeout> | null = null;
-  private static readonly AUDIO_END_WATCHDOG_MS = 2500;
+  static readonly AUDIO_QUIET_MS = 600;
   
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
@@ -327,7 +327,10 @@ export class ElevenAgentsEngine implements ConversationEngine {
     this.audioEndWatchdog = null;
   }
 
-  /** Restart the quiet-gap watchdog each time a chunk arrives; if no audio_end follows, end the turn. */
+  /**
+   * ElevenLabs doesn't send audio_end: once no chunk has arrived for a short quiet window, treat the
+   * stream as finished; agent_audio_ended then fires as soon as playback drains (onDrained).
+   */
   private armAudioEndWatchdog(): void {
     this.clearAudioEndWatchdog();
     this.audioEndWatchdog = setTimeout(() => {
@@ -339,7 +342,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
       });
       this.audioStreamEnded = true;
       this.finishAudioIfDrained();
-    }, ElevenAgentsEngine.AUDIO_END_WATCHDOG_MS);
+    }, ElevenAgentsEngine.AUDIO_QUIET_MS);
   }
 
   onEvent(callback: (event: ConversationEvent) => void): () => void {
@@ -448,32 +451,34 @@ export class ElevenAgentsEngine implements ConversationEngine {
         }
 
         case 'agent_response': {
-          // ElevenLabs uses agent_response_event nested object
+          // ElevenLabs sends each reply as ONE complete message (there is no agent_response_end),
+          // so every message is a whole reply: started -> text -> ended.
           const responseEvent = message.agent_response_event;
           if (!responseEvent) break;
           // A brand-new reply after the rejected one finished must be heard
-          if (this.discardingAudio && this.rejectedReplyEnded && !this.isResponseActive) {
+          if (this.discardingAudio && this.rejectedReplyEnded) {
             this.liftDiscard('new_reply');
           }
+          const text = responseEvent.agent_response || '';
+          this.isResponseActive = true;
+          this.currentResponseText = text;
+          this.emitEvent({ type: 'agent_response_started', timestamp: Date.now() });
+          this.emitEvent({ type: 'agent_response_delta', delta: text, timestamp: Date.now() });
+          this.emitEvent({ type: 'agent_response', text, timestamp: Date.now() });
+          this.emitEvent({ type: 'agent_response_ended', timestamp: Date.now() });
+          this.isResponseActive = false;
+          this.currentResponseText = '';
+          // If this reply was rejected (discard began during the events above), it is now over
+          if (this.discardingAudio) this.rejectedReplyEnded = true;
+          break;
+        }
 
-          // Start tracking response if not already active
-          if (!this.isResponseActive) {
-            this.isResponseActive = true;
-            this.currentResponseText = '';
-            this.emitEvent({
-              type: 'agent_response_started',
-              timestamp: Date.now(),
-            });
+        case 'agent_response_correction': {
+          // Interrupted reply: the server reports what was actually spoken. Text only.
+          const corrected = message.agent_response_correction_event?.corrected_agent_response;
+          if (typeof corrected === 'string') {
+            this.emitEvent({ type: 'agent_response_delta', delta: '', timestamp: Date.now() });
           }
-
-          // Accumulate response text and emit delta
-          const delta = responseEvent.agent_response || '';
-          this.currentResponseText += delta;
-          this.emitEvent({
-            type: 'agent_response_delta',
-            delta,
-            timestamp: Date.now(),
-          });
           break;
         }
 
