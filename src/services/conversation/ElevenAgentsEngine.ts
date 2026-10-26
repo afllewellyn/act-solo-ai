@@ -4,6 +4,7 @@
  * Phase 3.5: Structured telemetry for production monitoring
  */
 
+import { rehearsalLog } from '@/lib/rehearsalLog';
 import { ConversationEngine, ConversationStatus, ConversationEvent, ConversationControlCommand } from './types';
 import { ConversationEngineConfig, ScriptContext } from './domain';
 import { supabase } from '@/integrations/supabase/client';
@@ -48,6 +49,7 @@ export class ElevenAgentsEngine implements ConversationEngine {
   // Safety net: if the server never sends audio_end, finish the turn after a quiet gap
   private audioEndWatchdog: ReturnType<typeof setTimeout> | null = null;
   static readonly AUDIO_QUIET_MS = 600;
+  private lastServerEventType = '';
   
   // Audio playback
   private audioPlayer: ConversationAudioPlayer;
@@ -428,6 +430,11 @@ export class ElevenAgentsEngine implements ConversationEngine {
   private handleMessage(event: MessageEvent): void {
     try {
       const message = JSON.parse(event.data);
+      // Diagnostics: which server message types actually arrive (type name only, once per change)
+      if (message.type !== this.lastServerEventType && message.type !== 'ping') {
+        this.lastServerEventType = message.type;
+        rehearsalLog.log('server_event', { kind: String(message.type) });
+      }
       
       // Normalize ElevenLabs events to ConversationEvent types
       switch (message.type) {

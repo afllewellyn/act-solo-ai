@@ -39,7 +39,8 @@ export type RehearsalLogEvent =
   | 'actor_paced'
   | 'pacing_sample'
   | 'early_response_discarded'
-  | 'highlight_move';
+  | 'highlight_move'
+  | 'server_event';
 
 export type RehearsalLogData = Record<string, number | string | boolean | null | undefined>;
 

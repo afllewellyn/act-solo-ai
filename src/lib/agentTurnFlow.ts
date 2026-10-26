@@ -18,6 +18,8 @@ import { findSpokenActorTurnEnd, findSpokenAiLine } from '@/utils/lineMatching';
 
 /** Response text ended but no audio ever started: don't wait for audio forever. */
 export const NO_AUDIO_FALLBACK_MS = 1500;
+/** Audio finished but the reply text never arrived: step forward anyway so the prompter can't freeze. */
+export const NO_TEXT_FALLBACK_MS = 800;
 /** Pause between finishing one AI line and cueing the next AI line. */
 export const AI_TO_AI_CUE_MS = 500;
 /** How long the agent gets to answer the user on its own before we cue it. */
@@ -259,8 +261,10 @@ export function createAgentTurnFlow(deps: AgentTurnFlowDeps): AgentTurnFlow {
 
     onAudioEnded() {
       if (discarding) return;
-      if (pendingText !== null) complete();
-      else audio = 'done';
+      if (pendingText !== null) { complete(); return; }
+      audio = 'done';
+      clearResponseTimer();
+      responseTimer = setTimeout(complete, NO_TEXT_FALLBACK_MS);
     },
 
     onUserSpeechStarted() {
