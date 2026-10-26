@@ -41,3 +41,10 @@ Automated checks cover cue timing, split-turn interruption/recovery, ordinary sc
 - Early-reply mute now covers one rejected reply only; lifted by a new reply after it ended, actor speech onset, transcript, a cue, or a 1.5s quiet gap (`discard_start`/`discard_end` logs with reason and ms).
 - Rehearsal Start unlocks browser audio inside the click (`audio_unlocked`/`audio_unlock_failed`).
 - Voice preview: interrupted play (`AbortError`) no longer shows "Text-to-Speech Error".
+
+## 2026-10-26 — Real ElevenLabs reply protocol (late-highlight root cause)
+- Root cause: the app waited for `agent_response_end` / `audio_end`, which ElevenLabs never sends, so AI lines only finished on an interruption (one exchange late) or a 2.5s watchdog.
+- Each `agent_response` message is now a complete reply (started -> text -> ended); text no longer accumulates across lines and every reply passes the split-speech early-reply guard.
+- AI audio ends after a 600ms chunk-quiet window plus playback drain; a real `audio_end` is still honoured.
+- Turn flow steps forward 800ms after audio ends if no reply text arrived.
+- `agent_response_correction` is logged (word count only). New `server_event` diagnostic records message type names only.
