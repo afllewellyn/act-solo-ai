@@ -476,9 +476,9 @@ export class ElevenAgentsEngine implements ConversationEngine {
         case 'agent_response_correction': {
           // Interrupted reply: the server reports what was actually spoken. Text only.
           const corrected = message.agent_response_correction_event?.corrected_agent_response;
-          if (typeof corrected === 'string') {
-            this.emitEvent({ type: 'agent_response_delta', delta: '', timestamp: Date.now() });
-          }
+          logConversationEngine('agent_response_corrected', {
+            engine: 'eleven_agents', words: typeof corrected === 'string' ? corrected.split(/\s+/).filter(Boolean).length : 0,
+          });
           break;
         }
 
