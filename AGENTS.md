@@ -8,3 +8,5 @@
 - ElevenLabs sends each agent_response as one complete reply with no end markers, so the engine treats every message as a whole reply and ends audio on a short chunk-quiet window plus playback drain.
 - Inside a split actor speech the highlight is paced from local speech onset and confirmed by transcripts, and rejected agent replies are dropped at the engine's audio input, because server transcripts arrive only after the actor stops and interrupted replies keep streaming.
 - Consecutive bold/user paragraphs are one actor turn because actors split speeches visually and the AI must wait for the full block before answering.
+
+- Site-wide clicks emit one `ui_click` dataLayer event (id from `data-track`, else a slug of the accessible name) via a single delegated listener, so new buttons are tracked without per-button code; voice previews keep their own event.

@@ -177,6 +177,7 @@ const ManageScripts = () => {
           </div>
           <button
             onClick={handleNewScript}
+            data-track="scripts_new_script"
             className="h-12 rounded-full bg-foreground px-6 font-semibold text-background inline-flex items-center justify-center gap-2 hover:opacity-90"
           >
             <Plus className="h-4 w-4" /> New Script
@@ -189,7 +190,7 @@ const ManageScripts = () => {
           <div className="rounded-3xl bg-desk-surface shadow-sm text-center py-16 px-6 space-y-4">
             <p className="text-lg text-foreground font-semibold">Your desk is empty</p>
             <p className="text-muted-foreground">Paste your first scene to start rehearsing.</p>
-            <button onClick={handleNewScript} className="h-11 rounded-full bg-foreground px-6 font-semibold text-background inline-flex items-center gap-2">
+            <button onClick={handleNewScript} data-track="scripts_create_first" className="h-11 rounded-full bg-foreground px-6 font-semibold text-background inline-flex items-center gap-2">
               <Plus className="h-4 w-4" /> Create your first script
             </button>
           </div>
@@ -208,19 +209,19 @@ const ManageScripts = () => {
                     <h2 className="text-lg font-bold text-foreground leading-snug line-clamp-2">{script.title}</h2>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2 -mt-1 shrink-0 rounded-full" aria-label={`Actions for ${script.title}`}>
+                        <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2 -mt-1 shrink-0 rounded-full" aria-label={`Actions for ${script.title}`} data-track="scripts_actions_menu">
                           <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-44">
-                        <DropdownMenuItem className="py-2.5" onClick={() => handleEdit(script)}>
+                        <DropdownMenuItem className="py-2.5" onClick={() => handleEdit(script)} data-track="scripts_edit">
                           <Pencil className="h-4 w-4 mr-2" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="py-2.5" onClick={() => handleDuplicate(script)}>
+                        <DropdownMenuItem className="py-2.5" onClick={() => handleDuplicate(script)} data-track="scripts_duplicate">
                           <Copy className="h-4 w-4 mr-2" /> Duplicate
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => setDeletingScript(script)} className="py-2.5 text-destructive focus:text-destructive">
+                        <DropdownMenuItem onClick={() => setDeletingScript(script)} data-track="scripts_delete" className="py-2.5 text-destructive focus:text-destructive">
                           <Trash2 className="h-4 w-4 mr-2" /> Delete
                         </DropdownMenuItem>
                       </DropdownMenuContent>
@@ -248,6 +249,8 @@ const ManageScripts = () => {
                     </span>
                     <button
                       onClick={() => navigate(`/practice/${script.id}`)}
+                      aria-label={`Rehearse ${script.title}`}
+                      data-track="scripts_rehearse"
                       className="h-11 rounded-full bg-foreground px-5 font-semibold text-background inline-flex items-center gap-1.5 hover:opacity-90"
                     >
                       Rehearse <Play className="h-3.5 w-3.5 fill-current" />

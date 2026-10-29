@@ -231,7 +231,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       const a = document.activeElement as HTMLElement | null;
-      if (isEditingScript || settingsOpen || a?.closest('[data-tiptap-editor]') || a?.tagName === 'INPUT' || a?.tagName === 'TEXTAREA' || a?.isContentEditable) return;
+      if (isEditingScript || settingsOpen || (e.code === 'Space' && (a?.tagName === 'BUTTON' || a?.getAttribute('role') === 'button')) || a?.closest('[data-tiptap-editor]') || a?.tagName === 'INPUT' || a?.tagName === 'TEXTAREA' || a?.isContentEditable) return;
       if (e.code === 'Space') { e.preventDefault(); handlePrimary(); }
       else if (e.code === 'KeyE') { e.preventDefault(); openEditor(); }
       else if (e.code === 'ArrowRight') { e.preventDefault(); handleNextCue(); }
@@ -240,30 +240,40 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
     return () => window.removeEventListener('keydown', onKey);
   });
 
+  const moreBtnRef = useRef<HTMLButtonElement>(null);
+  const onMoreKey = (e: import('react').KeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
+    const i = items.indexOf(document.activeElement as HTMLButtonElement);
+    if (e.key === 'Escape') { e.preventDefault(); setMoreOpen(false); moreBtnRef.current?.focus(); }
+    else if (e.key === 'ArrowDown') { e.preventDefault(); items[(i + 1) % items.length]?.focus(); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); items[(i - 1 + items.length) % items.length]?.focus(); }
+  };
+
   const formatTime = (s: number) => `${Math.floor(s / 60)}:${(s % 60).toString().padStart(2, '0')}`;
   const decreaseFont = () => setFontSize((f) => Math.max(20, f - 4));
   const increaseFont = () => setFontSize((f) => Math.min(64, f + 4));
 
   const primaryLabel = !rehearsalMode ? 'Start rehearsal' : isPaused ? 'Resume' : 'Pause';
   const PrimaryIcon = rehearsalMode && !isPaused ? Pause : Play;
-  const pill = 'h-11 rounded-full border border-studio-border px-4 text-sm font-medium inline-flex items-center gap-2 hover:bg-studio-surface disabled:opacity-40';
-  const iconBtn = 'h-10 w-10 rounded-full border border-studio-border inline-flex items-center justify-center hover:bg-studio-surface';
+  const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-studio-fg focus-visible:ring-offset-2 focus-visible:ring-offset-studio';
+  const pill = `${focusRing} h-11 rounded-full border border-studio-border px-4 text-sm font-medium inline-flex items-center gap-2 hover:bg-studio-surface disabled:opacity-40`;
+  const iconBtn = `${focusRing} h-10 w-10 rounded-full border border-studio-border inline-flex items-center justify-center hover:bg-studio-surface`;
 
   return (
     <div className="h-[100dvh] flex flex-col bg-studio text-studio-fg">
       {/* Top HUD */}
       <header className="flex items-center gap-2 sm:gap-4 px-3 sm:px-6 py-3 border-b border-studio-border">
-        <button onClick={() => { contextMasterStop(); navigate('/manage-scripts'); }} className={iconBtn} aria-label="Back to scripts">
+        <button onClick={() => { contextMasterStop(); navigate('/manage-scripts'); }} className={iconBtn} aria-label="Back to scripts" data-track="practice_back">
           <ArrowLeft className="h-5 w-5" />
         </button>
         <h1 className="flex-1 min-w-0 truncate font-semibold">{script.title}</h1>
         <span className="font-mono text-sm text-studio-muted tabular-nums">{formatTime(sessionTime)}</span>
         <span className="hidden sm:inline text-sm text-studio-muted">Take <strong className="text-studio-fg">{take}</strong></span>
-        <div className="flex items-center rounded-full border border-studio-border" aria-label="Text size controls">
-          <button onClick={decreaseFont} className="h-10 px-2.5 sm:px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full" aria-label="Smaller text">A−</button>
-          <button onClick={increaseFont} className="h-10 px-2.5 sm:px-3 text-base font-semibold hover:bg-studio-surface rounded-r-full" aria-label="Larger text">A+</button>
+        <div className="flex items-center rounded-full border border-studio-border" role="group" aria-label="Text size controls">
+          <button onClick={decreaseFont} className="h-10 px-2.5 sm:px-3 text-sm font-semibold hover:bg-studio-surface rounded-l-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-studio-fg" aria-label="Smaller text" data-track="practice_text_smaller">A−</button>
+          <button onClick={increaseFont} className="h-10 px-2.5 sm:px-3 text-base font-semibold hover:bg-studio-surface rounded-r-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-studio-fg" aria-label="Larger text" data-track="practice_text_larger">A+</button>
         </div>
-        <button onClick={() => setSettingsOpen(true)} className={iconBtn} aria-label="Rehearsal settings">
+        <button onClick={() => setSettingsOpen(true)} className={iconBtn} aria-label="Rehearsal settings" data-track="practice_settings">
           <Settings className="h-5 w-5" />
         </button>
       </header>
@@ -286,48 +296,50 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
       <footer className="border-t border-studio-border px-3 sm:px-6 py-3">
         <div className="max-w-4xl mx-auto flex items-center justify-between gap-2">
           <div className="flex items-center gap-2">
-            <button onClick={handleRestart} className={pill} aria-label="Restart">
+            <button onClick={handleRestart} className={pill} aria-label="Restart rehearsal" data-track="practice_restart">
               <RotateCcw className="h-4 w-4" /> <span className="hidden sm:inline">Restart</span>
             </button>
             <div className="hidden md:flex items-center gap-2">
-              <button onClick={openEditor} className={pill}><Pencil className="h-4 w-4" /> Edit script</button>
-              <button onClick={handleReadScript} className={pill}>
+              <button onClick={openEditor} className={pill} aria-label="Edit script" data-track="practice_edit_script"><Pencil className="h-4 w-4" /> Edit script</button>
+              <button onClick={handleReadScript} className={pill} aria-label={isManualTTSPlaying ? 'Stop reading script' : 'Read script aloud'} data-track={isManualTTSPlaying ? 'practice_stop_reading' : 'practice_read_script'}>
                 {isManualTTSPlaying ? <Square className="h-4 w-4 fill-current" /> : <Volume2 className="h-4 w-4" />}
                 {isManualTTSPlaying ? 'Stop reading' : 'Read script'}
               </button>
-              <button onClick={handleNextCue} className={pill} disabled={rehearsalMode && !isUsingConversationEngine && rehearsalState !== 'WAITING_FOR_ACTOR_CUE'}>
+              <button onClick={handleNextCue} className={pill} disabled={rehearsalMode && !isUsingConversationEngine && rehearsalState !== 'WAITING_FOR_ACTOR_CUE'} aria-label="Next cue" data-track="practice_next_cue">
                 Next cue <ChevronRight className="h-4 w-4" />
               </button>
             </div>
             <div className="relative md:hidden">
-              <button onClick={() => setMoreOpen((o) => !o)} className={pill} aria-label="More controls" aria-expanded={moreOpen}>
+              <button onClick={() => setMoreOpen((o) => !o)} className={pill} aria-label="More controls" aria-expanded={moreOpen} aria-haspopup="menu" aria-controls="practice-more-menu" data-track="practice_more_controls" ref={moreBtnRef}>
                 <MoreHorizontal className="h-4 w-4" />
               </button>
               {moreOpen && (
-                <div className="absolute bottom-14 left-0 z-30 w-52 rounded-2xl border border-studio-border bg-studio-surface p-2 shadow-xl">
+                <div id="practice-more-menu" role="menu" aria-label="More controls" onKeyDown={onMoreKey} className="absolute bottom-14 left-0 z-30 w-52 rounded-2xl border border-studio-border bg-studio-surface p-2 shadow-xl">
                   {[
-                    { label: 'Edit script', icon: Pencil, run: openEditor },
-                    { label: isManualTTSPlaying ? 'Stop reading' : 'Read script', icon: Volume2, run: handleReadScript },
-                    { label: 'Next cue', icon: ChevronRight, run: handleNextCue },
-                    { label: 'Larger text', icon: Plus, run: increaseFont },
-                    { label: 'Smaller text', icon: Minus, run: decreaseFont },
-                  ].map(({ label, icon: Icon, run }) => (
-                    <button key={label} onClick={() => { run(); setMoreOpen(false); }} className="w-full h-11 rounded-xl px-3 text-left text-sm inline-flex items-center gap-3 hover:bg-studio-border">
-                      <Icon className="h-4 w-4" /> {label}
+                    { label: 'Edit script', track: 'practice_more_edit_script', icon: Pencil, run: openEditor },
+                    { label: isManualTTSPlaying ? 'Stop reading' : 'Read script', track: isManualTTSPlaying ? 'practice_more_stop_reading' : 'practice_more_read_script', icon: Volume2, run: handleReadScript },
+                    { label: 'Next cue', track: 'practice_more_next_cue', icon: ChevronRight, run: handleNextCue },
+                    { label: 'Larger text', track: 'practice_more_text_larger', icon: Plus, run: increaseFont },
+                    { label: 'Smaller text', track: 'practice_more_text_smaller', icon: Minus, run: decreaseFont },
+                  ].map(({ label, track, icon: Icon, run }, idx) => (
+                    <button key={label} role="menuitem" autoFocus={idx === 0} aria-label={label} data-track={track} onClick={() => { run(); setMoreOpen(false); moreBtnRef.current?.focus(); }} className="focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-studio-fg w-full h-11 rounded-xl px-3 text-left text-sm inline-flex items-center gap-3 hover:bg-studio-border">
+                      <Icon className="h-4 w-4" aria-hidden="true" /> {label}
                     </button>
                   ))}
                 </div>
               )}
             </div>
             {rehearsalMode && (
-              <button onClick={() => { contextMasterStop(); setRehearsalMode(false); }} className={pill} aria-label="Stop rehearsal">
+              <button onClick={() => { contextMasterStop(); setRehearsalMode(false); }} className={pill} aria-label="Stop rehearsal" data-track="practice_stop">
                 <Square className="h-4 w-4 fill-current" /> <span className="hidden sm:inline">Stop</span>
               </button>
             )}
           </div>
           <button
             onClick={handlePrimary}
-            className="h-12 rounded-full bg-studio-fg text-studio px-6 font-semibold inline-flex items-center gap-2 hover:opacity-90"
+            aria-label={primaryLabel}
+            data-track={!rehearsalMode ? 'practice_start_rehearsal' : isPaused ? 'practice_resume' : 'practice_pause'}
+            className={`${focusRing} h-12 rounded-full bg-studio-fg text-studio px-6 font-semibold inline-flex items-center gap-2 hover:opacity-90`}
           >
             <PrimaryIcon className="h-4 w-4 fill-current" /> {primaryLabel}
           </button>
@@ -352,8 +364,8 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
           </DialogHeader>
           <StudioScriptEditor tone="studio" content={draft} onChange={setDraft} />
           <div className="flex justify-end gap-2">
-            <button onClick={() => setIsEditingScript(false)} className={pill}>Cancel</button>
-            <button onClick={saveEdit} disabled={savingEdit} className="h-11 rounded-full bg-studio-fg text-studio px-5 font-semibold disabled:opacity-50">
+            <button onClick={() => setIsEditingScript(false)} className={pill} data-track="practice_edit_cancel">Cancel</button>
+            <button onClick={saveEdit} disabled={savingEdit} data-track="practice_edit_save" className="h-11 rounded-full bg-studio-fg text-studio px-5 font-semibold disabled:opacity-50">
               {savingEdit ? 'Saving…' : 'Save & back to rehearsal'}
             </button>
           </div>

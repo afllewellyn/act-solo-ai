@@ -176,12 +176,21 @@ export const TeleprompterDisplay = ({ lines, activeIndex, fontSize, status, onSe
               <div
                 key={i}
                 ref={(el) => (lineRefs.current[i] = el)}
+                role="button"
+                tabIndex={0}
+                aria-current={active ? 'step' : undefined}
+                aria-label={`Jump to line ${i + 1} (${isYou ? 'your line' : 'AI line'})`}
+                data-track="practice_jump_to_line"
+                data-teleprompter-line
                 onClick={() => {
                   if (window.getSelection()?.toString()) return; // finishing a text selection is not a tap
                   onSelectLine(i);
                 }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); e.stopPropagation(); onSelectLine(i); }
+                }}
                 className={cn(
-                  'relative my-3 rounded-2xl px-5 py-4 cursor-pointer transition-[background-color,opacity] duration-300',
+                  'relative my-3 rounded-2xl px-5 py-4 cursor-pointer transition-[background-color,opacity] duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-studio-fg',
                   active ? 'bg-studio-cue' : 'hover:bg-studio-surface/50',
                   past && 'opacity-30',
                   !active && !past && 'opacity-60',
