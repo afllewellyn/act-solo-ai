@@ -255,8 +255,8 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
 
   const primaryLabel = !rehearsalMode ? 'Start rehearsal' : isPaused ? 'Resume' : 'Pause';
   const PrimaryIcon = rehearsalMode && !isPaused ? Pause : Play;
-  const pill = `${focusRing} h-11 rounded-full border border-studio-border px-4 text-sm font-medium inline-flex items-center gap-2 hover:bg-studio-surface disabled:opacity-40`;
   const focusRing = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-studio-fg focus-visible:ring-offset-2 focus-visible:ring-offset-studio';
+  const pill = `${focusRing} h-11 rounded-full border border-studio-border px-4 text-sm font-medium inline-flex items-center gap-2 hover:bg-studio-surface disabled:opacity-40`;
   const iconBtn = `${focusRing} h-10 w-10 rounded-full border border-studio-border inline-flex items-center justify-center hover:bg-studio-surface`;
 
   return (
