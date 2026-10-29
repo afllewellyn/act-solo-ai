@@ -2,7 +2,7 @@
 // click with a stable id: the element's `data-track`, else a slug of its accessible name.
 // Never sends script text: names come from labels/visible button text only.
 
-const SKIP_INSIDE = '[data-tiptap-editor], [data-teleprompter-line]';
+const SKIP_INSIDE = '[data-tiptap-editor]';
 
 export function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60);
@@ -30,7 +30,7 @@ export function initUiClickTracking() {
       const el = target?.closest<HTMLElement>('button, a, [role="button"], [role="menuitem"], [data-track]');
       if (!el || el.closest(SKIP_INSIDE)) return;
       // Voice previews already emit their own dedicated event.
-      if (el.closest('[data-voice-preview]')) return;
+      if (el.closest('[id^="voice-preview-"]')) return;
       const w = window as Window & { dataLayer?: Record<string, unknown>[] };
       w.dataLayer = w.dataLayer || [];
       w.dataLayer.push({
