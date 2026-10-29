@@ -209,7 +209,7 @@ const ManageScripts = () => {
                     <h2 className="text-lg font-bold text-foreground leading-snug line-clamp-2">{script.title}</h2>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2 -mt-1 shrink-0 rounded-full" aria-label={`Actions for ${script.title}`} data-track="scripts_actions_menu">
+                        <Button variant="ghost" size="icon" className="h-10 w-10 -mr-2 -mt-1 shrink-0 rounded-full" aria-label={`Actions for ${script.title}`} data-track="scripts_actions_menu" data-track-label="Script actions">
                           <MoreHorizontal className="h-5 w-5 text-muted-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -250,7 +250,7 @@ const ManageScripts = () => {
                     <button
                       onClick={() => navigate(`/practice/${script.id}`)}
                       aria-label={`Rehearse ${script.title}`}
-                      data-track="scripts_rehearse"
+                      data-track="scripts_rehearse" data-track-label="Rehearse script"
                       className="h-11 rounded-full bg-foreground px-5 font-semibold text-background inline-flex items-center gap-1.5 hover:opacity-90"
                     >
                       Rehearse <Play className="h-3.5 w-3.5 fill-current" />
