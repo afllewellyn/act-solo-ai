@@ -180,7 +180,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const openingCueSentRef = useRef(false);
   const currentLineIndexRef = useRef(0);
-  const rehearsalStartedAtRef = useRef(Date.now());
+  const rehearsalStartedAtRef = useRef<number | null>(null);
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState<number | null>(null);
   // Engine lines: stage notes are excluded, so they are never read or waited on
   const parsedLinesRef = useRef<ScriptLine[]>([]);
@@ -347,6 +347,17 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   useEffect(() => {
     if (!useElevenEngine) return;
 
+    // Keyed on the started ref, not conversationEngine.isActive: master stop halts the engine
+    // before this effect runs, so isActive is already false by then.
+    if (!rehearsalMode && rehearsalStartedAtRef.current !== null) {
+      log.info('Rehearsal stopped', {
+        last_line_index: currentLineIndexRef.current,
+        line_count: parsedLinesRef.current.length,
+        duration_s: Math.round((Date.now() - rehearsalStartedAtRef.current) / 1000),
+      });
+      rehearsalStartedAtRef.current = null;
+    }
+
     if (rehearsalMode && scriptContent) {
       console.log('🎭 [ConversationEngine] Starting ElevenLabs Conversational AI');
       sessionStartRef.current = Date.now();
@@ -390,11 +401,6 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       log.info('Rehearsal started', { line_count: lines.length, speed: playbackSpeed });
     } else if (!rehearsalMode && conversationEngine.isActive) {
       console.log('🛑 [ConversationEngine] Stopping');
-      log.info('Rehearsal stopped', {
-        last_line_index: currentLineIndexRef.current,
-        line_count: parsedLinesRef.current.length,
-        duration_s: Math.round((Date.now() - rehearsalStartedAtRef.current) / 1000),
-      });
       rehearsalLog.log('stop');
       rehearsalLog.end();
       turnFlow.reset();
