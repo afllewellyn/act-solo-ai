@@ -241,7 +241,7 @@ const PracticeWithRehearsal = ({ script }: { script: Script }) => {
   });
 
   const moreBtnRef = useRef<HTMLButtonElement>(null);
-  const onMoreKey = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const onMoreKey = (e: import('react').KeyboardEvent<HTMLDivElement>) => {
     const items = Array.from(e.currentTarget.querySelectorAll<HTMLButtonElement>('[role="menuitem"]'));
     const i = items.indexOf(document.activeElement as HTMLButtonElement);
     if (e.key === 'Escape') { e.preventDefault(); setMoreOpen(false); moreBtnRef.current?.focus(); }
