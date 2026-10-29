@@ -10,3 +10,5 @@
 - Consecutive bold/user paragraphs are one actor turn because actors split speeches visually and the AI must wait for the full block before answering.
 
 - Site-wide clicks emit one `ui_click` dataLayer event and PostHog capture (id from `data-track`, else a slug of the accessible name; `data-track-label` overrides the label when the accessible name embeds user content such as a script title) via a single delegated listener, so new buttons are tracked without per-button code; voice previews keep their own event.
+
+- Logs go to PostHog Logs through `src/lib/posthogLogs.ts` (`log.info/warn/error`). Attributes are ids, enums, counts or error names only: never script text, titles or emails. `logs.captureConsoleLogs` stays off because console output can echo script text.

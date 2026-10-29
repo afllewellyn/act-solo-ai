@@ -33,5 +33,8 @@ export function initPostHog() {
     // Console logs can echo script text; keep them out of recordings.
     enable_recording_console_log: false,
     capture_performance: false,
+    // Structured logs via src/lib/logger.ts only. Leave captureConsoleLogs off: console output
+    // can echo script text.
+    logs: { serviceName: 'actsolo-web', environment: import.meta.env.MODE },
   })
 }
