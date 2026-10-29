@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import posthog from "posthog-js";
 import { Link } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -31,7 +32,12 @@ const BookButton = ({ label, variant = "dark" }: { label: string; variant?: "dar
         : "w-full sm:w-auto transition-transform hover:scale-105 bg-white text-black hover:bg-gray-100"
     }
   >
-    <a href={BOOKING_URL} target="_blank" rel="noopener noreferrer">
+    <a
+      href={BOOKING_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={() => posthog.capture('book_session_clicked', { label })}
+    >
       {label}
     </a>
   </Button>

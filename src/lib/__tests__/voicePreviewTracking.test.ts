@@ -1,10 +1,13 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import posthog from 'posthog-js';
 import { trackVoicePreviewClick } from '@/lib/voicePreviewTracking';
+
+vi.mock('posthog-js', () => ({ default: { capture: vi.fn() } }));
 
 const trackingWindow = window as Window & { dataLayer?: Record<string, unknown>[] };
 
 describe('homepage voice click tracking', () => {
-  beforeEach(() => { delete trackingWindow.dataLayer; });
+  beforeEach(() => { delete trackingWindow.dataLayer; vi.mocked(posthog.capture).mockClear(); });
 
   it('identifies each voice independently of its descriptive label', () => {
     for (const voice of [
@@ -24,5 +27,14 @@ describe('homepage voice click tracking', () => {
       { event: 'existing' },
       { event: 'voice_preview_click', voice_name: 'Liam', voice_id: 'TX3LPaxmHKxFdv7VOQHJ', preview_action: 'pause', button_id: 'voice-preview-liam' },
     ]);
+  });
+
+  it('captures the click in PostHog with play/pause as `action`', () => {
+    trackVoicePreviewClick({ id: 'liam', name: 'Liam', voiceId: 'TX3LPaxmHKxFdv7VOQHJ' }, 'play');
+    expect(posthog.capture).toHaveBeenCalledWith('voice_preview_click', {
+      voice_name: 'Liam',
+      voice_id: 'TX3LPaxmHKxFdv7VOQHJ',
+      action: 'play',
+    });
   });
 });
