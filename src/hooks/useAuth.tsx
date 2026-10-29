@@ -2,6 +2,7 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import { User, Session, AuthError } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import posthog from 'posthog-js';
+import { log } from '@/lib/posthogLogs';
 
 // Set when the user starts a sign-in. Google OAuth leaves the page, so this is
 // stored in sessionStorage rather than a ref. Used so SIGNED_IN only counts as
@@ -87,6 +88,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
     // Supabase returns success with no identities for an already-registered email.
     if (!error && data?.user?.identities?.length !== 0) posthog.capture('signup_completed', { method: 'email' });
+    if (error) log.warn('Sign-up failed', { method: 'email', error_code: error.code, status: error.status });
     return { error };
   };
 
@@ -96,7 +98,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email,
       password,
     });
-    if (error) pendingLogin.clear();
+    if (error) {
+      pendingLogin.clear();
+      log.warn('Sign-in failed', { method: 'email', error_code: error.code, status: error.status });
+    }
     return { error };
   };
 
@@ -108,7 +113,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         redirectTo: `${getRedirectOrigin()}/manage-scripts`
       }
     });
-    if (error) pendingLogin.clear();
+    if (error) {
+      pendingLogin.clear();
+      log.warn('Sign-in failed', { method: 'google', error_code: error.code, status: error.status });
+    }
     return { error };
   };
 

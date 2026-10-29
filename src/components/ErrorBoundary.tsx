@@ -1,6 +1,7 @@
 import React from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { AlertTriangle } from 'lucide-react';
+import { log, errorName } from '@/lib/posthogLogs';
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -24,6 +25,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('ErrorBoundary caught an error:', error, errorInfo);
+    log.error('ErrorBoundary caught an error', { error_name: errorName(error) });
   }
 
   render() {

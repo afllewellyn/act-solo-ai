@@ -14,6 +14,7 @@ import type {
 } from '@/services/conversation/types';
 import type { ConversationEngineConfig, ScriptContext } from '@/services/conversation/domain';
 import { isFeatureEnabled } from '@/lib/featureFlags';
+import { log, errorName } from '@/lib/posthogLogs';
 
 /**
  * Engines that expose reconnection/error telemetry (e.g. ElevenAgentsEngine).
@@ -184,6 +185,7 @@ export function useConversationEngine(
         break;
 
       case 'error':
+        log.error('Conversation engine error', { error_name: errorName(event.error) });
         setLastError(event.error);
         onError?.(event.error);
         break;
@@ -214,8 +216,10 @@ export function useConversationEngine(
 
       // Start the engine
       await engine.start();
+      log.info('Conversation engine started');
     } catch (error) {
       const err = error instanceof Error ? error : new Error(String(error));
+      log.error('Conversation engine failed to start', { error_name: errorName(err) });
       setStatus('error');
       setLastError(err);
       optionsRef.current.onError?.(err);

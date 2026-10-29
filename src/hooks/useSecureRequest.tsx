@@ -2,6 +2,7 @@
 import { useState, useCallback } from 'react';
 import { RateLimiter } from '@/lib/validation';
 import { useToast } from '@/hooks/use-toast';
+import { log, errorName } from '@/lib/posthogLogs';
 
 const rateLimiter = new RateLimiter();
 
@@ -39,7 +40,8 @@ export function useSecureRequest<T extends unknown[], R>(
       return result;
     } catch (error) {
       console.error(`Secure request error for ${options.rateLimitKey}:`, error);
-      
+      log.error('Secure request failed', { request_key: options.rateLimitKey, error_name: errorName(error) });
+
       const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
       
       // Don't expose sensitive error details
