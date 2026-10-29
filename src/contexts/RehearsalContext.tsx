@@ -12,6 +12,7 @@ import type { ScriptContext } from '@/services/conversation/domain';
 import { getScriptLines } from '@/components/practice/rehearsal/scriptParser';
 import { buildScriptContext, buildCuesFromLines, getCueContext } from '@/utils/scriptCueBuilder';
 import { createAgentTurnFlow } from '@/lib/agentTurnFlow';
+import { log } from '@/lib/posthogLogs';
 
 interface Voice {
   id: string;
@@ -179,6 +180,7 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
   const [currentLineIndex, setCurrentLineIndex] = useState(0);
   const openingCueSentRef = useRef(false);
   const currentLineIndexRef = useRef(0);
+  const rehearsalStartedAtRef = useRef(Date.now());
   const [currentParagraphIndex, setCurrentParagraphIndex] = useState<number | null>(null);
   // Engine lines: stage notes are excluded, so they are never read or waited on
   const parsedLinesRef = useRef<ScriptLine[]>([]);
@@ -384,8 +386,15 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       });
       rehearsalLog.start({ scriptId: scriptTitleRef.current, lineCount: lines.length, speed: playbackSpeed });
       rehearsalLog.log('line_change', { index: 0, type: lines[0]?.type });
+      rehearsalStartedAtRef.current = Date.now();
+      log.info('Rehearsal started', { line_count: lines.length, speed: playbackSpeed });
     } else if (!rehearsalMode && conversationEngine.isActive) {
       console.log('🛑 [ConversationEngine] Stopping');
+      log.info('Rehearsal stopped', {
+        last_line_index: currentLineIndexRef.current,
+        line_count: parsedLinesRef.current.length,
+        duration_s: Math.round((Date.now() - rehearsalStartedAtRef.current) / 1000),
+      });
       rehearsalLog.log('stop');
       rehearsalLog.end();
       turnFlow.reset();
