@@ -356,6 +356,8 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
         duration_s: Math.round((Date.now() - rehearsalStartedAtRef.current) / 1000),
       });
       rehearsalStartedAtRef.current = null;
+      rehearsalLog.log('stop');
+      rehearsalLog.end();
     }
 
     if (rehearsalMode && scriptContent) {
@@ -401,8 +403,6 @@ export const RehearsalProvider: React.FC<RehearsalProviderProps> = ({ children }
       log.info('Rehearsal started', { line_count: lines.length, speed: playbackSpeed });
     } else if (!rehearsalMode && conversationEngine.isActive) {
       console.log('🛑 [ConversationEngine] Stopping');
-      rehearsalLog.log('stop');
-      rehearsalLog.end();
       turnFlow.reset();
       conversationEngine.stop();
       setRehearsalState('IDLE');
